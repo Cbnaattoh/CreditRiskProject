@@ -1,0 +1,36 @@
+# Core Django and Backend
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+python-dotenv==1.0.0
+
+# Data Processing and Machine Learning
+pandas==2.0.3
+numpy==1.24.3
+scikit-learn==1.3.0
+xgboost==1.7.5
+joblib==1.3.2
+
+# Real-Time Processing (Kafka/Spark)
+confluent-kafka==2.2.0
+pyspark==3.5.0
+
+# API and Deployment
+gunicorn==21.2.0
+uvicorn==0.23.2
+fastapi==0.103.1
+requests==2.31.0
+
+# Dashboard (Streamlit)
+streamlit==1.28.0
+plotly==5.18.0
+
+# Database (PostgreSQL/MySQL)
+psycopg2-binary==2.9.7
+mysqlclient==2.2.0
+
+# Utilities
+python-dotenv==1.0.0
+
+# Exploratory Data Analysis
+jupyter==1.0.0
