@@ -27,6 +27,9 @@ export type FormData = {
   email: string;
   residentialAddress: string;
   digitalAddress: string;
+  region: string;
+  city: string;
+  postalCode?: string;
 
   // Employment
   employmentStatus: string;
@@ -43,4 +46,18 @@ export type FormData = {
 
 export type FormErrors = {
   [key in keyof FormData]?: FieldError;
+};
+
+export type MapLocation = {
+  lat: number;
+  lng: number;
+};
+
+export type GhanaRegion = {
+  cities: string[];
+  capital: string;
+  area: string;
+  population: string;
+  coordinates: MapLocation;
+  zoom: number;
 };

@@ -32,12 +32,14 @@ export const EmploymentStep = ({
         name="occupation"
         register={register}
         error={errors.occupation}
+        required
       />
       <FormInput
-        label="Employer Name"
+        label="Company Name"
         name="employer"
         register={register}
         error={errors.employer}
+        required
       />
       <FormInput
         label="Years at Current Job"
@@ -45,6 +47,7 @@ export const EmploymentStep = ({
         type="number"
         register={register}
         error={errors.yearsEmployed}
+        required
       />
     </div>
   </FormSection>

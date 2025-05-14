@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import StepIndicator from "./components/StepIndicator";
@@ -57,19 +57,45 @@ const Applications: React.FC = () => {
     console.log("Form submitted", data);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files).map((file) => ({
-        ...file,
-        id: Math.random().toString(36).substring(2, 9),
-      }));
-      setUploadedFiles([...uploadedFiles, ...newFiles]);
-    }
-  };
+  // const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (e.target.files) {
+  //     const newFiles = Array.from(e.target.files).map((file) => ({
+  //       ...file,
+  //       id: Math.random().toString(36).substring(2, 9),
+  //     }));
+  //     setUploadedFiles([...uploadedFiles, ...newFiles]);
+  //   }
+  // };
 
-  const removeFile = (id: string) => {
-    setUploadedFiles(uploadedFiles.filter((file) => file.id !== id));
-  };
+  const handleFileUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const newFiles = Array.from(e.target.files).map((file) => {
+          // Create a proper UploadedFile object
+          const uploadedFile: UploadedFile = Object.assign(
+            new File([file], file.name, { type: file.type }),
+            {
+              id: Math.random().toString(36).substring(2, 9),
+              uploadDate: new Date(),
+              status: "completed" as const,
+            }
+          );
+          return uploadedFile;
+        });
+
+        setUploadedFiles((prev) => [...prev, ...newFiles]);
+      }
+    },
+    []
+  );
+
+  // const removeFile = (id: string) => {
+  //   setUploadedFiles(uploadedFiles.filter((file) => file.id !== id));
+  // };
+
+  const removeFile = useCallback((id: string) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
+  }, []);
 
   const renderStep = () => {
     const commonProps = { register, errors };
