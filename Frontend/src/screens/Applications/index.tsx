@@ -57,16 +57,6 @@ const Applications: React.FC = () => {
     console.log("Form submitted", data);
   };
 
-  // const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   if (e.target.files) {
-  //     const newFiles = Array.from(e.target.files).map((file) => ({
-  //       ...file,
-  //       id: Math.random().toString(36).substring(2, 9),
-  //     }));
-  //     setUploadedFiles([...uploadedFiles, ...newFiles]);
-  //   }
-  // };
-
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
@@ -89,9 +79,6 @@ const Applications: React.FC = () => {
     []
   );
 
-  // const removeFile = (id: string) => {
-  //   setUploadedFiles(uploadedFiles.filter((file) => file.id !== id));
-  // };
 
   const removeFile = useCallback((id: string) => {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== id));

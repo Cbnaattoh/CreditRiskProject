@@ -101,7 +101,7 @@ const Login: React.FC = () => {
 
       console.log("Login successful:", { email, userType, enable2FA });
       // Redirect would happen here
-      navigate("/dashboard")
+      navigate("/home")
     } catch (err) {
       setError("Invalid credentials. Please try again.");
       setShake(true);
