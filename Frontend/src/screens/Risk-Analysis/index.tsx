@@ -129,7 +129,27 @@ const PredictionOutcome: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="flex justify-end"
         >
-          <DownloadReportButton />
+          <DownloadReportButton
+            riskData={{
+              riskLevel: "High Risk",
+              confidenceScore: 82,
+              metrics: [
+                {
+                  name: "Monthly Income",
+                  applicantValue: "GHS 4,000",
+                  portfolioAvg: "GHS 3,200",
+                  comparison: "better",
+                },
+              ],
+              keyFactors: [
+                {
+                  factor: "High Debt-to-Income Ratio",
+                  impact: "High",
+                  trend: "Increasing",
+                },
+              ],
+            }}
+          />
         </motion.div>
       </div>
     </div>
