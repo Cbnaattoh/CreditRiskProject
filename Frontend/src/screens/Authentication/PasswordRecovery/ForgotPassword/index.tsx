@@ -209,7 +209,7 @@ const ForgotPassword: React.FC = () => {
                 <p className="text-sm text-gray-600">
                   Remember your password?{" "}
                   <a
-                    href="/login"
+                    href="/"
                     className="text-indigo-600 hover:underline font-medium"
                   >
                     Log in

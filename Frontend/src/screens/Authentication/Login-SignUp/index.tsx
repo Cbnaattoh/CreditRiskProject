@@ -13,117 +13,113 @@ import {
 } from "react-icons/fi";
 import Logo from "../../../components/utils/Logo";
 import { useNavigate } from "react-router-dom";
-
-// Particle background component
-const ParticlesBackground = () => {
-  return (
-    <div className="absolute inset-0 overflow-hidden">
-      {[...Array(20)].map((_, i) => (
-        <motion.div
-          key={i}
-          initial={{
-            x: Math.random() * 100,
-            y: Math.random() * 100,
-            opacity: 0,
-          }}
-          animate={{
-            x: [null, Math.random() * 100],
-            y: [null, Math.random() * 100],
-            opacity: [0, 0.3, 0],
-          }}
-          transition={{
-            duration: 20 + Math.random() * 20,
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "linear",
-          }}
-          className="absolute rounded-full bg-indigo-200"
-          style={{
-            width: `${Math.random() * 6 + 2}px`,
-            height: `${Math.random() * 6 + 2}px`,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
+import ParticlesBackground from "./components/particlesBackground";
+import { FormProvider, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  loginSchema,
+  twoFASchema,
+} from "../../../components/utils/schemas/authSchemas";
+import {
+  useLoginMutation,
+  useVerify2FAMutation,
+} from "../../../components/redux/features/auth/authApi";
+import {
+  setCredentials,
+  set2FARequired,
+  selectRequires2FA,
+  selectTempToken,
+} from "../../../components/redux/features/auth/authSlice";
+import {
+  useAppDispatch,
+  useAppSelector,
+} from "../../../components/utils/hooks";
 
 const Login: React.FC = () => {
   // State management
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [enable2FA, setEnable2FA] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
   const [userType, setUserType] = useState("Admin");
   const [activeTab, setActiveTab] = useState("login");
-  const [passwordStrength, setPasswordStrength] = useState(0);
   const [formStep, setFormStep] = useState(1);
-  const [rememberMe, setRememberMe] = useState(false);
   const [shake, setShake] = useState(false);
+  const [enable2FA, setEnable2FA] = useState(false);
+
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const requires2FA = useAppSelector(selectRequires2FA);
+  const tempToken = useAppSelector(selectTempToken);
 
-  // Password strength calculator
+  const [login, { isLoading: isLoginLoading }] = useLoginMutation();
+  const [verify2FA, { isLoading: is2FALoading }] = useVerify2FAMutation();
+
+  const loginMethods = useForm({
+    resolver: zodResolver(loginSchema),
+    mode: "onChange",
+  });
+
+  const twoFAMethods = useForm({
+    resolver: zodResolver(twoFASchema),
+    mode: "onChange",
+  });
+
+  const isLoading = isLoginLoading || is2FALoading;
+
+  // Handle 2FA requirement changes
   useEffect(() => {
-    let strength = 0;
-    if (password.length > 0) strength += 20;
-    if (password.length >= 8) strength += 30;
-    if (/[A-Z]/.test(password)) strength += 15;
-    if (/[0-9]/.test(password)) strength += 15;
-    if (/[^A-Za-z0-9]/.test(password)) strength += 20;
-    setPasswordStrength(Math.min(strength, 100));
-  }, [password]);
-
-  // Form submission handler
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!email || !password) {
-      setError("Please fill in all fields");
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      return;
+    if (requires2FA && formStep === 1) {
+      setFormStep(2);
     }
+  }, [requires2FA, formStep]);
 
-    setIsLoading(true);
-
+  const handleLoginSubmit = async (data: any) => {
     try {
-      // Simulate API call with 3D loading animation
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const result = await login({
+        email: data.email,
+        password: data.password,
+      }).unwrap();
 
-      // Simulate 2FA step if enabled
-      if (enable2FA && formStep === 1) {
-        setFormStep(2);
-        setIsLoading(false);
-        return;
+      if (result.requires2FA && result.tempToken) {
+        dispatch(set2FARequired({ tempToken: result.tempToken }));
+      } else {
+        dispatch(setCredentials({ user: result.user, token: result.token }));
+        navigate("/home");
       }
-
-      console.log("Login successful:", { email, userType, enable2FA });
-      // Redirect would happen here
-      navigate("/home")
     } catch (err) {
-      setError("Invalid credentials. Please try again.");
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-    } finally {
-      setIsLoading(false);
+      handleApiError(err, "login");
     }
   };
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    if (error) setError("");
+  const handle2FASubmit = async (data: any) => {
+    try {
+      const result = await verify2FA({
+        code: data.code,
+        tempToken: tempToken || "",
+      }).unwrap();
+
+      dispatch(setCredentials({ user: result.user, token: result.token }));
+      navigate("/home");
+    } catch (err) {
+      handleApiError(err, "2fa");
+    }
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    if (error) setError("");
+  const handleApiError = (err: any, formType: "login" | "2fa") => {
+    const errorMessage =
+      err.data?.message || err.error || "An unknown error occurred";
+
+    if (formType === "login") {
+      loginMethods.setError("root", { message: errorMessage });
+    } else {
+      twoFAMethods.setError("root", { message: errorMessage });
+    }
+
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
   };
 
   const handleForgotPassword = () => {
     navigate("/forgot-password");
-  }
+  };
 
   // Background gradient animation
   useEffect(() => {
@@ -135,7 +131,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
       <ParticlesBackground />
       <motion.div
         className={`absolute top-0 right-0 w-64 h-64 bg-indigo-100 rounded-full filter blur-3xl opacity-20${
@@ -166,7 +161,6 @@ const Login: React.FC = () => {
         }}
       />
 
-      {/* Main card */}
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -174,7 +168,6 @@ const Login: React.FC = () => {
         className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden relative z-10 backdrop-blur-sm bg-opacity-90 border border-white border-opacity-20"
       >
         <div className="flex flex-col md:flex-row">
-          {/* Branding Panel - Enhanced with 3D effect */}
           <motion.div
             className="w-full md:w-2/5 bg-gradient-to-br from-indigo-900 to-blue-800 p-10 flex flex-col justify-between relative overflow-hidden"
             initial={{ opacity: 0 }}
@@ -202,7 +195,6 @@ const Login: React.FC = () => {
               </motion.p>
             </div>
 
-            {/* Animated feature cards */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -249,7 +241,6 @@ const Login: React.FC = () => {
               ))}
             </motion.div>
 
-            {/* User type selector with smooth transition */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -272,10 +263,7 @@ const Login: React.FC = () => {
             </motion.div>
           </motion.div>
 
-
-          {/* Login Form Panel */}
           <div className="w-full md:w-3/5 p-10 flex flex-col justify-center">
-            {/* Animated tabs */}
             <motion.div className="flex border-b border-gray-200 mb-8">
               {["login", "register"].map((tab) => (
                 <motion.button
@@ -307,16 +295,16 @@ const Login: React.FC = () => {
 
             <AnimatePresence mode="wait">
               {activeTab === "login" ? (
-                <motion.form
-                  key="login"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  onSubmit={handleSubmit}
-                  className="w-full"
-                >
-                  {formStep === 1 ? (
-                    <>
+                formStep === 1 ? (
+                  <FormProvider {...loginMethods}>
+                    <motion.form
+                      key="login"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      onSubmit={loginMethods.handleSubmit(handleLoginSubmit)}
+                      className="w-full"
+                    >
                       <h2 className="text-3xl font-bold text-gray-800 mb-2">
                         Welcome Back
                       </h2>
@@ -324,7 +312,7 @@ const Login: React.FC = () => {
                         Sign in to your RiskGuard account
                       </p>
 
-                      {error && (
+                      {loginMethods.formState.errors.root && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
@@ -332,7 +320,9 @@ const Login: React.FC = () => {
                           className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start"
                         >
                           <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-                          <div>{error}</div>
+                          <div>
+                            {loginMethods.formState.errors.root.message}
+                          </div>
                         </motion.div>
                       )}
 
@@ -351,12 +341,20 @@ const Login: React.FC = () => {
                             <input
                               type="email"
                               id="email"
-                              value={email}
-                              onChange={handleEmailChange}
+                              {...loginMethods.register("email")}
                               placeholder="your@email.com"
-                              className="pl-10 w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400"
+                              className={`pl-10 w-full px-4 py-3 rounded-xl border ${
+                                loginMethods.formState.errors.email
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400`}
                             />
                           </div>
+                          {loginMethods.formState.errors.email && (
+                            <p className="mt-1 text-sm text-red-600">
+                              {loginMethods.formState.errors.email.message}
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -373,10 +371,13 @@ const Login: React.FC = () => {
                             <input
                               type={showPassword ? "text" : "password"}
                               id="password"
-                              value={password}
-                              onChange={handlePasswordChange}
+                              {...loginMethods.register("password")}
                               placeholder="••••••••"
-                              className="pl-10 w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400"
+                              className={`pl-10 w-full px-4 py-3 rounded-xl border ${
+                                loginMethods.formState.errors.password
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400`}
                             />
                             <button
                               type="button"
@@ -390,36 +391,27 @@ const Login: React.FC = () => {
                               )}
                             </button>
                           </div>
-                          {password && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              className="mt-2"
-                            >
-                              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                <motion.div
-                                  className={`h-full ${
-                                    passwordStrength < 50
-                                      ? "bg-red-400"
-                                      : passwordStrength < 80
-                                      ? "bg-yellow-400"
-                                      : "bg-green-500"
-                                  }`}
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${passwordStrength}%` }}
-                                  transition={{ duration: 0.5 }}
-                                />
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Password strength:{" "}
-                                {passwordStrength < 50
-                                  ? "Weak"
-                                  : passwordStrength < 80
-                                  ? "Moderate"
-                                  : "Strong"}
-                              </div>
-                            </motion.div>
+                          {loginMethods.formState.errors.password && (
+                            <p className="mt-1 text-sm text-red-600">
+                              {loginMethods.formState.errors.password.message}
+                            </p>
                           )}
+                        </div>
+
+                        <div className="flex items-center mt-4">
+                          <input
+                            id="enable2FA"
+                            type="checkbox"
+                            checked={enable2FA}
+                            onChange={(e) => setEnable2FA(e.target.checked)}
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                          />
+                          <label
+                            htmlFor="enable2FA"
+                            className="ml-2 block text-sm text-gray-700"
+                          >
+                            Enable Two-Factor Authentication
+                          </label>
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -427,8 +419,7 @@ const Login: React.FC = () => {
                             <input
                               id="remember"
                               type="checkbox"
-                              checked={rememberMe}
-                              onChange={(e) => setRememberMe(e.target.checked)}
+                              {...loginMethods.register("rememberMe")}
                               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                             />
                             <label
@@ -452,9 +443,13 @@ const Login: React.FC = () => {
                             type="submit"
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            disabled={isLoading}
+                            disabled={
+                              isLoading || !loginMethods.formState.isValid
+                            }
                             className={`w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all ${
-                              isLoading ? "opacity-80 cursor-not-allowed" : ""
+                              isLoading || !loginMethods.formState.isValid
+                                ? "opacity-80 cursor-not-allowed"
+                                : ""
                             }`}
                           >
                             {isLoading ? (
@@ -489,12 +484,15 @@ const Login: React.FC = () => {
                           </motion.button>
                         </div>
                       </div>
-                    </>
-                  ) : (
-                    <motion.div
+                    </motion.form>
+                  </FormProvider>
+                ) : (
+                  <FormProvider {...twoFAMethods}>
+                    <motion.form
+                      key="2fa"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 }}
+                      onSubmit={twoFAMethods.handleSubmit(handle2FASubmit)}
                       className="space-y-6"
                     >
                       <div className="flex items-center justify-between mb-6">
@@ -511,13 +509,31 @@ const Login: React.FC = () => {
                         </div>
                       </div>
 
+                      {twoFAMethods.formState.errors.root && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start"
+                        >
+                          <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {twoFAMethods.formState.errors.root.message}
+                          </div>
+                        </motion.div>
+                      )}
+
                       <div className="grid grid-cols-6 gap-3">
                         {[...Array(6)].map((_, i) => (
                           <input
                             key={i}
                             type="text"
                             maxLength={1}
-                            className="w-full h-16 text-3xl text-center rounded-lg border-2 border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                            {...twoFAMethods.register(`code.${i}`)}
+                            className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
+                              twoFAMethods.formState.errors.code
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none`}
                           />
                         ))}
                       </div>
@@ -525,7 +541,10 @@ const Login: React.FC = () => {
                       <div className="pt-4 flex space-x-3">
                         <motion.button
                           type="button"
-                          onClick={() => setFormStep(1)}
+                          onClick={() => {
+                            setFormStep(1);
+                            twoFAMethods.reset();
+                          }}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
@@ -536,15 +555,21 @@ const Login: React.FC = () => {
                           type="submit"
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          disabled={isLoading}
-                          className="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                          disabled={
+                            isLoading || !twoFAMethods.formState.isValid
+                          }
+                          className={`flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors ${
+                            isLoading || !twoFAMethods.formState.isValid
+                              ? "opacity-80 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
-                          Verify
+                          {isLoading ? "Verifying..." : "Verify"}
                         </motion.button>
                       </div>
-                    </motion.div>
-                  )}
-                </motion.form>
+                    </motion.form>
+                  </FormProvider>
+                )
               ) : (
                 <motion.div
                   key="register"
@@ -659,7 +684,6 @@ const Login: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Footer */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

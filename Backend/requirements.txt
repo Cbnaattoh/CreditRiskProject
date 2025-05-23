@@ -31,6 +31,7 @@ mysqlclient==2.2.0
 
 # Utilities
 python-dotenv==1.0.0
+django-otp
 
 # Exploratory Data Analysis
 jupyter==1.0.0

@@ -96,7 +96,7 @@ const ResetPassword: React.FC = () => {
             
             <motion.button
               type="button"
-              onClick={() => window.location.href = '/login'}
+              onClick={() => window.location.href = '/'}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all"
