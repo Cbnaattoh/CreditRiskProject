@@ -13,6 +13,7 @@ interface LoginResponse {
     role: string;
   };
   token: string;
+  refreshToken?: string;
   requires2FA?: boolean;
   tempToken?: string;
 }
@@ -20,6 +21,10 @@ interface LoginResponse {
 interface Verify2FACredentials {
   code: string;
   tempToken: string;
+}
+
+interface RefreshTokenResponse {
+  token: string;
 }
 
 export const authApi = apiSlice.injectEndpoints({
@@ -53,6 +58,12 @@ export const authApi = apiSlice.injectEndpoints({
         method: "POST",
       }),
     }),
+    refreshToken: builder.mutation<RefreshTokenResponse, void>({
+      query: () => ({
+        url: "/auth/refresh",
+        method: "POST",
+      }),
+    }),
     getCurrentUser: builder.query({
       query: () => "/auth/me",
       providesTags: ["User"],
@@ -65,5 +76,6 @@ export const {
   useVerify2FAMutation,
   useLogoutMutation,
   useGetCurrentUserQuery,
-  useVerifyTokenMutation
+  useVerifyTokenMutation,
+  useRefreshTokenMutation,
 } = authApi;

@@ -34,7 +34,7 @@ DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = []
 
 # Authentication settings
-AUTH_USER_MODEL = 'users.User'
+# AUTH_USER_MODEL = 'users.User'
 AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend']
 
 # Session settings
@@ -96,7 +96,10 @@ INSTALLED_APPS = [
     'credit_api',
     'scoring_engine',
     'users',
-
+    'applications',
+    'risk',
+    'notifications',
+    
     # third party apps
     'rest_framework',
     'corsheaders',
