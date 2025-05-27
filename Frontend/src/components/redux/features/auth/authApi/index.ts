@@ -3,6 +3,7 @@ import { apiSlice } from "../../api/baseApi";
 interface LoginCredentials {
   email: string;
   password: string;
+  enableMFA?: boolean;
 }
 
 interface LoginResponse {
@@ -11,14 +12,16 @@ interface LoginResponse {
     email: string;
     name: string;
     role: string;
+    mfa_enabled: boolean;
   };
   token: string;
   refreshToken?: string;
-  requires2FA?: boolean;
+  requiresMFA?: boolean;
   tempToken?: string;
+  mfaMethods?: string[];
 }
 
-interface Verify2FACredentials {
+interface VerifyMFACredentials {
   code: string;
   tempToken: string;
 }
@@ -27,45 +30,57 @@ interface RefreshTokenResponse {
   token: string;
 }
 
+interface MFASetupResponse {
+  qr_code: string;
+  secret: string;
+  backup_codes: string[];
+}
+
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginCredentials>({
       query: (credentials) => ({
-        url: "/auth/login",
+        url: "auth/login/",
         method: "POST",
         body: credentials,
       }),
       invalidatesTags: ["Auth"],
     }),
-    verify2FA: builder.mutation<LoginResponse, Verify2FACredentials>({
+    verifyMFA: builder.mutation<LoginResponse, VerifyMFACredentials>({
       query: (credentials) => ({
-        url: "/auth/verify-2fa",
+        url: "auth/mfa/verify/",
         method: "POST",
         body: credentials,
       }),
-      invalidatesTags: ["Auth"],
+      invalidatesTags: ["Auth", "MFA"],
+    }),
+     setupMFA: builder.mutation<MFASetupResponse, void>({
+      query: () => ({
+        url: "auth/mfa/setup/",
+        method: "POST",
+      }),
     }),
     logout: builder.mutation<void, void>({
       query: () => ({
-        url: "/auth/logout",
+        url: "auth/logout/",
         method: "POST",
       }),
       invalidatesTags: ["Auth"],
     }),
     verifyToken: builder.mutation<{ valid: boolean }, void>({
       query: () => ({
-        url: "/auth/verify-token",
+        url: "auth/verify-token/",
         method: "POST",
       }),
     }),
     refreshToken: builder.mutation<RefreshTokenResponse, void>({
       query: () => ({
-        url: "/auth/refresh",
+        url: "auth/refresh/",
         method: "POST",
       }),
     }),
     getCurrentUser: builder.query({
-      query: () => "/auth/me",
+      query: () => "auth/me/",
       providesTags: ["User"],
     }),
   }),
@@ -73,7 +88,8 @@ export const authApi = apiSlice.injectEndpoints({
 
 export const {
   useLoginMutation,
-  useVerify2FAMutation,
+  useVerifyMFAMutation,
+  useSetupMFAMutation,
   useLogoutMutation,
   useGetCurrentUserQuery,
   useVerifyTokenMutation,

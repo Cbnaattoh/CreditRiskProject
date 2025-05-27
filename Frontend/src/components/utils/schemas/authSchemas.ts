@@ -17,6 +17,7 @@ export const loginSchema = z.object({
       "Password must contain at least one special character"
     ),
   rememberMe: z.boolean().optional(),
+  enableMFA: z.boolean().optional()
 });
 
 export const twoFASchema = z.object({

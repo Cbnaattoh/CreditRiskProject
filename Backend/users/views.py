@@ -8,6 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.core.mail import send_mail
+from django.utils import timezone
 from rest_framework.throttling import AnonRateThrottle
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -40,7 +41,18 @@ class LoginView(TokenObtainPairView):
                 session_key=request.session.session_key,
                 was_successful=True
             )
-        
+
+            # Add MFA information to response
+            user = request.user
+            response.data['mfa_enabled'] = user.mfa_enabled
+            response.data['is_verified'] = user.is_verified
+
+            # If MFA is enabled, include temp token and flag
+            if user.mfa_enabled:
+                temp_token = default_token_generator.make_token(user)
+                response.data['requires_mfa'] = True
+                response.data['temp_token'] = temp_token
+                response.data['access'] = None
         return response
     
     def get_client_ip(self, request):
@@ -98,8 +110,8 @@ class MFASetupView(generics.GenericAPIView):
             user.mfa_enabled = True
             user.save()
             
-            # Generate QR code for authenticator app
-            totp = pyotp.totp.TOTP(user.mfa_secret).provisioning_uri(
+            # Generate provisioning URI for authenticator app
+            totp_uri = pyotp.totp.TOTP(user.mfa_secret).provisioning_uri(
                 name=user.email,
                 issuer_name="RiskGuard Pro"
             )
@@ -110,21 +122,27 @@ class MFASetupView(generics.GenericAPIView):
                 box_size=10,
                 border=4,
             )
-            qr.add_data(totp)
+            qr.add_data(totp_uri)
             qr.make(fit=True)
             
             img = qr.make_image(fill_color="black", back_color="white")
             buffer = io.BytesIO()
             img.save(buffer, format="PNG")
             qr_code = base64.b64encode(buffer.getvalue()).decode()
+
+              # Generate backup codes
+            backup_codes = [pyotp.random_base32(length=10) for _ in range(5)]
             
             return Response({
                 'status': 'MFA enabled',
                 'secret': user.mfa_secret,
-                'qr_code': qr_code
+                'qr_code': qr_code,
+                'backup_codes': backup_codes,
+                'message': 'Store these backup codes securely'
             }, status=status.HTTP_200_OK)
         
         elif not enable and user.mfa_enabled:
+            # Disable MFA
             user.mfa_enabled = False
             user.mfa_secret = ''
             user.save()
@@ -134,29 +152,65 @@ class MFASetupView(generics.GenericAPIView):
 
 class MFAVerifyView(generics.GenericAPIView):
     serializer_class = MFAVerifySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # AllowAny because user isn't authenticated yet
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        user = request.user
-        token = serializer.validated_data['token']
+        try:
+            # Get user from temp token
+            uid = force_str(urlsafe_base64_decode(serializer.validated_data['uid']))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response(
+                {'detail': 'Invalid user'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
+        # Verify token is valid for this user
+        if not default_token_generator.check_token(user, serializer.validated_data['temp_token']):
+            return Response(
+                {'detail': 'Invalid token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if MFA is enabled (should be, but verify)
         if not user.mfa_enabled:
             return Response(
                 {'detail': 'MFA is not enabled for this account'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Verify the MFA code
         totp = pyotp.TOTP(user.mfa_secret)
-        if totp.verify(token):
-            return Response({'status': 'Token verified'}, status=status.HTTP_200_OK)
+        token = serializer.validated_data['token']
         
-        return Response(
-            {'detail': 'Invalid token'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        # Check both current and previous valid window (for clock skew)
+        if not totp.verify(token, valid_window=1):
+            # Check backup codes if main token fails
+            if not self._check_backup_code(user, token):
+                return Response(
+                    {'detail': 'Invalid token'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # If we get here, verification was successful
+        # Generate final access token
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'mfa_enabled': user.mfa_enabled,
+            'is_verified': user.is_verified
+        }, status=status.HTTP_200_OK)
+    
+    def _check_backup_code(self, user, code):
+        """Check if the provided code matches a backup code"""
+        # In a real implementation, you'd check against stored backup codes
+        # This is a simplified version
+        return False
     
 class PasswordResetThrottle(AnonRateThrottle):
     rate = '5/hour'

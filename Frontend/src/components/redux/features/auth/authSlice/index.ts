@@ -8,18 +8,21 @@ interface AuthState {
     email: string;
     name: string;
     role: string;
+    mfa_enabled?: boolean;
   };
   token: string | null;
   isAuthenticated: boolean;
-  requires2FA: boolean;
+  requiresMFA: boolean;
   tempToken: string | null;
+  mfaMethods?: string[];
 }
 const initialState: AuthState = {
   user: null,
   token: null,
   isAuthenticated: false,
-  requires2FA: false,
+  requiresMFA: false,
   tempToken: null,
+  mfaMethods: [],
 };
 
 const authSlice = createSlice({
@@ -31,34 +34,52 @@ const authSlice = createSlice({
       action: PayloadAction<{
         user: AuthState["user"];
         token: string;
+        mfa_enabled?: boolean;
       }>
     ) => {
       state.user = action.payload.user;
       state.token = action.payload.token;
       state.isAuthenticated = true;
-      state.requires2FA = false;
+      state.requiresMFA = false;
       state.tempToken = null;
     },
-    set2FARequired: (state, action: PayloadAction<{ tempToken: string }>) => {
-      state.requires2FA = true;
+      setAuthToken: (
+      state,
+      action: PayloadAction<string>
+    ) => {
+      state.token = action.payload;
+      state.isAuthenticated = true;
+      // Keep all other state the same (user data remains unchanged)
+    },
+   setMFARequired: (
+      state, 
+      action: PayloadAction<{ 
+        tempToken: string;
+        mfaMethods?: string[] 
+      }>
+    ) => {
+      state.requiresMFA = true;
       state.tempToken = action.payload.tempToken;
+      state.mfaMethods = action.payload.mfaMethods || ['totp'];
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
-      state.requires2FA = false;
+      state.requiresMFA = false;
       state.tempToken = null;
+      state.mfaMethods = [];
     },
   },
 });
 
-export const { setCredentials, set2FARequired, logout } = authSlice.actions;
+export const { setCredentials,setAuthToken, setMFARequired, logout } = authSlice.actions;
 
 export default authSlice.reducer;
 
 // Selectors
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
-export const selectRequires2FA = (state: RootState) => state.auth.requires2FA;
+export const selectRequiresMFA = (state: RootState) => state.auth.requiresMFA;
 export const selectTempToken = (state: RootState) => state.auth.tempToken;
+export const selectMFAMethods = (state: RootState) => state.auth.mfaMethods;

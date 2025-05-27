@@ -22,13 +22,15 @@ import {
 } from "../../../components/utils/schemas/authSchemas";
 import {
   useLoginMutation,
-  useVerify2FAMutation,
+  useVerifyMFAMutation,
+  useSetupMFAMutation,
 } from "../../../components/redux/features/auth/authApi";
 import {
   setCredentials,
-  set2FARequired,
-  selectRequires2FA,
+  setMFARequired,
+  selectRequiresMFA,
   selectTempToken,
+  selectMFAMethods,
 } from "../../../components/redux/features/auth/authSlice";
 import {
   useAppDispatch,
@@ -42,46 +44,74 @@ const Login: React.FC = () => {
   const [activeTab, setActiveTab] = useState("login");
   const [formStep, setFormStep] = useState(1);
   const [shake, setShake] = useState(false);
-  const [enable2FA, setEnable2FA] = useState(false);
+  const [mfaStep, setMfaStep] = useState<"login" | "setup" | "verify">("login");
+  const [qrCode, setQrCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const requires2FA = useAppSelector(selectRequires2FA);
+  const mfaRequired = useAppSelector(selectRequiresMFA);
+  // const requiresMFA = useAppSelector(selectRequiresMFA);
   const tempToken = useAppSelector(selectTempToken);
+  const mfaMethods = useAppSelector(selectMFAMethods);
 
   const [login, { isLoading: isLoginLoading }] = useLoginMutation();
-  const [verify2FA, { isLoading: is2FALoading }] = useVerify2FAMutation();
+  const [verifyMFA, { isLoading: isMFALoading }] = useVerifyMFAMutation();
+  const [setupMFA, { isLoading: isMFASetupLoading }] = useSetupMFAMutation();
 
   const loginMethods = useForm({
     resolver: zodResolver(loginSchema),
     mode: "onChange",
   });
 
-  const twoFAMethods = useForm({
+  const mfaFormMethods = useForm({
     resolver: zodResolver(twoFASchema),
     mode: "onChange",
   });
 
-  const isLoading = isLoginLoading || is2FALoading;
+  const isLoading = isLoginLoading || isMFALoading || isMFASetupLoading;
 
-  // Handle 2FA requirement changes
+  // Handle MFA requirement changes
   useEffect(() => {
-    if (requires2FA && formStep === 1) {
+    if (mfaRequired && formStep === 1) {
       setFormStep(2);
+      setMfaStep("verify");
     }
-  }, [requires2FA, formStep]);
+  }, [mfaRequired, formStep]);
 
   const handleLoginSubmit = async (data: any) => {
     try {
       const result = await login({
         email: data.email,
         password: data.password,
+        enableMFA: data.enableMFA,
       }).unwrap();
 
-      if (result.requires2FA && result.tempToken) {
-        dispatch(set2FARequired({ tempToken: result.tempToken }));
+      if (result.requiresMFA) {
+        // If MFA is enabled, show verification
+        dispatch(
+          setMFARequired({
+            tempToken: result.tempToken || "",
+            mfaMethods: result.mfaMethods || ["totp"],
+          })
+        );
+        setFormStep(2);
+        setMfaStep("verify");
+      } else if (data.enableMFA) {
+        // If user wants to setup MFA
+        const setupResult = await setupMFA().unwrap();
+        setQrCode(setupResult.qr_code);
+        setBackupCodes(setupResult.backup_codes);
+        setMfaStep("setup");
+        setFormStep(2);
       } else {
-        dispatch(setCredentials({ user: result.user, token: result.token }));
+        // Regular login
+        dispatch(
+          setCredentials({
+            user: result.user,
+            token: result.token || "",
+          })
+        );
         navigate("/home");
       }
     } catch (err) {
@@ -89,36 +119,67 @@ const Login: React.FC = () => {
     }
   };
 
-  const handle2FASubmit = async (data: any) => {
+  const handleMFASubmit = async (data: any) => {
     try {
-      const result = await verify2FA({
-        code: data.code,
-        tempToken: tempToken || "",
-      }).unwrap();
+      let result;
 
-      dispatch(setCredentials({ user: result.user, token: result.token }));
-      navigate("/home");
+      if (mfaStep === "verify") {
+        // Verify MFA code
+        result = await verifyMFA({
+          code: data.code,
+          tempToken: tempToken || "",
+        }).unwrap();
+      } else {
+        // Setup MFA with verification
+        result = await verifyMFA({
+          code: data.code,
+          tempToken: "setup", // Special token for setup flow
+        }).unwrap();
+      }
+
+      dispatch(
+        setCredentials({
+          user: result.user,
+          token: result.token,
+        })
+      );
+
+      // Show backup codes if this was a setup flow
+      if (mfaStep === "setup") {
+        setMfaStep("backup");
+      } else {
+        navigate("/home");
+      }
     } catch (err) {
-      handleApiError(err, "2fa");
+      handleApiError(err, "mfa");
     }
   };
 
-  const handleApiError = (err: any, formType: "login" | "2fa") => {
+  // API Error handling Logic
+  const handleApiError = (err: any, formType: "login" | "mfa") => {
     const errorMessage =
       err.data?.message || err.error || "An unknown error occurred";
 
     if (formType === "login") {
       loginMethods.setError("root", { message: errorMessage });
     } else {
-      twoFAMethods.setError("root", { message: errorMessage });
+      mfaFormMethods.setError("root", { message: errorMessage });
     }
 
     setShake(true);
     setTimeout(() => setShake(false), 500);
   };
 
+  // Forgot-Password Page Navigation Logic
   const handleForgotPassword = () => {
     navigate("/forgot-password");
+  };
+
+  // Back-To-Login Page Navigation Logic
+  const handleBackToLogin = () => {
+    setFormStep(1);
+    setMfaStep("login");
+    mfaFormMethods.reset();
   };
 
   // Background gradient animation
@@ -400,17 +461,18 @@ const Login: React.FC = () => {
 
                         <div className="flex items-center mt-4">
                           <input
-                            id="enable2FA"
+                            id="enableMFA"
                             type="checkbox"
-                            checked={enable2FA}
-                            onChange={(e) => setEnable2FA(e.target.checked)}
+                            // checked={enable2FA}
+                            // onChange={(e) => setEnable2FA(e.target.checked)}
+                            {...loginMethods.register("enableMFA" as const)}
                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                           />
                           <label
-                            htmlFor="enable2FA"
+                            htmlFor="enableMFA"
                             className="ml-2 block text-sm text-gray-700"
                           >
-                            Enable Two-Factor Authentication
+                            Set up Two-Factor Authentication
                           </label>
                         </div>
 
@@ -487,29 +549,59 @@ const Login: React.FC = () => {
                     </motion.form>
                   </FormProvider>
                 ) : (
-                  <FormProvider {...twoFAMethods}>
-                    <motion.form
-                      key="2fa"
+                  <FormProvider {...mfaFormMethods}>
+                    <motion.div
+                      key="mfa"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      onSubmit={twoFAMethods.handleSubmit(handle2FASubmit)}
                       className="space-y-6"
                     >
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h2 className="text-2xl font-bold text-gray-800">
-                            Two-Factor Authentication
-                          </h2>
-                          <p className="text-gray-600">
-                            Enter the 6-digit code from your authenticator app
-                          </p>
-                        </div>
-                        <div className="bg-blue-100 p-3 rounded-full">
-                          <FiShield className="text-blue-600 text-xl" />
-                        </div>
-                      </div>
+                      {mfaStep === "setup" && (
+                        <>
+                          <div className="flex items-center justify-between mb-6">
+                            <div>
+                              <h2 className="text-2xl font-bold text-gray-800">
+                                Set Up Two-Factor Authentication
+                              </h2>
+                              <p className="text-gray-600">
+                                Scan the QR code with your authenticator app
+                              </p>
+                            </div>
+                            <div className="bg-blue-100 p-3 rounded-full">
+                              <FiShield className="text-blue-600 text-xl" />
+                            </div>
+                          </div>
 
-                      {twoFAMethods.formState.errors.root && (
+                          <div className="flex flex-col items-center">
+                            <div
+                              className="mb-4 p-2 bg-white rounded-lg"
+                              dangerouslySetInnerHTML={{ __html: qrCode }}
+                            />
+                            <div className="text-sm text-gray-600 mb-4">
+                              <FiKey className="inline mr-2" />
+                              Secret: {backupCodes[0]?.split("-").join(" ")}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {mfaStep === "verify" && (
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-800">
+                              Two-Factor Authentication
+                            </h2>
+                            <p className="text-gray-600">
+                              Enter the 6-digit code from your authenticator app
+                            </p>
+                          </div>
+                          <div className="bg-blue-100 p-3 rounded-full">
+                            <FiShield className="text-blue-600 text-xl" />
+                          </div>
+                        </div>
+                      )}
+
+                      {mfaFormMethods.formState.errors.root && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
@@ -517,7 +609,7 @@ const Login: React.FC = () => {
                         >
                           <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
                           <div>
-                            {twoFAMethods.formState.errors.root.message}
+                            {mfaFormMethods.formState.errors.root.message}
                           </div>
                         </motion.div>
                       )}
@@ -528,9 +620,9 @@ const Login: React.FC = () => {
                             key={i}
                             type="text"
                             maxLength={1}
-                            {...twoFAMethods.register(`code.${i}`)}
+                            {...mfaFormMethods.register(`code.${i}`)}
                             className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
-                              twoFAMethods.formState.errors.code
+                              mfaFormMethods.formState.errors.code
                                 ? "border-red-500"
                                 : "border-gray-300"
                             } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none`}
@@ -541,10 +633,7 @@ const Login: React.FC = () => {
                       <div className="pt-4 flex space-x-3">
                         <motion.button
                           type="button"
-                          onClick={() => {
-                            setFormStep(1);
-                            twoFAMethods.reset();
-                          }}
+                          onClick={handleBackToLogin}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
@@ -552,14 +641,15 @@ const Login: React.FC = () => {
                           Back
                         </motion.button>
                         <motion.button
-                          type="submit"
+                          type="button"
+                          onClick={mfaFormMethods.handleSubmit(handleMFASubmit)}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           disabled={
-                            isLoading || !twoFAMethods.formState.isValid
+                            isLoading || !mfaFormMethods.formState.isValid
                           }
                           className={`flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors ${
-                            isLoading || !twoFAMethods.formState.isValid
+                            isLoading || !mfaFormMethods.formState.isValid
                               ? "opacity-80 cursor-not-allowed"
                               : ""
                           }`}
@@ -567,7 +657,18 @@ const Login: React.FC = () => {
                           {isLoading ? "Verifying..." : "Verify"}
                         </motion.button>
                       </div>
-                    </motion.form>
+
+                      {mfaStep === "setup" && (
+                        <div className="mt-4 text-sm text-gray-500">
+                          <p>
+                            Can't scan the QR code? Enter this secret manually:
+                          </p>
+                          <div className="mt-2 p-3 bg-gray-100 rounded-lg font-mono">
+                            {backupCodes[0]}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
                   </FormProvider>
                 )
               ) : (
