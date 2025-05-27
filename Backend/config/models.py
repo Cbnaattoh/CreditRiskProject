@@ -28,7 +28,7 @@ class RiskParameter(models.Model):
     name = models.CharField(max_length=100)
     parameter_type = models.CharField(max_length=15, choices=PARAMETER_TYPES)
     value = models.JSONField()
-    applies_to = models.CharField(max_length=100)  # Which model/process this applies to
+    applies_to = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
     

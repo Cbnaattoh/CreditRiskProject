@@ -165,3 +165,105 @@ class ModelPrediction(models.Model):
     
     def __str__(self):
         return f"Prediction for {self.application.reference_number} (v{self.model_version})"
+    
+
+class RiskExplanation(models.Model):
+    """
+    Model to store explainable AI results for risk assessments.
+    Provides human-readable explanations of risk factors.
+    """
+    application = models.OneToOneField(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='risk_explanation'
+    )
+    summary = models.TextField(
+        help_text="Natural language summary of the risk assessment"
+    )
+    key_factors = models.JSONField(
+        help_text="JSON structure of important risk factors and their impact"
+    )
+    visualizations = models.JSONField(
+        default=dict,
+        help_text="Configuration data for risk visualization charts"
+    )
+    generated_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this explanation was generated"
+    )
+    
+    class Meta:
+        verbose_name = "Risk Explanation"
+        verbose_name_plural = "Risk Explanations"
+        ordering = ['-generated_at']
+    
+    def __str__(self):
+        return f"Risk Explanation for {self.application.reference_number}"
+
+    @property
+    def primary_factors(self):
+        """Returns top 3 most significant risk factors"""
+        if not self.key_factors:
+            return []
+        
+        sorted_factors = sorted(
+            self.key_factors.items(),
+            key=lambda x: abs(x[1]['importance']),
+            reverse=True
+        )
+        return sorted_factors[:3]
+
+
+
+class CounterfactualExplanation(models.Model):
+    """
+    Model to store "what-if" scenarios showing how changes would affect the risk assessment.
+    """
+    application = models.ForeignKey(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='counterfactuals'
+    )
+    scenario = models.CharField(
+        max_length=255,
+        help_text="Description of the hypothetical scenario"
+    )
+    original_score = models.FloatField(
+        help_text="Original risk score before changes"
+    )
+    projected_score = models.FloatField(
+        help_text="Projected risk score after changes"
+    )
+    probability_change = models.FloatField(
+        help_text="Change in default probability"
+    )
+    required_changes = models.JSONField(
+        help_text="What factors would need to change to achieve this scenario"
+    )
+    explanation = models.TextField(
+        help_text="Detailed explanation of the scenario and its impact"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this counterfactual was generated"
+    )
+    
+    class Meta:
+        verbose_name = "Counterfactual Explanation"
+        verbose_name_plural = "Counterfactual Explanations"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Counterfactual for {self.application}: {self.scenario}"
+
+    @property
+    def score_change(self):
+        """Calculates the difference in risk scores"""
+        return self.projected_score - self.original_score
+
+    @property
+    def improvement_percentage(self):
+        """Calculates percentage improvement in risk score"""
+        if self.original_score == 0:
+            return 0
+        return (self.score_change / self.original_score) * 100

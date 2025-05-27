@@ -206,7 +206,7 @@ class Document(models.Model):
         return f"{self.get_document_type_display()} - {self.application.reference_number}"
 
 class ApplicationNote(models.Model):
-    application = models.ForeignKey(CreditApplication, on_delete=models.CASCADE, related_name='notes')
+    application = models.ForeignKey(CreditApplication, on_delete=models.CASCADE, related_name='additional_notes')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     note = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)

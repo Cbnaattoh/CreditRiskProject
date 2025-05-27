@@ -1,10 +1,10 @@
 from django.conf import settings
 from applications.models import CreditApplication
-from risk.models import RiskAssessment, RiskFactor
+from risk.models import RiskAssessment, RiskFactor, Decision
 import numpy as np
 import pandas as pd
 import joblib
-from datetime import date
+from datetime import date, datetime
 
 class RiskEngine:
     def __init__(self):
@@ -110,3 +110,107 @@ class RiskEngine:
             return min(value / 10000 * 100, 100)  # Cap at 100
         # Add more feature-specific calculations
         return 50  # Default score
+    
+
+class DecisionEngine:
+    def __init__(self):
+        self.decision_model = joblib.load(settings.DECISION_MODEL_PATH)
+        self.policy_rules = settings.DECISION_POLICY_RULES
+    
+    def make_decision(self, application):
+        risk_assessment = RiskAssessment.objects.get(application=application)
+        
+        # Get model prediction
+        model_decision = self._get_model_decision(application, risk_assessment)
+        
+        # Apply business rules
+        final_decision = self._apply_business_rules(model_decision, application, risk_assessment)
+        
+        # Create decision record
+        decision = Decision.objects.create(
+            application=application,
+            decision=final_decision['decision'],
+            decision_by=None,  # System decision
+            amount_approved=final_decision.get('amount_approved'),
+            interest_rate=final_decision.get('interest_rate'),
+            term_months=final_decision.get('term_months'),
+            conditions=final_decision.get('conditions', ''),
+            notes='Automated decision'
+        )
+        
+        return decision
+    
+    def _get_model_decision(self, application, risk_assessment):
+        # Prepare features for decision model
+        features = self._prepare_features(application, risk_assessment)
+        
+        # Get model prediction
+        prediction = self.decision_model.predict([features])[0]
+        proba = self.decision_model.predict_proba([features])[0]
+        
+        return {
+            'prediction': prediction,
+            'probability': max(proba),
+            'features': features
+        }
+    
+    def _prepare_features(self, application, risk_assessment):
+        # Extract relevant features from application and risk assessment
+        features = {
+            'risk_score': risk_assessment.risk_score,
+            'probability_of_default': risk_assessment.probability_of_default,
+            'requested_amount': float(application.requested_amount),
+            'loan_term': application.loan_term,
+            'applicant_income': float(application.applicant_info.employment_history.first().monthly_income),
+            'credit_score': application.applicant_info.financial_info.credit_score or 0,
+            'debt_to_income': self._calculate_dti(application)
+        }
+        
+        return features
+    
+    def _calculate_dti(self, application):
+        # Calculate debt-to-income ratio
+        monthly_income = application.applicant_info.employment_history.first().monthly_income
+        monthly_debt = application.applicant_info.financial_info.monthly_expenses
+        
+        if monthly_income > 0:
+            return monthly_debt / monthly_income
+        return 0
+    
+    def _apply_business_rules(self, model_decision, application, risk_assessment):
+        # Initial decision from model
+        if model_decision['prediction'] == 1 and model_decision['probability'] > 0.7:
+            decision = 'APPROVE'
+        elif model_decision['prediction'] == 1 and model_decision['probability'] > 0.5:
+            decision = 'CONDITIONAL'
+        else:
+            decision = 'DECLINE'
+        
+        # Apply amount restrictions based on policy
+        requested_amount = float(application.requested_amount)
+        approved_amount = requested_amount
+        
+        if decision == 'APPROVE':
+            max_amount = self.policy_rules['max_approval_amount']
+            if requested_amount > max_amount:
+                approved_amount = max_amount
+        
+        # Calculate interest rate based on risk
+        base_rate = self.policy_rules['base_interest_rate']
+        risk_adjustment = (1 - risk_assessment.risk_score / 1000) * 10
+        interest_rate = base_rate + risk_adjustment
+        
+        # Prepare conditions if conditional approval
+        conditions = []
+        if decision == 'CONDITIONAL':
+            conditions.append("Additional documentation required")
+            if risk_assessment.risk_score < 400:
+                conditions.append("Co-signer required")
+        
+        return {
+            'decision': decision,
+            'amount_approved': approved_amount if decision in ['APPROVE', 'CONDITIONAL'] else None,
+            'interest_rate': interest_rate if decision in ['APPROVE', 'CONDITIONAL'] else None,
+            'term_months': application.loan_term if decision in ['APPROVE', 'CONDITIONAL'] else None,
+            'conditions': "\n".join(conditions) if conditions else None
+        }

@@ -34,7 +34,7 @@ DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = []
 
 # Authentication settings
-# AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = 'users.User'
 AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend']
 
 # Session settings
@@ -68,6 +68,8 @@ AUTH_PASSWORD_VALIDATORS = [
 PASSWORD_EXPIRATION_DAYS = 90  # Require password change every 90 days
 MAX_LOGIN_ATTEMPTS = 5  # Lock account after 5 failed attempts
 
+
+
 # JWT Settings (if using JWT)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
@@ -80,10 +82,62 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+# Risk model paths
+RISK_MODEL_PATH = os.path.join(BASE_DIR, 'ai_models/risk_model_v1.pkl')
+SCALER_PATH = os.path.join(BASE_DIR, 'ai_models/scaler_v1.pkl')
+DECISION_MODEL_PATH = os.path.join(BASE_DIR, 'ai_models/decision_model_v1.pkl')
 
+# Risk model features
+RISK_MODEL_FEATURES = [
+    'age', 'marital_status', 'employment_duration', 
+    'monthly_income', 'net_worth', 'credit_score',
+    'requested_amount', 'loan_term'
+]
+
+# Decision policy rules
+DECISION_POLICY_RULES = {
+    'max_approval_amount': 50000,
+    'base_interest_rate': 5.0,
+    'min_risk_score_for_approval': 500,
+    'max_debt_to_income': 0.45
+}
+
+# Behavioral thresholds
+BEHAVIORAL_THRESHOLDS = {
+    'alert_threshold': 0.3,
+    'update_threshold': 0.7,
+    'typing_weight': 0.7,
+    'mouse_weight': 0.3
+}
+
+# Document verification
+ADVANCED_DOCUMENT_VERIFICATION = True
+DOCUMENT_VERIFICATION_API_KEY = os.getenv('DOCUMENT_VERIFICATION_API_KEY')
+DOCUMENT_TEMPLATES = {
+    'DRIVER_LICENSE': {
+        'dimensions': (3.375, 2.125),  # inches
+        'security_features': ['hologram', 'microprint']
+    },
+    'PASSPORT': {
+        'dimensions': (5.0, 3.5),
+        'security_features': ['mrz', 'watermark']
+    }
+}
+
+
+# Email settings for password reset
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@yourdomain.com')
+
+# Password reset timeout (2 hours)
+PASSWORD_RESET_TIMEOUT = 7200
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -93,18 +147,24 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # custom apps
-    'credit_api',
-    'scoring_engine',
-    'users',
+    'ai',
+    'api',
     'applications',
-    'risk',
+    'config',
+    'documents',
+    'integrations',
+    'ml_model',
     'notifications',
+    'risk',
+    'security',
+    'users',
     
     # third party apps
     'rest_framework',
     'corsheaders',
     'django_otp',
-    'django_otp.plugins.otp_totp'
+    'django_otp.plugins.otp_totp',
+    'channels'
 ]
 
 MIDDLEWARE = [
@@ -115,6 +175,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'security.middleware.BehavioralMiddleware',
+    'security.middleware.PasswordExpirationMiddleware',
+
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -136,6 +199,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+# ASGI_APPLICATION = 'backend.asgi.application'
 
 
 # Database

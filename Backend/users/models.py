@@ -1,9 +1,13 @@
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
+from .managers import CustomUserManager
+from datetime import timezone
 
-# Create your models here.
+
+
 class User(AbstractUser):
     USER_TYPES = (
         ('ADMIN', 'Administrator'),
@@ -14,6 +18,8 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField(_('email address'), unique=True)
+    first_name = models.CharField(_('first name'), max_length=150)
+    last_name = models.CharField(_('last name'), max_length=150)
     user_type = models.CharField(max_length=10, choices=USER_TYPES)
     phone_regex = RegexValidator(
         regex=r'^\+?1?\d{9,15}$',
@@ -26,13 +32,40 @@ class User(AbstractUser):
     last_password_change = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
-    #objects = CustomUserManager()
+    objects = CustomUserManager()
+
+    def set_password(self, raw_password):
+        super().set_password(raw_password)
+        self.last_password_change = timezone.now()
+        self.save()
+
+    def is_password_expired(self):
+        if not self.last_password_change:
+            return True
+        return (timezone.now() - self.last_password_change).days > settings.PASSWORD_EXPIRATION_DAYS
 
     def __str__(self):
         return self.email
     
+    def check_password_expiration(self):
+        """Check if password has expired based on PASSWORD_EXPIRATION_DAYS setting"""
+        if not self.last_password_change:
+            return True
+        expiration_days = getattr(settings, 'PASSWORD_EXPIRATION_DAYS', 90)
+        return (timezone.now() - self.last_password_change).days > expiration_days
+    
+    def set_password(self, raw_password):
+        """Override to update last_password_change timestamp"""
+        super().set_password(raw_password)
+        self.last_password_change = timezone.now()
+        self.save()
+
+    def password_has_expired(self):
+        """Convenience method for templates and APIs"""
+        return self.check_password_expiration()
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -51,6 +84,7 @@ class LoginHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
     ip_address = models.GenericIPAddressField()
     user_agent = models.CharField(max_length=255)
+    session_key = models.CharField(max_length=40, blank=True, null=True)
     login_time = models.DateTimeField(auto_now_add=True)
     logout_time = models.DateTimeField(null=True, blank=True)
     was_successful = models.BooleanField(default=True)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import RiskAssessment, RiskFactor, Decision, CreditScore, ModelPrediction
+from .models import RiskAssessment, RiskFactor, Decision, CreditScore, ModelPrediction, RiskExplanation, CounterfactualExplanation
 from applications.models import CreditApplication
 
 class RiskFactorSerializer(serializers.ModelSerializer):

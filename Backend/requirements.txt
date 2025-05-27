@@ -34,7 +34,10 @@ python-dotenv==1.0.0
 django-otp
 opencv-python==4.11.0.86
 pytesseract
-
+pyotp
+qrcode[pil]
+channels
+celery
 
 # Exploratory Data Analysis
 jupyter==1.0.0

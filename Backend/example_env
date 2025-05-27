@@ -3,6 +3,7 @@ SECRET_KEY=your_django_secret_key_here
 DEBUG=True
 ALLOWED_HOSTS=your_allowed_host_here
 
+
 # Database (PostgreSQL)
 DB_NAME=your_database_name
 DB_USER=your_database_user_name
@@ -10,12 +11,10 @@ DB_PASSWORD=your_db_password
 DB_HOST=localhost
 DB_PORT=5432
 
-# Kafka Configuration
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-KAFKA_TOPIC=your_kafka_topic
-
-# ML Model Path
-MODEL_PATH=your_path_to_ml_model
-
-# API Keys
-FINANCIAL_API_KEY=your_api_key_here
+# Email Settings for Password Reset
+EMAIL_HOST = your_email_host
+EMAIL_PORT = your_port
+EMAIL_USE_TLS = boolean
+EMAIL_HOST_USER = your_email_username
+EMAIL_HOST_PASSWORD = your_host_password
+DEFAULT_FROM_EMAIL = 'klvnafriyie123@gmail.com'

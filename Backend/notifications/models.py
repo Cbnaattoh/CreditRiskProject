@@ -19,7 +19,7 @@ class Notification(models.Model):
         on_delete=models.CASCADE,
         related_name='notifications'
     )
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
     title = models.CharField(max_length=200)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
