@@ -5,13 +5,25 @@ import json
 from datetime import datetime
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.core.exceptions import MiddlewareNotUsed, ImproperlyConfigured
+from django.conf import settings
 
 class BehavioralMiddleware(MiddlewareMixin):
+    def __init__(self, get_response):
+        super().__init__(get_response)
+        
+        if not getattr(settings, 'BEHAVIORAL_ANALYSIS_ENABLED', False):
+            raise MiddlewareNotUsed("Behavioral analysis is disabled in settings")
+            
+        try:
+            self.analyzer = BehavioralAnalyzer()
+        except ImproperlyConfigured as e:
+            raise MiddlewareNotUsed(str(e))
+
     def process_request(self, request):
         if not request.user.is_authenticated:
             return
-        
-        # Collect behavioral data
+            
         behavior_data = {
             'ip': request.META.get('REMOTE_ADDR'),
             'user_agent': request.META.get('HTTP_USER_AGENT'),
@@ -20,30 +32,19 @@ class BehavioralMiddleware(MiddlewareMixin):
             'mouse': self._get_mouse_movements(request)
         }
         
-        # Analyze behavior
-        analyzer = BehavioralAnalyzer()
-        confidence_score = analyzer.analyze_behavior(request.user, behavior_data)
-        
-        # Store for later use in the request
+        confidence_score = self.analyzer.analyze_behavior(request.user, behavior_data)
         request.behavior_confidence = confidence_score
         
-        # If confidence is too low, flag for additional authentication
         if confidence_score < 0.3:  # Threshold from settings
             request.requires_verification = True
 
     def _get_typing_pattern(self, request):
-        # Extract typing patterns from request headers or body
         typing_data = request.headers.get('X-Typing-Pattern')
-        if typing_data:
-            return json.loads(typing_data)
-        return {}
+        return json.loads(typing_data) if typing_data else {}
 
     def _get_mouse_movements(self, request):
-        # Extract mouse movements from request headers or body
         mouse_data = request.headers.get('X-Mouse-Movements')
-        if mouse_data:
-            return json.loads(mouse_data)
-        return {}
+        return json.loads(mouse_data) if mouse_data else {}
 
 
 class PasswordExpirationMiddleware:

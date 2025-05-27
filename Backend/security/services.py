@@ -4,21 +4,37 @@ from .models import BehavioralBiometrics, SuspiciousActivity
 from django.conf import settings
 import json
 from datetime import datetime
+import os
+from django.core.exceptions import ImproperlyConfigured
 
 class BehavioralAnalyzer:
     def __init__(self):
-        self.models = {
-            'typing': self._load_model(settings.TYPING_MODEL_PATH),
-            'mouse': self._load_model(settings.MOUSE_MODEL_PATH)
-        }
-        self.thresholds = settings.BEHAVIORAL_THRESHOLDS
-    
+        if not getattr(settings, 'BEHAVIORAL_ANALYSIS_ENABLED', False):
+            self.models = None
+            self.thresholds = None
+            return
+            
+        try:
+            self.models = {
+                'typing': self._load_model(settings.BEHAVIORAL_MODELS['TYPING_MODEL_PATH']),
+                'mouse': self._load_model(settings.BEHAVIORAL_MODELS['MOUSE_MODEL_PATH'])
+            }
+            self.thresholds = settings.BEHAVIORAL_MODELS.get('THRESHOLDS', {
+                'alert_threshold': 0.3,
+                'update_threshold': 0.7
+            })
+        except Exception as e:
+            raise ImproperlyConfigured(f"Behavioral analysis configuration error: {str(e)}")
+
     def analyze_behavior(self, user, current_behavior):
+        if not settings.BEHAVIORAL_ANALYSIS_ENABLED:
+            return 1.0  # Return perfect score when analysis is disabled
+            
         # Get user's stored behavior profile
         try:
             profile = BehavioralBiometrics.objects.get(user=user)
         except BehavioralBiometrics.DoesNotExist:
-            return 0.0  # No profile yet
+            return 0.5  # Neutral score if no profile exists
             
         # Compare current behavior with profile
         typing_score = self._compare_typing(profile, current_behavior)
@@ -38,28 +54,26 @@ class BehavioralAnalyzer:
         return overall_score
     
     def _compare_typing(self, profile, current_behavior):
-        # Compare typing patterns using isolation forest
+        if not settings.BEHAVIORAL_ANALYSIS_ENABLED:
+            return 1.0
+            
         stored_patterns = np.array(profile.typing_pattern.get('features', []))
         current_pattern = np.array(current_behavior.get('typing', {}).get('features', []))
         
         if len(stored_patterns) == 0 or len(current_pattern) == 0:
-            return 0.5  # Neutral score if no data
+            return 0.5
             
-        # Train model on stored patterns
         clf = IsolationForest(contamination=0.1)
         clf.fit(stored_patterns)
-        
-        # Score current pattern
         score = clf.decision_function([current_pattern])[0]
         return (score + 0.5)  # Normalize to 0-1 range
     
     def _compare_mouse(self, profile, current_behavior):
-        # Similar comparison for mouse movements
-        # Implementation would be similar to typing comparison
-        return 0.7  # Placeholder
+        if not settings.BEHAVIORAL_ANALYSIS_ENABLED:
+            return 1.0
+        return 0.7  # Placeholder implementation
     
     def _update_profile(self, profile, current_behavior):
-        # Update profile with new behavior data (exponential moving average)
         profile.typing_pattern = self._update_features(
             profile.typing_pattern,
             current_behavior.get('typing', {})
@@ -71,7 +85,6 @@ class BehavioralAnalyzer:
         profile.save()
     
     def _update_features(self, stored, current, alpha=0.2):
-        # Update features using exponential moving average
         if not stored:
             return current
             
@@ -105,7 +118,6 @@ class BehavioralAnalyzer:
         )
     
     def _get_expected_ranges(self, user):
-        # Return expected behavioral ranges for this user
         profile = BehavioralBiometrics.objects.get(user=user)
         return {
             'typing_speed': profile.typing_pattern.get('speed_range'),
@@ -113,6 +125,9 @@ class BehavioralAnalyzer:
         }
     
     def _load_model(self, path):
-        # Load a pre-trained model
-        # In practice, this would load from disk
-        return None
+        if not settings.BEHAVIORAL_ANALYSIS_ENABLED:
+            return None
+            
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Model file not found at {path}")
+        return None  # Placeholder for actual model loading

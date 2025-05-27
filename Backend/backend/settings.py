@@ -110,6 +110,22 @@ BEHAVIORAL_THRESHOLDS = {
     'mouse_weight': 0.3
 }
 
+BEHAVIORAL_ANALYSIS_ENABLED = False
+
+if DEBUG:
+    BEHAVIORAL_MODELS = {
+        'TYPING_MODEL_PATH': '/dev/null',
+        'MOUSE_MODEL_PATH': '/dev/null',
+        'BEHAVIORAL_THRESHOLD': 0.7
+    }
+else:
+    BEHAVIORAL_MODELS = {
+        'TYPING_MODEL_PATH': os.path.join(BASE_DIR, 'ai_models/typing_model.pkl'),
+        'MOUSE_MODEL_PATH': os.path.join(BASE_DIR, 'ai_models/mouse_model.pkl'),
+        'BEHAVIORAL_THRESHOLD': 0.7
+    }
+
+
 # Document verification
 ADVANCED_DOCUMENT_VERIFICATION = True
 DOCUMENT_VERIFICATION_API_KEY = os.getenv('DOCUMENT_VERIFICATION_API_KEY')
