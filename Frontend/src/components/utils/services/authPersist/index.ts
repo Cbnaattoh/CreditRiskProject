@@ -1,27 +1,48 @@
 import type { RootState } from "../../../redux/store";
 
-export const loadAuthState = () => {
+export const loadAuthState = (): RootState["auth"] => {
   try {
     const serializedState = localStorage.getItem("authState");
-    if (serializedState === null) {
-      return undefined;
-    }
-    return JSON.parse(serializedState);
+    if (!serializedState) return {
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      requiresMFA: false,
+      tempToken: null,
+      mfaMethods: []
+    };
+    
+    const parsed = JSON.parse(serializedState);
+    console.log("Loaded auth state:", parsed);
+    return parsed;
   } catch (err) {
-    return undefined;
+    console.error("Error loading auth state:", err);
+    return {
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      requiresMFA: false,
+      tempToken: null,
+      mfaMethods: []
+    };
   }
 };
 
+
 export const saveAuthState = (state: RootState["auth"]) => {
   try {
-    const serializedState = JSON.stringify({
+    const toPersist = {
       user: state.user,
       token: state.token,
       isAuthenticated: state.isAuthenticated,
-    });
-    localStorage.setItem("authState", serializedState);
-  } catch {
-    // ignore errors
+      requiresMFA: state.requiresMFA,
+      tempToken: state.tempToken,
+      mfaMethods: state.mfaMethods
+    };
+    console.log("Saving auth state:", toPersist);
+    localStorage.setItem("authState", JSON.stringify(toPersist));
+  } catch (err) {
+    console.error("Error saving auth state:", err);
   }
 };
 

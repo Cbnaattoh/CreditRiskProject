@@ -1,4 +1,4 @@
-from rest_framework import serializers
+from rest_framework import serializers, exceptions
 from django.contrib.auth import get_user_model
 from .models import UserProfile, LoginHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -8,17 +8,26 @@ User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except exceptions.AuthenticationFailed:
+            raise exceptions.ValidationError(
+                {"detail": "Invalid email or password"}
+            )
         
         # Add custom claims
         data.update({
-            'email': self.user.email,
-            'user_type': self.user.user_type,
+            'user': {
+                'id': self.user.id,
+                'email': self.user.email,
+                'name': f"{self.user.first_name} {self.user.last_name}",
+                'role': self.user.user_type,
+                'mfa_enabled': self.user.mfa_enabled
+            },
             'mfa_enabled': self.user.mfa_enabled,
             'is_verified': self.user.is_verified
         })
         return data
-    
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
@@ -34,7 +43,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_profile_picture(self, obj):
         if hasattr(obj, 'profile') and obj.profile.profile_picture:
             return self.context['request'].build_absolute_uri(obj.profile.profile_picture.url)
-        return None
     
 
 class UserRegisterSerializer(serializers.ModelSerializer):

@@ -10,6 +10,7 @@ import {
   FiCheck,
   FiArrowRight,
   FiShield,
+  FiKey,
 } from "react-icons/fi";
 import Logo from "../../../components/utils/Logo";
 import { useNavigate } from "react-router-dom";
@@ -31,11 +32,15 @@ import {
   selectRequiresMFA,
   selectTempToken,
   selectMFAMethods,
+  logout,
 } from "../../../components/redux/features/auth/authSlice";
 import {
   useAppDispatch,
   useAppSelector,
 } from "../../../components/utils/hooks";
+import { useToast, ToastContainer } from "../../../components/utils/Toast";
+import { QRCodeCanvas as QRCode } from 'qrcode.react';
+
 
 const Login: React.FC = () => {
   // State management
@@ -47,6 +52,12 @@ const Login: React.FC = () => {
   const [mfaStep, setMfaStep] = useState<"login" | "setup" | "verify">("login");
   const [qrCode, setQrCode] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [mfaSetupData, setMfaSetupData] = useState<{
+    uri: string;
+    secret: string;
+    backup_codes: string[];
+  } | null>(null);
+  const [isSettingUpMFA, setIsSettingUpMFA] = useState(false);
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -54,6 +65,9 @@ const Login: React.FC = () => {
   // const requiresMFA = useAppSelector(selectRequiresMFA);
   const tempToken = useAppSelector(selectTempToken);
   const mfaMethods = useAppSelector(selectMFAMethods);
+
+  // Initialize toast
+  const { toasts, removeToast, success, error, info } = useToast();
 
   const [login, { isLoading: isLoginLoading }] = useLoginMutation();
   const [verifyMFA, { isLoading: isMFALoading }] = useVerifyMFAMutation();
@@ -69,13 +83,15 @@ const Login: React.FC = () => {
     mode: "onChange",
   });
 
-  const isLoading = isLoginLoading || isMFALoading || isMFASetupLoading;
+  const isLoading =
+    isLoginLoading || isMFALoading || isMFASetupLoading || isSettingUpMFA;
 
   // Handle MFA requirement changes
   useEffect(() => {
     if (mfaRequired && formStep === 1) {
       setFormStep(2);
       setMfaStep("verify");
+      info("Two-factor authentication required. Please enter your code.");
     }
   }, [mfaRequired, formStep]);
 
@@ -87,6 +103,13 @@ const Login: React.FC = () => {
         enableMFA: data.enableMFA,
       }).unwrap();
 
+      dispatch(
+        setCredentials({
+          user: result.user,
+          token: result.token || "", // Store the initial token
+        })
+      );
+
       if (result.requiresMFA) {
         // If MFA is enabled, show verification
         dispatch(
@@ -97,22 +120,41 @@ const Login: React.FC = () => {
         );
         setFormStep(2);
         setMfaStep("verify");
-      } else if (data.enableMFA) {
-        // If user wants to setup MFA
-        const setupResult = await setupMFA().unwrap();
-        setQrCode(setupResult.qr_code);
-        setBackupCodes(setupResult.backup_codes);
-        setMfaStep("setup");
-        setFormStep(2);
+        info("Two-factor authentication required. Please enter your code.");
+        return;
+      }
+      if (data.enableMFA) {
+        try {
+          // Add slight delay to ensure token is persisted
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          const setupResult = await setupMFA({ enable: true }).unwrap();
+          setIsSettingUpMFA(false);
+
+          // Handle the new response format
+          setMfaSetupData({
+            uri: setupResult.uri, // Now using URI instead of base64 image
+            secret: setupResult.secret,
+            backup_codes: setupResult.backup_codes || [],
+          });
+          setMfaStep("setup");
+          setFormStep(2);
+          success(
+            setupResult.message ||
+              "Scan the QR code with your authenticator app"
+          );
+        } catch (setupError) {
+          error(
+            setupError.data?.detail || "Failed to setup MFA. Please try again."
+          );
+          console.error("MFA Setup Error:", setupError);
+          if (setupError.status === 401) {
+            dispatch(logout());
+            navigate("/");
+          }
+        }
       } else {
-        // Regular login
-        dispatch(
-          setCredentials({
-            user: result.user,
-            token: result.token || "",
-          })
-        );
-        navigate("/home");
+        success("Login successful! Redirecting...");
+        setTimeout(() => navigate("/home"), 3000);
       }
     } catch (err) {
       handleApiError(err, "login");
@@ -129,12 +171,14 @@ const Login: React.FC = () => {
           code: data.code,
           tempToken: tempToken || "",
         }).unwrap();
+        success("Verification successful!");
       } else {
         // Setup MFA with verification
         result = await verifyMFA({
           code: data.code,
           tempToken: "setup", // Special token for setup flow
         }).unwrap();
+        success("MFA setup completed successfully!");
       }
 
       dispatch(
@@ -147,6 +191,7 @@ const Login: React.FC = () => {
       // Show backup codes if this was a setup flow
       if (mfaStep === "setup") {
         setMfaStep("backup");
+        info("Please save your backup codes in a secure loaction");
       } else {
         navigate("/home");
       }
@@ -157,8 +202,11 @@ const Login: React.FC = () => {
 
   // API Error handling Logic
   const handleApiError = (err: any, formType: "login" | "mfa") => {
+    const errorData = err.data || {};
     const errorMessage =
-      err.data?.message || err.error || "An unknown error occurred";
+      errorData.detail ||
+      errorData.message ||
+      (typeof errorData === "string" ? errorData : "An unknown error occurred");
 
     if (formType === "login") {
       loginMethods.setError("root", { message: errorMessage });
@@ -168,11 +216,18 @@ const Login: React.FC = () => {
 
     setShake(true);
     setTimeout(() => setShake(false), 500);
-  };
 
+    // Specific handling for 401 errors
+    if (err.status === 401) {
+      error("Session expired. Please login again.");
+      dispatch(logout());
+      navigate("/");
+    }
+  };
   // Forgot-Password Page Navigation Logic
   const handleForgotPassword = () => {
-    navigate("/forgot-password");
+    info("Redirecting to password recovery");
+    setTimeout(() => navigate("/forgot-password"), 500);
   };
 
   // Back-To-Login Page Navigation Logic
@@ -180,6 +235,7 @@ const Login: React.FC = () => {
     setFormStep(1);
     setMfaStep("login");
     mfaFormMethods.reset();
+    info("Returned to login form");
   };
 
   // Background gradient animation
@@ -192,6 +248,11 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <ToastContainer
+        toasts={toasts}
+        removeToast={removeToast}
+        position="top-right"
+      />
       <ParticlesBackground />
       <motion.div
         className={`absolute top-0 right-0 w-64 h-64 bg-indigo-100 rounded-full filter blur-3xl opacity-20${
@@ -573,15 +634,53 @@ const Login: React.FC = () => {
                           </div>
 
                           <div className="flex flex-col items-center">
-                            <div
-                              className="mb-4 p-2 bg-white rounded-lg"
-                              dangerouslySetInnerHTML={{ __html: qrCode }}
-                            />
+                            {mfaSetupData?.uri ? (
+                              <div className="mb-4 p-4 bg-white rounded-lg">
+                                <QRCode
+                                  value={mfaSetupData.uri}
+                                  size={200}
+                                  level="H"
+                                  renderAs="svg"
+                                  includeMargin={true}
+                                />
+                              </div>
+                            ) : (
+                              <div className="mb-4 p-8 bg-gray-100 rounded-lg animate-pulse">
+                                <div className="w-48 h-48 flex items-center justify-center text-gray-400">
+                                  Loading QR code...
+                                </div>
+                              </div>
+                            )}
                             <div className="text-sm text-gray-600 mb-4">
                               <FiKey className="inline mr-2" />
-                              Secret: {backupCodes[0]?.split("-").join(" ")}
+                              {mfaSetupData?.secret
+                                ? `Secret: ${mfaSetupData.secret}`
+                                : "Generating secret..."}
                             </div>
                           </div>
+                          {mfaSetupData?.backup_codes && (
+                            <div className="mt-4 text-sm text-gray-500">
+                              <p className="font-medium mb-2">
+                                Your backup codes:
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {mfaSetupData.backup_codes.map(
+                                  (code, index) => (
+                                    <div
+                                      key={index}
+                                      className="p-2 bg-gray-100 rounded font-mono text-center"
+                                    >
+                                      {code}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                              <p className="mt-2 text-red-500">
+                                Save these codes in a secure place. They won't
+                                be shown again.
+                              </p>
+                            </div>
+                          )}
                         </>
                       )}
 

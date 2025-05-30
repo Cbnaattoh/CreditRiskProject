@@ -35,7 +35,10 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Authentication settings
 AUTH_USER_MODEL = 'users.User'
-AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend']
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',  # Fallback
+]
 
 # Session settings
 SESSION_COOKIE_AGE = 3600  # 1 hour in seconds

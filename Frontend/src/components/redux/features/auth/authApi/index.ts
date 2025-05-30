@@ -44,8 +44,25 @@ export const authApi = apiSlice.injectEndpoints({
         method: "POST",
         body: credentials,
       }),
+      transformResponse: (response: any): LoginResponse => ({
+        ...response,
+        token: response.access,
+      }),
+      transformErrorResponse: (response) => {
+        if (
+          typeof response.data === "string" &&
+          response.data.includes("<!DOCTYPE html>")
+        ) {
+          return {
+            status: response.status,
+            data: { detail: "Authentication server error" },
+          };
+        }
+        return response;
+      },
       invalidatesTags: ["Auth"],
     }),
+
     verifyMFA: builder.mutation<LoginResponse, VerifyMFACredentials>({
       query: (credentials) => ({
         url: "auth/mfa/verify/",
@@ -54,11 +71,25 @@ export const authApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Auth", "MFA"],
     }),
-     setupMFA: builder.mutation<MFASetupResponse, void>({
-      query: () => ({
+    setupMFA: builder.mutation<MFASetupResponse, {enable: boolean}>({
+      query: ({enable}) => ({
         url: "auth/mfa/setup/",
         method: "POST",
+        body: { enable },
       }),
+      transformErrorResponse: (response) => {
+        if (
+          typeof response.data === "string" &&
+          response.data.includes("<!DOCTYPE html>")
+        ) {
+          return {
+            status: response.status,
+            data: { detail: "Authentication required" },
+          };
+        }
+        return response;
+      },
+      invalidatesTags: ["Auth"],
     }),
     logout: builder.mutation<void, void>({
       query: () => ({
@@ -69,7 +100,7 @@ export const authApi = apiSlice.injectEndpoints({
     }),
     verifyToken: builder.mutation<{ valid: boolean }, void>({
       query: () => ({
-        url: "auth/verify-token/",
+        url: "auth/mfa/verify/",
         method: "POST",
       }),
     }),
