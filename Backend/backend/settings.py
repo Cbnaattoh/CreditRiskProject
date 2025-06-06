@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+from api.docs.tags import API_TAGS
 
 # Load environment variables from .env
 load_dotenv()
@@ -136,7 +137,7 @@ ADVANCED_DOCUMENT_VERIFICATION = True
 DOCUMENT_VERIFICATION_API_KEY = os.getenv('DOCUMENT_VERIFICATION_API_KEY')
 DOCUMENT_TEMPLATES = {
     'DRIVER_LICENSE': {
-        'dimensions': (3.375, 2.125),  # inches
+        'dimensions': (3.375, 2.125),
         'security_features': ['hologram', 'microprint']
     },
     'PASSPORT': {
@@ -185,8 +186,62 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_otp',
     'django_otp.plugins.otp_totp',
-    'channels'
+    'channels',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
 ]
+
+# DRF Spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'RiskGuard Pro API',
+    'DESCRIPTION': 'Comprehensive Risk Assessment Platform API Documentation',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': API_TAGS,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'AUTHENTICATION_WHITELIST': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'SERVERS': [
+        {'url': 'https://api.riskguard.pro', 'description': 'Production server'},
+        {'url': 'http://localhost:8000', 'description': 'Local development server'},
+    ],
+    'EXTENSIONS_INFO': {
+        'x-logo': {
+            'url': 'https://riskguard.pro/logo.png',
+            'backgroundColor': '#FFFFFF',
+            'altText': 'RiskGuard Pro Logo'
+        }
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'api.docs.hooks.custom_postprocessing_hook',
+    ],
+    'ENUM_NAME_OVERRIDES': {
+        'AuthStatusEnum': 'users.enums.AuthStatus',
+    },
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'jwtAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+                'description': 'Standard JWT Authentication'
+            },
+            'mfaAuth': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'X-MFA-Token',
+                'description': 'MFA Verification Token'
+            }
+        }
+    }
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -242,6 +297,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 ROOT_URLCONF = 'backend.urls'

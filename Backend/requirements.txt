@@ -38,6 +38,10 @@ pyotp
 qrcode[pil]
 channels
 celery
+drf-spectacular
+pyyaml
+uritemplate
+drf-spectacular-sidecar
 
 # Exploratory Data Analysis
 jupyter==1.0.0

@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 
+
 urlpatterns = [
     # Authentication endpoints
     path('auth/', include('users.urls.auth')),
@@ -28,4 +29,5 @@ urlpatterns = [
     
     # Security endpoints
     path('security/', include('security.urls')),
+
 ]
