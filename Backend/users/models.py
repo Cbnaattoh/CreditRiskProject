@@ -6,6 +6,7 @@ from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from .managers import CustomUserManager
 from django.utils import timezone
+import hashlib
 
 
 
@@ -30,6 +31,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=100, blank=True)
+    backup_codes = models.JSONField(default=list, blank=True)
     last_password_change = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = 'email'

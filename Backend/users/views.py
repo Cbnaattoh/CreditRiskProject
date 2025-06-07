@@ -12,6 +12,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework.throttling import AnonRateThrottle
+from django.conf import settings
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UserProfileSerializer,
@@ -31,6 +32,7 @@ from api.docs.views.password import (
 from api.docs.views.auth import login_docs, register_docs, login_history_docs
 from api.docs.views.users import get_user_profile_docs, update_user_profile_docs, partial_update_user_profile_docs
 from api.docs.views.mfa import mfa_setup_docs, mfa_verify_docs
+from users.utils.mfa import generate_backup_codes, verify_backup_code
 import pyotp
 import logging
 
@@ -68,9 +70,13 @@ class LoginView(TokenObtainPairView):
                 
                 if user.mfa_enabled:
                     temp_token = default_token_generator.make_token(user)
-                    response.data['requires_mfa'] = True
-                    response.data['temp_token'] = temp_token
-                    response.data['access'] = None
+                    uid_encoded = urlsafe_base64_encode(force_bytes(user.pk))
+                    response.data.update({
+                        'requires_mfa': True,
+                        'temp_token': temp_token,
+                        'uid': uid_encoded,
+                        'access': None
+                    })
             
             return response
             
@@ -167,9 +173,11 @@ class MFASetupView(generics.GenericAPIView):
             if enable:
                 # Generate new secret with proper validation
                 secret = self._generate_mfa_secret()
+                codes, hashes = generate_backup_codes()
                 
                 user.mfa_secret = secret
                 user.mfa_enabled = True
+                user.backup_codes = hashes
                 user.save()
                 
                 # Generate provisioning URI
@@ -178,18 +186,18 @@ class MFASetupView(generics.GenericAPIView):
                     issuer_name="RiskGuard Pro"
                 )
                 
-                # Generate backup codes
-                backup_codes = self._generate_backup_codes()
+                # # Generate backup codes
+                # backup_codes = self._generate_backup_codes()
                 
                 return Response({
                     'status': 'success',
                     'secret': secret,  # For manual entry
                     'uri': totp_uri,   # For QR code generation
-                    'backup_codes': backup_codes,
+                    'backup_codes': codes,
                     'message': 'Scan the QR code with your authenticator app'
                 })
                 
-            elif not enable and user.mfa_enabled:
+            elif not enable:
                 # Disable MFA
                 user.mfa_enabled = False
                 user.mfa_secret = None
@@ -274,8 +282,7 @@ class MFAVerifyView(generics.GenericAPIView):
 
     def _check_backup_code(self, user, code):
         """Check against stored backup codes (placeholder implementation)"""
-        # Implement your actual backup code verification logic here
-        return False
+        return verify_backup_code(user, code)
 
     
        
@@ -310,7 +317,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
             send_mail(
                 'Password Reset Request',
                 f'Click the link to reset your password: {reset_url}',
-                DEFAULT_FROM_EMAIL,
+                settings.DEFAULT_FROM_EMAIL,
                 [user.email],
                 fail_silently=False,
             )
@@ -364,7 +371,9 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         
         request.user.set_password(serializer.validated_data['new_password'])
+        request.user.last_password_change = timezone.now()
         request.user.save()
+
         
         return Response(
             {'detail': 'Password changed successfully'},

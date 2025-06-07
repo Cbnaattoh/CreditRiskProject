@@ -5,7 +5,8 @@ from .models import DocumentAnalysis, OCRResult
 from .serializers import (
     DocumentAnalysisSerializer,
     OCRResultSerializer,
-    DocumentUploadSerializer
+    DocumentUploadSerializer,
+    DocumentSerializer
 )
 from .services import DocumentVerifier
 from applications.models import Document, CreditApplication

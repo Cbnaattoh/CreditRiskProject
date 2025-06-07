@@ -14,13 +14,25 @@ class OCRResultSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['document']
 
-class DocumentUploadSerializer(serializers.Serializer):
-    document_type = serializers.ChoiceField(choices=Document.DOCUMENT_TYPES)
-    file = serializers.FileField()
-    
+
+
+class DocumentUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ['document_type', 'file']
+
     def create(self, validated_data):
         application = self.context['application']
-        return Document.objects.create(
-            application=application,
-            **validated_data
-        )
+        return Document.objects.create(application=application, **validated_data)
+    
+
+class DocumentSerializer(serializers.ModelSerializer):
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'document_type', 'document_type_display', 'file',
+            'uploaded_at', 'verified', 'verification_notes'
+        ]
+

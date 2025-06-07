@@ -5,6 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
+USER_TYPES = [choice[0] for choice in User.USER_TYPES]
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -63,22 +64,32 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         write_only=True
     )
 
+    user_type = serializers.ChoiceField(choices=User.USER_TYPES, required=True)
+    mfa_enabled = serializers.BooleanField(required=False, default=False)
+
+
     class Meta:
         model = User
         fields = [
             'email', 'password', 'confirm_password', 'first_name', 'last_name',
-            'phone_number', 'profile_picture'
+            'phone_number', 'profile_picture', 'user_type', 'mfa_enabled'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
         }
 
+
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords don't match")
         validate_password(data['password'])
         return data
+
+    def validate_user_type(self, value):
+        if value not in USER_TYPES:
+            raise serializers.ValidationError("Invalide user type.")
+        return value
 
     def create(self, validated_data):
         profile_picture = validated_data.pop('profile_picture', None)
@@ -89,7 +100,9 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
-            phone_number=validated_data.get('phone_number', '')
+            phone_number=validated_data.get('phone_number', ''),
+            user_type=validated_data['user_type'],
+            mfa_enabled=validated_data.get('mfa_enabled', False)
         )
         
         # Create user profile with picture if provided
