@@ -12,6 +12,7 @@ from applications.models import Document, CreditApplication
 
 class DocumentAnalyzeView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DocumentAnalysisSerializer
     
     def post(self, request, *args, **kwargs):
         document = get_object_or_404(

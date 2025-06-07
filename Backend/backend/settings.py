@@ -221,9 +221,9 @@ SPECTACULAR_SETTINGS = {
         'drf_spectacular.hooks.postprocess_schema_enums',
         'api.docs.hooks.custom_postprocessing_hook',
     ],
-    'ENUM_NAME_OVERRIDES': {
-        'AuthStatusEnum': 'users.enums.AuthStatus',
-    },
+    # 'ENUM_NAME_OVERRIDES': {
+    #     'users.enums.AuthStatus': 'AuthStatusEnum',
+    # },
     'APPEND_COMPONENTS': {
         'securitySchemes': {
             'jwtAuth': {

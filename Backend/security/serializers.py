@@ -14,3 +14,8 @@ class SuspiciousActivitySerializer(serializers.ModelSerializer):
         model = SuspiciousActivity
         fields = '__all__'
         read_only_fields = ['user', 'detected_at', 'was_challenged', 'was_successful']
+
+
+class BehavioralDataSerializer(serializers.Serializer):
+    typing = serializers.DictField(required=False)
+    mouse = serializers.DictField(required=False)
