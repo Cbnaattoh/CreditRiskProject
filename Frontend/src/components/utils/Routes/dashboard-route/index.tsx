@@ -5,6 +5,7 @@ import Applications from "../../../../screens/Applications";
 import PredictionOutcome from "../../../../screens/Risk-Analysis";
 import PredictionExplainability from "../../../../screens/Explainability";
 import AdminPanel from "../../../../screens/Admin-Panel";
+import AccountSettings from "../../../../screens/Settings";
 
 const dashboardRoutes: RouteObject[] = [
   {
@@ -16,6 +17,7 @@ const dashboardRoutes: RouteObject[] = [
       { path: "risk-analysis", element: <PredictionOutcome /> },
       { path: "explainability", element: <PredictionExplainability /> },
       { path: "admin-panel", element: <AdminPanel /> },
+      {path: "settings", element: <AccountSettings/>}
     ],
   },
 ];

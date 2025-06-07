@@ -10,6 +10,7 @@ import {
   FiUser,
   FiChevronLeft,
   FiMenu,
+  FiSliders
 } from "react-icons/fi";
 import Logo from "../../../../components/utils/Logo";
 
@@ -27,6 +28,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     },
     { path: "/home/explainability", icon: <FiBarChart2 />, label: "Explainability" },
     { path: "/home/admin-panel", icon: <FiSettings />, label: "Admin Panel" },
+    {path: "/home/settings", icon: <FiSliders/>, label: "Settings"}
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
