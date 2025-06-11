@@ -22,25 +22,15 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const location = useLocation();
 
   const navItems = [
-    { path: "/home", icon: <FiHome />, label: "Overview" },
+    { path: "/home", icon: <FiHome />, label: "Dashboard" },
+    { path: "/home/customers", icon: <RiUserSearchLine />, label: "Customers" },
     {
-      path: "/home/applicants",
-      icon: <RiUserSearchLine />,
-      label: "Applicants",
+      path: "/home/loan-applications",
+      icon: <FiFileText />,
+      label: "Loan Applications",
     },
-    { path: "/home/applications", icon: <FiFileText />, label: "Applications" },
-    {
-      path: "/home/risk-analysis",
-      icon: <FiAlertTriangle />,
-      label: "Risk Analysis",
-    },
-    {
-      path: "/home/explainability",
-      icon: <FiBarChart2 />,
-      label: "Explainability",
-    },
-    { path: "/home/admin-panel", icon: <FiSettings />, label: "Admin Panel" },
-    { path: "/home/settings", icon: <FiSliders />, label: "Settings" },
+    { path: "/home/admin", icon: <FiSettings />, label: "Admin Console" },
+    { path: "/home/settings", icon: <FiSliders />, label: "Account Settings" },
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);

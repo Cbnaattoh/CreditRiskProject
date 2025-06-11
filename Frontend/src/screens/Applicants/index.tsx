@@ -552,3 +552,4 @@ const Applicants: React.FC = () => {
 };
 
 export default Applicants;
+

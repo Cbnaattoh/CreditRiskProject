@@ -10,27 +10,33 @@ const Header: React.FC = () => {
 
   // Define page titles based on routes
   const getPageInfo = (pathname: string) => {
+    if (pathname.match(/^\/home\/loan-applications\/[^/]+\/risk/)) {
+      return { title: "Risk Dashboard", subtitle: "Risk Analysis" };
+    }
+
+    if (pathname.match(/^\/home\/loan-applications\/[^/]+\/explainability/)) {
+      return { title: "Risk Dashboard", subtitle: "Explainability" };
+    }
+
     const routeMap: Record<string, { title: string; subtitle: string }> = {
       "/home": { title: "Risk Dashboard", subtitle: "Overview" },
-      "/home/applicants": { title: "Risk Dashboard", subtitle: "Applicants" },
-      "/home/applications": {
+      "/home/customers": { title: "Risk Dashboard", subtitle: "Customers" },
+      "/home/loan-applications": {
         title: "Risk Dashboard",
-        subtitle: "Applications",
+        subtitle: "Loan Applications",
       },
-      "/home/risk-analysis": {
+      "/home/admin": { title: "Risk Dashboard", subtitle: "Admin Console" },
+      "/home/settings": {
         title: "Risk Dashboard",
-        subtitle: "Risk Analysis",
+        subtitle: "Account Settings",
       },
-      "/home/explainability": {
-        title: "Risk Dashboard",
-        subtitle: "Explainability",
-      },
-      "/home/admin-panel": { title: "Risk Dashboard", subtitle: "Admin Panel" },
-      "/home/settings": { title: "Risk Dashboard", subtitle: "Settings" },
     };
 
     return (
-      routeMap[pathname] || { title: "Risk Dashboard", subtitle: "Overview" }
+      routeMap[pathname] || {
+        title: "Risk Dashboard",
+        subtitle: "Overview",
+      }
     );
   };
 
