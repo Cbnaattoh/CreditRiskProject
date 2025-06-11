@@ -10,28 +10,41 @@ import {
   FiUser,
   FiChevronLeft,
   FiMenu,
-  FiSliders
+  FiSliders,
 } from "react-icons/fi";
+import { RiUserSearchLine } from "react-icons/ri";
+
 import Logo from "../../../../components/utils/Logo";
 
 const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const [isOpen, setIsOpen] = useState(!isMobile);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
   const navItems = [
     { path: "/home", icon: <FiHome />, label: "Overview" },
+    {
+      path: "/home/applicants",
+      icon: <RiUserSearchLine />,
+      label: "Applicants",
+    },
     { path: "/home/applications", icon: <FiFileText />, label: "Applications" },
     {
       path: "/home/risk-analysis",
       icon: <FiAlertTriangle />,
       label: "Risk Analysis",
     },
-    { path: "/home/explainability", icon: <FiBarChart2 />, label: "Explainability" },
+    {
+      path: "/home/explainability",
+      icon: <FiBarChart2 />,
+      label: "Explainability",
+    },
     { path: "/home/admin-panel", icon: <FiSettings />, label: "Admin Panel" },
-    {path: "/home/settings", icon: <FiSliders/>, label: "Settings"}
+    { path: "/home/settings", icon: <FiSliders />, label: "Settings" },
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   return (
     <>
@@ -61,22 +74,25 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
       {/* Sidebar */}
       <motion.div
         initial={isMobile ? { x: -300 } : { x: 0 }}
-        animate={{ x: isOpen ? 0 : -300 }}
+        animate={{
+          x: isOpen ? 0 : -300,
+          width: isCollapsed && !isMobile ? 80 : 256,
+        }}
         transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-        className={`fixed lg:relative z-50 h-screen bg-gradient-to-b from-indigo-900 to-blue-900 text-white w-64 shadow-xl ${
+        className={`fixed lg:relative z-50 h-screen bg-gradient-to-b from-indigo-900 to-blue-900 text-white shadow-xl ${
           isMobile ? "" : "lg:translate-x-0"
         }`}
       >
         <div className="p-6 flex items-center justify-between border-b border-blue-800">
-          <Logo />
+          {!isCollapsed && <Logo />}
           {!isMobile && (
             <button
-              onClick={toggleSidebar}
+              onClick={toggleCollapse}
               className="text-blue-300 hover:text-white transition-colors"
             >
               <FiChevronLeft
                 className={`h-5 w-5 transition-transform ${
-                  isOpen ? "" : "rotate-180"
+                  isCollapsed ? "rotate-180" : ""
                 }`}
               />
             </button>
@@ -94,29 +110,34 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
                       ? "bg-blue-700 text-white"
                       : "text-blue-200 hover:bg-blue-800 hover:text-white"
                   }`}
+                  title={isCollapsed ? item.label : undefined}
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  <span className="font-medium">{item.label}</span>
+                  <span className="text-lg flex-shrink-0">{item.icon}</span>
+                  {!isCollapsed && (
+                    <span className="ml-3 font-medium">{item.label}</span>
+                  )}
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
-          <div className="flex items-center p-3 rounded-lg bg-blue-800">
-            <div className="relative">
-              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <FiUser className="text-white" />
+        {!isCollapsed && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
+            <div className="flex items-center p-3 rounded-lg bg-blue-800">
+              <div className="relative">
+                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                  <FiUser className="text-white" />
+                </div>
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-blue-800"></span>
               </div>
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-blue-800"></span>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-blue-300">Administrator</p>
+              <div className="ml-3">
+                <p className="text-sm font-medium">Admin User</p>
+                <p className="text-xs text-blue-300">Administrator</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </motion.div>
     </>
   );

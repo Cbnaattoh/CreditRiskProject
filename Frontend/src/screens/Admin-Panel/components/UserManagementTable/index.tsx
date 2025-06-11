@@ -1,152 +1,3 @@
-// import React from 'react';
-// import { useTable, Column } from 'react-table';
-// import { motion } from 'framer-motion';
-// import { FiEdit2, FiTrash2, FiMoreVertical } from 'react-icons/fi';
-
-// interface User {
-//   id: string;
-//   profile: string;
-//   name: string;
-//   role: string;
-//   status: 'Active' | 'Inactive' | 'Suspended';
-//   lastLogin: string;
-//   joinDate: string;
-// }
-
-// const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
-//   const columns: Column<User>[] = React.useMemo(
-//     () => [
-//       {
-//         Header: 'User',
-//         accessor: 'profile',
-//         Cell: ({ row }) => (
-//           <div className="flex items-center">
-//             <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-//               {row.original.name.charAt(0)}
-//             </div>
-//             <div>
-//               <p className="font-medium text-gray-900">{row.original.name}</p>
-//               <p className="text-sm text-gray-500">{row.original.profile}</p>
-//             </div>
-//           </div>
-//         ),
-//       },
-//       {
-//         Header: 'Role',
-//         accessor: 'role',
-//         Cell: ({ value }) => (
-//           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-//             {value}
-//           </span>
-//         ),
-//       },
-//       {
-//         Header: 'Status',
-//         accessor: 'status',
-//         Cell: ({ value }) => {
-//           const statusColors = {
-//             Active: 'bg-green-100 text-green-800',
-//             Inactive: 'bg-gray-100 text-gray-800',
-//             Suspended: 'bg-red-100 text-red-800',
-//           };
-//           return (
-//             <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[value]}`}>
-//               {value}
-//             </span>
-//           );
-//         },
-//       },
-//       {
-//         Header: 'Last Login',
-//         accessor: 'lastLogin',
-//         Cell: ({ value }) => <span className="text-sm text-gray-600">{value}</span>,
-//       },
-//       {
-//         Header: 'Join Date',
-//         accessor: 'joinDate',
-//         Cell: ({ value }) => <span className="text-sm text-gray-600">{value}</span>,
-//       },
-//       {
-//         Header: 'Actions',
-//         id: 'actions',
-//         Cell: () => (
-//           <div className="flex space-x-2">
-//             <button className="p-1 text-indigo-600 hover:text-indigo-900">
-//               <FiEdit2 className="h-4 w-4" />
-//             </button>
-//             <button className="p-1 text-red-600 hover:text-red-900">
-//               <FiTrash2 className="h-4 w-4" />
-//             </button>
-//             <button className="p-1 text-gray-600 hover:text-gray-900">
-//               <FiMoreVertical className="h-4 w-4" />
-//             </button>
-//           </div>
-//         ),
-//       },
-//     ],
-//     []
-//   );
-
-//   const {
-//     getTableProps,
-//     getTableBodyProps,
-//     headerGroups,
-//     rows,
-//     prepareRow,
-//   } = useTable({ columns, data: users });
-
-//   return (
-//     <motion.div
-//       initial={{ opacity: 0, y: 20 }}
-//       animate={{ opacity: 1, y: 0 }}
-//       transition={{ duration: 0.5 }}
-//       className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg"
-//     >
-//       <div className="overflow-x-auto">
-//         <table {...getTableProps()} className="min-w-full divide-y divide-gray-300">
-//           <thead className="bg-gray-50">
-//             {headerGroups.map((headerGroup) => (
-//               <tr {...headerGroup.getHeaderGroupProps()}>
-//                 {headerGroup.headers.map((column) => (
-//                   <th
-//                     {...column.getHeaderProps()}
-//                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-//                   >
-//                     {column.render('Header')}
-//                   </th>
-//                 ))}
-//               </tr>
-//             ))}
-//           </thead>
-//           <tbody {...getTableBodyProps()} className="bg-white divide-y divide-gray-200">
-//             {rows.map((row) => {
-//               prepareRow(row);
-//               return (
-//                 <motion.tr
-//                   {...row.getRowProps()}
-//                   whileHover={{ backgroundColor: 'rgba(249, 250, 251, 1)' }}
-//                   className="hover:bg-gray-50"
-//                 >
-//                   {row.cells.map((cell) => (
-//                     <td
-//                       {...cell.getCellProps()}
-//                       className="px-6 py-4 whitespace-nowrap"
-//                     >
-//                       {cell.render('Cell')}
-//                     </td>
-//                   ))}
-//                 </motion.tr>
-//               );
-//             })}
-//           </tbody>
-//         </table>
-//       </div>
-//     </motion.div>
-//   );
-// };
-
-// export default UserManagementTable;
-
 import React from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
@@ -181,17 +32,49 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       headerName: "User",
       width: 250,
       renderCell: (params: GridRenderCellParams) => (
-        <div className="flex items-center">
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            py: 1,
+          }}
+        >
           <Avatar
-            sx={{ bgcolor: "primary.light", color: "primary.main", mr: 2 }}
+            sx={{
+              bgcolor: "primary.light",
+              color: "primary.main",
+              mr: 2,
+              width: 36,
+              height: 36,
+              fontSize: "1rem",
+            }}
           >
             {params.row.name.charAt(0)}
           </Avatar>
-          <div>
-            <div className="font-medium text-gray-900">{params.row.name}</div>
-            <div className="text-sm text-gray-500">{params.row.profile}</div>
-          </div>
-        </div>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+            <Box
+              sx={{ fontWeight: 500, color: "text.primary", lineHeight: 1.2 }}
+            >
+              {params.row.name}
+            </Box>
+            <Box
+              sx={{
+                fontSize: "0.875rem",
+                color: "text.secondary",
+                lineHeight: 1.2,
+              }}
+            >
+              {params.row.profile}
+            </Box>
+          </Box>
+        </Box>
       ),
     },
     {
@@ -199,12 +82,14 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       headerName: "Role",
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value}
-          color="primary"
-          size="small"
-          variant="outlined"
-        />
+        <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
+          <Chip
+            label={params.value}
+            color="primary"
+            size="small"
+            variant="outlined"
+          />
+        </Box>
       ),
     },
     {
@@ -212,11 +97,13 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       headerName: "Status",
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value}
-          color={statusColors[params.value]}
-          size="small"
-        />
+        <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
+          <Chip
+            label={params.value}
+            color={statusColors[params.value]}
+            size="small"
+          />
+        </Box>
       ),
     },
     {
@@ -224,7 +111,17 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       headerName: "Last Login",
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
-        <span className="text-sm text-gray-600">{params.value}</span>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            fontSize: "0.875rem",
+            color: "text.secondary",
+          }}
+        >
+          {params.value}
+        </Box>
       ),
     },
     {
@@ -232,7 +129,17 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       headerName: "Join Date",
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
-        <span className="text-sm text-gray-600">{params.value}</span>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            fontSize: "0.875rem",
+            color: "text.secondary",
+          }}
+        >
+          {params.value}
+        </Box>
       ),
     },
     {
@@ -242,7 +149,14 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
       sortable: false,
       filterable: false,
       renderCell: () => (
-        <div>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            gap: 0.5,
+          }}
+        >
           <IconButton size="small" color="primary">
             <EditIcon fontSize="small" />
           </IconButton>
@@ -252,7 +166,7 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
           <IconButton size="small" color="default">
             <MoreVertIcon fontSize="small" />
           </IconButton>
-        </div>
+        </Box>
       ),
     },
   ];
@@ -271,12 +185,25 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
             border: "none",
             fontFamily: "inherit",
           },
+          "& .MuiDataGrid-row": {
+            minHeight: "64px !important",
+            "&:hover": {
+              backgroundColor: "rgba(249, 250, 251, 1)",
+            },
+          },
           "& .MuiDataGrid-cell": {
             borderBottom: "1px solid rgba(224, 224, 224, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            padding: "8px 16px",
           },
           "& .MuiDataGrid-columnHeaders": {
             backgroundColor: "#f9fafb",
             borderBottom: "1px solid rgba(224, 224, 224, 0.5)",
+            minHeight: "56px !important",
+          },
+          "& .MuiDataGrid-columnHeader": {
+            padding: "8px 16px",
           },
         }}
       >
@@ -287,6 +214,7 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
           rowsPerPageOptions={[10]}
           disableSelectionOnClick
           disableColumnMenu
+          getRowHeight={() => 64}
           componentsProps={{
             toolbar: {
               showQuickFilter: true,
@@ -296,9 +224,6 @@ const UserManagementTable: React.FC<{ users: User[] }> = ({ users }) => {
           sx={{
             boxShadow: 2,
             borderRadius: 2,
-            "& .MuiDataGrid-cell:hover": {
-              backgroundColor: "rgba(249, 250, 251, 1)",
-            },
           }}
         />
       </Box>

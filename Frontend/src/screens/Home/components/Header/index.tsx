@@ -1,19 +1,49 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FiSearch, FiBell, FiHelpCircle, FiLogOut } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Header: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const location = useLocation();
+
+  // Define page titles based on routes
+  const getPageInfo = (pathname: string) => {
+    const routeMap: Record<string, { title: string; subtitle: string }> = {
+      "/home": { title: "Risk Dashboard", subtitle: "Overview" },
+      "/home/applicants": { title: "Risk Dashboard", subtitle: "Applicants" },
+      "/home/applications": {
+        title: "Risk Dashboard",
+        subtitle: "Applications",
+      },
+      "/home/risk-analysis": {
+        title: "Risk Dashboard",
+        subtitle: "Risk Analysis",
+      },
+      "/home/explainability": {
+        title: "Risk Dashboard",
+        subtitle: "Explainability",
+      },
+      "/home/admin-panel": { title: "Risk Dashboard", subtitle: "Admin Panel" },
+      "/home/settings": { title: "Risk Dashboard", subtitle: "Settings" },
+    };
+
+    return (
+      routeMap[pathname] || { title: "Risk Dashboard", subtitle: "Overview" }
+    );
+  };
+
+  const { title, subtitle } = getPageInfo(location.pathname);
 
   return (
     <header className="bg-white shadow-sm z-30 relative">
       <div className="px-6 py-4 flex items-center justify-between">
-        {/* Left side - Breadcrumb */}
+        {/* Left side - Dynamic Breadcrumb */}
         <div className="flex items-center">
-          <h1 className="text-xl font-bold text-gray-800">Risk Dashboard</h1>
+          <h1 className="text-xl font-bold text-gray-800">{title}</h1>
           <span className="mx-2 text-gray-400">/</span>
-          <span className="text-gray-600">Overview</span>
+          <span className="text-gray-600">{subtitle}</span>
         </div>
 
         {/* Right side - Actions */}
