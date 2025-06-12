@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   FiSearch,
   FiPlus,
@@ -8,6 +9,7 @@ import {
   FiEye,
   FiChevronDown,
   FiX,
+  FiBarChart,
 } from "react-icons/fi";
 import { RiShieldKeyholeLine } from "react-icons/ri";
 import { IoMdColorPalette } from "react-icons/io";
@@ -34,6 +36,7 @@ const Applicants: React.FC = () => {
     null
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Sample data
   const applicants: Applicant[] = [
@@ -87,6 +90,14 @@ const Applicants: React.FC = () => {
   const handleViewDetails = (applicant: Applicant) => {
     setSelectedApplicant(applicant);
     setIsDetailOpen(true);
+  };
+
+  const handleNavigateToRisk = (applicationId: string) => {
+    navigate(`/home/loan-applications/${applicationId}/risk`);
+  };
+
+  const handleNavigateToExplainability = (applicationId: string) => {
+    navigate(`/home/loan-applications/${applicationId}/explainability`);
   };
 
   const getRiskColor = (score: number) => {
@@ -497,6 +508,19 @@ const Applicants: React.FC = () => {
                             <FiMail size={18} />
                             <span>Contact Applicant</span>
                           </motion.button>
+                          <motion.button
+                            onClick={() =>
+                              handleNavigateToExplainability(
+                                selectedApplicant.id
+                              )
+                            }
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <FiBarChart size={18} />
+                            <span>View Explainability</span>
+                          </motion.button>
                         </div>
                       </div>
 
@@ -525,19 +549,29 @@ const Applicants: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Risk Visualization */}
+                      {/* Risk Visualization - Now Clickable */}
                       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                           Risk Factors
                         </h3>
-                        <div className="h-40 flex items-center justify-center">
+                        <motion.div
+                          className="h-40 flex items-center justify-center cursor-pointer rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors"
+                          onClick={() =>
+                            handleNavigateToRisk(selectedApplicant.id)
+                          }
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
                           <div className="text-center">
                             <FaChartLine className="mx-auto text-4xl text-indigo-600 dark:text-indigo-400 mb-2" />
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               Risk factor visualization
                             </p>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                              Click to view detailed analysis
+                            </p>
                           </div>
-                        </div>
+                        </motion.div>
                       </div>
                     </div>
                   </div>
@@ -552,4 +586,3 @@ const Applicants: React.FC = () => {
 };
 
 export default Applicants;
-
