@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, MinLengthValidator
 from django.core.exceptions import ValidationError
 from .managers import CustomUserManager
 from django.utils import timezone
@@ -20,12 +20,12 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField(_('email address'), unique=True)
-    first_name = models.CharField(_('first name'), max_length=150)
-    last_name = models.CharField(_('last name'), max_length=150)
+    first_name = models.CharField(_('first name'), max_length=150, validators=[MinLengthValidator(2)])
+    last_name = models.CharField(_('last name'), max_length=150, validators=[MinLengthValidator(2)])
     user_type = models.CharField(max_length=10, choices=USER_TYPES)
     phone_regex = RegexValidator(
-        regex=r'^\+?1?\d{9,15}$',
-        message="Phone number must be entered in the format: '+999999999'."
+        regex=r'^\+\d{9,15}$',
+        message="Phone number must be entered in the format: '+999999999'. Country code is required."
     )
     phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
     is_verified = models.BooleanField(default=False)
@@ -44,7 +44,7 @@ class User(AbstractUser):
         super().clean()
         if not self.email:
             raise ValidationError("Email is required")
-        self.email = self.__class__.objects.normalize_email(self.email)
+        self.email = self.__class__.objects.normalize_email(self.email).lower()
     
     def save(self, *args, **kwargs):
         """Override save to ensure email validation"""
@@ -76,7 +76,7 @@ class UserProfile(models.Model):
     company = models.CharField(max_length=100, blank=True)
     job_title = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
-    bio = models.TextField(blank=True)
+    bio = models.TextField(blank=True, max_length=500)
     timezone = models.CharField(max_length=50, default='UTC')
     
     def __str__(self):

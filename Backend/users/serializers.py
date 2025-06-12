@@ -3,15 +3,20 @@ from django.contrib.auth import get_user_model
 from .models import UserProfile, LoginHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
+from django.core.validators import validate_email
+import logging
 
 User = get_user_model()
 USER_TYPES = [choice[0] for choice in User.USER_TYPES]
+logger = logging.getLogger(__name__)
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         try:
             data = super().validate(attrs)
-        except exceptions.AuthenticationFailed:
+        except exceptions.AuthenticationFailed as e:
+            # Log failed authentication attempts
+            logger.warning(f"Failed login attempt for email: {attrs.get('email', 'unknown')}")
             raise exceptions.ValidationError(
                 {"detail": "Invalid email or password"}
             )
@@ -23,27 +28,47 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'email': self.user.email,
                 'name': f"{self.user.first_name} {self.user.last_name}",
                 'role': self.user.user_type,
-                'mfa_enabled': self.user.mfa_enabled
+                'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
+                'is_verified': self.user.is_verified,
+                'password_expired': self.user.is_password_expired(), # should be removed for security concerns
+                'requires_password_change': self.user.is_password_expired()
             },
-            'mfa_enabled': self.user.mfa_enabled,
-            'is_verified': self.user.is_verified
+            'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
+            'is_verified': self.user.is_verified, # should be removed for security concerns
+            'requires_password_change': self.user.is_password_expired()
         })
         return data
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
+    password_expired = serializers.SerializerMethodField()
 
     class Meta:
         model = User
+        # fields = [
+        #     'email', 'first_name', 'last_name', 'user_type', 'phone_number',
+        #     'is_verified', 'mfa_enabled', 'profile_picture'
+        # ]
         fields = [
-            'email', 'first_name', 'last_name', 'user_type', 'phone_number',
-            'is_verified', 'mfa_enabled', 'profile_picture'
+            'id', 'email', 'first_name', 'last_name', 'full_name', 'user_type', 
+            'phone_number', 'is_verified', 'mfa_enabled', 'profile_picture',
+            'date_joined', 'last_login', 'password_expired'
         ]
-        read_only_fields = ['is_verified', 'mfa_enabled']
+        read_only_fields = ['id','is_verified', 'mfa_enabled', 'date_joined','last_login','password_expired']
     
     def get_profile_picture(self, obj):
         if hasattr(obj, 'profile') and obj.profile.profile_picture:
-            return self.context['request'].build_absolute_uri(obj.profile.profile_picture.url)
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile.profile_picture.url)
+        return None
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
+    
+    def get_password_expired(self, obj):
+        return obj.is_password_expired()
     
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -51,7 +76,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         write_only=True,
         required=True,
         style={'input_type': 'password'},
-        min_length=8
+        min_length=8,
+        help_text='Password must be atleast 8 characters long'
     )
     confirm_password = serializers.CharField(
         write_only=True,
@@ -66,52 +92,102 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     user_type = serializers.ChoiceField(choices=User.USER_TYPES, required=True)
     mfa_enabled = serializers.BooleanField(required=False, default=False)
+    terms_accepted = serializers.BooleanField(required=True, write_only=True)
 
 
     class Meta:
         model = User
         fields = [
             'email', 'password', 'confirm_password', 'first_name', 'last_name',
-            'phone_number', 'profile_picture', 'user_type', 'mfa_enabled'
+            'phone_number', 'profile_picture', 'user_type', 'mfa_enabled', 'terms_accepted'
         ]
         extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
+            'first_name': {'required': True, 'min_length': 2},
+            'last_name': {'required': True, 'min_length': 2},
+            'email': {'help_text': 'Enter a valid email address'}
         }
 
 
+    def validate_email(self, value):
+        """Custom email validation with consistent normalization"""
+        validate_email(value)
+        normalized_email = User.objects.normalize_email(value).lower()
+        # Check if email already exists
+        if User.objects.filter(email__iexact=normalized_email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return normalized_email
+
+    def validate_phone_number(self, value):
+        """Validate phone number format"""
+        if value and not value.startswith('+'):
+            raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
+        return value
+
+    def validate_terms_accepted(self, value):
+        """Ensure terms are accepted"""
+        if not value:
+            raise serializers.ValidationError("You must accept the terms and conditions.")
+        return value
+
+
     def validate(self, data):
+        """Cross-field validation"""
         if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords don't match")
-        validate_password(data['password'])
+            raise serializers.ValidationError({"confirm_password": "Passwords don't match"})
+        
+        # Validate password strength
+        try:
+            validate_password(data['password'])
+        except Exception as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+        
+        # Check if password is expired (for consistency)
+        # This is mainly for future use cases where password policies might be stricter
+        
         return data
 
     def validate_user_type(self, value):
+        """Validate user type"""
         if value not in USER_TYPES:
-            raise serializers.ValidationError("Invalide user type.")
+            raise serializers.ValidationError("Invalid user type.")
+        
+        # Restrict certain user types during registration
+        if value == 'ADMIN':
+            raise serializers.ValidationError("Admin accounts cannot be created through registration.")
+        
         return value
 
     def create(self, validated_data):
+        """Create user with profile"""
         profile_picture = validated_data.pop('profile_picture', None)
         validated_data.pop('confirm_password', None)
+        validated_data.pop('terms_accepted', None)
         
-        user = User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            phone_number=validated_data.get('phone_number', ''),
-            user_type=validated_data['user_type'],
-            mfa_enabled=validated_data.get('mfa_enabled', False)
-        )
+        try:
+            user = User.objects.create_user(
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                phone_number=validated_data.get('phone_number', ''),
+                user_type=validated_data['user_type'],
+                mfa_enabled=validated_data.get('mfa_enabled', False)
+            )
+            
+            # Create user profile with picture if provided
+            UserProfile.objects.create(
+                user=user,
+                profile_picture=profile_picture
+            )
+            
+            logger.info(f"New user registered: {user.email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"User registration failed: {str(e)}")
+            raise serializers.ValidationError("Registration failed. Please try again.")
         
-        # Create user profile with picture if provided
-        UserProfile.objects.create(
-            user=user,
-            profile_picture=profile_picture
-        )
-        
-        return user
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
@@ -119,34 +195,67 @@ class UserProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_type = serializers.CharField(source='user.user_type', read_only=True)
     phone_number = serializers.CharField(source='user.phone_number', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = ['email', 'first_name', 'last_name', 'phone_number', 'user_type', 'profile_picture', 'company', 'job_title', 
+        fields = ['email', 'first_name', 'last_name','full_name', 'phone_number', 'user_type', 'profile_picture_url', 'company', 'job_title', 
                  'department', 'bio', 'timezone']
         extra_kwargs = {
-            'profile_picture': {'required': False}
+            'profile_picture': {'required': False},
+            'bio': {'max_length': 500}
         }
+    
+    def get_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}".strip()
+    
+    def get_profile_picture_url(self, obj):
+        if obj.profile_picture:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+        return None
 
 class LoginHistorySerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    session_duration = serializers.SerializerMethodField()
+
     class Meta:
         model = LoginHistory
-        fields = ['ip_address', 'user_agent', 'login_time', 'logout_time', 'was_successful']
+        fields = ['id','user_email','ip_address', 'user_agent','session_key', 'login_time', 'logout_time', 'was_successful', 'session_duration']
+
+    def get_session_duration(self, obj):
+        if obj.logout_time and obj.login_time:
+            duration = obj.logout_time - obj.login_time
+            return str(duration)
+        return None
 
 class MFASetupSerializer(serializers.Serializer):
     enable = serializers.BooleanField(required=True)
+    backup_codes_acknowledged = serializers.BooleanField(required=False, default=False)
+    
+    def validate(self, data):
+        if data['enable'] and not data.get('backup_codes_acknowledged'):
+            raise serializers.ValidationError(
+                "You must acknowledge that you've saved your backup codes."
+            )
+        return data
 
 class MFAVerifySerializer(serializers.Serializer):
-    token = serializers.CharField(required=True, max_length=6)
+    token = serializers.CharField(required=True, max_length=6, min_length=6)
+    backup_code = serializers.CharField(required=False, max_length=8)
+    
+    def validate_token(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("Token must contain only digits.")
+        return value
+    
 
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField(required=True)
-    uid = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, min_length=8)
-    confirm_password = serializers.CharField(required=True, min_length=8)
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+    confirm_password = serializers.CharField(required=True, write_only=True)
 
     def validate_new_password(self, value):
         validate_password(value)
@@ -154,5 +263,68 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords don't match")
+            raise serializers.ValidationError({"confirm_password": "Passwords don't match"})
+        
+        if data['old_password'] == data['new_password']:
+            raise serializers.ValidationError({"new_password": "New password must be different from old password"})
+        
         return data
+    
+    def save(self, user):
+        """Save the new password and update last_password_change"""
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        # Normalize email consistently
+        normalized_email = User.objects.normalize_email(value).lower()
+        # Don't reveal if email exists or not for security
+        return normalized_email
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+    uid = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8, write_only=True)
+    confirm_password = serializers.CharField(required=True, min_length=8, write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords don't match"})
+        return data
+    
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user information"""
+    
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone_number']
+        extra_kwargs = {
+            'first_name': {'required': True, 'min_length': 2},
+            'last_name': {'required': True, 'min_length': 2},
+        }
+
+    def validate_phone_number(self, value):
+        """Consistent phone validation with model and registration"""
+        if value and not value.startswith('+'):
+            raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
+        return value
+    
+    def validate(self, data):
+        """Check if password needs changing after update"""
+        validated_data = super().validate(data)
+        
+        # If this is being called in a context where we have the user instance
+        if hasattr(self, 'instance') and self.instance:
+            if self.instance.is_password_expired():
+                # Might want to add a warning or handle this case
+                pass
+        
+        return validated_data
