@@ -6,7 +6,8 @@ from ..views import (
     MFAVerifyView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
-    PasswordChangeRequiredView
+    PasswordChangeRequiredView,
+    PasswordChangeView
 )
 
 app_name = 'auth'
@@ -19,4 +20,5 @@ urlpatterns = [
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('password-change-required/', PasswordChangeRequiredView.as_view(), name='password_change_required'),
+    path('password-change/',PasswordChangeView.as_view(), name='password_change')
 ]
