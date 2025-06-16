@@ -27,7 +27,8 @@ from .serializers import (
     PasswordResetRequestSerializer,
     UserRegisterSerializer,
     PasswordChangeSerializer,
-    UserUpdateSerializer
+    UserUpdateSerializer,
+    MFASetupVerifySerializer,
 )
 from api.docs.views.password import (
     password_reset_confirm_docs,
@@ -503,6 +504,53 @@ class MFASetupView(generics.GenericAPIView):
         })
 
 
+class MFASetupVerifyView(generics.GenericAPIView):
+    """Verify MFA setup by validating the first TOTP code"""
+    serializer_class = MFASetupVerifySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user = request.user
+        mfa_code = serializer.validated_data.get('token')
+        
+        try:
+            if not user.mfa_secret:
+                return Response(
+                    {'detail': 'MFA is not set up for this user'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if self._verify_mfa_code(user, mfa_code):
+                # MFA setup verification successful
+                logger.info(f"MFA setup verified for user: {user.email}")
+                return Response({
+                    'status': 'success',
+                    'message': 'MFA setup verified successfully'
+                })
+            else:
+                return Response(
+                    {'detail': 'Invalid verification code'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            logger.error(f"MFA Setup Verification Error: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': 'Verification failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _verify_mfa_code(self, user, code):
+        """Verify MFA code with clock drift tolerance"""
+        if not user.mfa_secret:
+            return False
+            
+        totp = pyotp.TOTP(user.mfa_secret)
+        return totp.verify(code, valid_window=1)
+
 class MFAVerifyView(generics.GenericAPIView):
     serializer_class = MFAVerifySerializer
     permission_classes = [permissions.AllowAny]
@@ -514,7 +562,7 @@ class MFAVerifyView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         
         uid = serializer.validated_data.get('uid')
-        temp_token = serializer.validated_data.get('temp_token')
+        temp_token = serializer.validated_data.get('tempToken')
         mfa_code = serializer.validated_data.get('token')
         backup_code = serializer.validated_data.get('backup_code')
         

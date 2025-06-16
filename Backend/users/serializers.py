@@ -349,8 +349,33 @@ class MFASetupSerializer(serializers.Serializer):
                 "You must acknowledge that you've saved your backup codes."
             )
         return data
+    
+    
+class MFASetupVerifySerializer(serializers.Serializer):
+    """
+    Serializer for verifying MFA setup by validating the first TOTP code
+    """
+    token = serializers.CharField(
+        required=True, 
+        max_length=6, 
+        min_length=6,
+        help_text="6-digit TOTP code from authenticator app"
+    )
+    
+    def validate_token(self, value):
+        """Validate that token contains only digits"""
+        if not value.isdigit():
+            raise serializers.ValidationError("Token must contain only digits.")
+        
+        if len(value) != 6:
+            raise serializers.ValidationError("Token must be exactly 6 digits.")
+            
+        return value
+    
 
 class MFAVerifySerializer(serializers.Serializer):
+    uid = serializers.CharField(required=True)
+    temp_token = serializers.CharField(required=True)
     token = serializers.CharField(required=True, max_length=6, min_length=6)
     backup_code = serializers.CharField(required=False, max_length=8)
     
@@ -358,6 +383,11 @@ class MFAVerifySerializer(serializers.Serializer):
         if not value.isdigit():
             raise serializers.ValidationError("Token must contain only digits.")
         return value
+
+    def validate(self, data):
+        if not data.get('token') and not data.get('backup_code'):
+            raise serializers.ValidationError("Either token or backup_code is required.")
+        return data
     
 
 class PasswordChangeSerializer(serializers.Serializer):
