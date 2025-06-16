@@ -38,8 +38,10 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 AUTH_USER_MODEL = 'users.User'
 AUTHENTICATION_BACKENDS = [
     'users.backends.EmailAuthBackend',
-    'django.contrib.auth.backends.ModelBackend',  # Fallback
+    'django.contrib.auth.backends.ModelBackend',
 ]
+MAX_LOGIN_ATTEMPTS = 5  # Lock account after 5 failed attempts
+LOGIN_LOCKOUT_DURATION = 3600 # 1 hour in seconds
 
 # Session settings
 SESSION_COOKIE_AGE = 3600  # 1 hour in seconds
@@ -72,7 +74,38 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Security settings
 PASSWORD_EXPIRATION_DAYS = 90  # Require password change every 90 days
-MAX_LOGIN_ATTEMPTS = 5  # Lock account after 5 failed attempts
+
+# MFA settings
+MFA_TOKEN_EXPIRY = 300  # 5 minutes
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'detailed': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/security.log',
+            'maxBytes': 1024*1024*15,  # 15MB
+            'backupCount': 10,
+            'formatter': 'detailed',
+        },
+    },
+    'loggers': {
+        'your_app_name.views': {
+            'handlers': ['security_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
 
 
 

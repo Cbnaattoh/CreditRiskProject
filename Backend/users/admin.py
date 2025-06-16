@@ -65,7 +65,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(LoginHistory)
 class LoginHistoryAdmin(admin.ModelAdmin):
-    list_display = ('user', 'ip_address', 'login_time', 'logout_time', 'was_successful')
-    list_filter = ('was_successful', 'login_time')
+    list_display = ('user', 'ip_address', 'login_timestamp', 'session_duration', 'was_successful')
+    list_filter = ('was_successful', 'login_timestamp')
     search_fields = ('user__email', 'ip_address', 'user_agent')
-    ordering = ('-login_time',)
+    ordering = ('-login_timestamp',)

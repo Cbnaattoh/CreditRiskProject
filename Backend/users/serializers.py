@@ -1,75 +1,183 @@
 from rest_framework import serializers, exceptions
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from .models import UserProfile, LoginHistory
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
+from django.utils import timezone
 import logging
 
 User = get_user_model()
 USER_TYPES = [choice[0] for choice in User.USER_TYPES]
 logger = logging.getLogger(__name__)
 
+# class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+#     def validate(self, attrs):
+#         try:
+#             data = super().validate(attrs)
+#         except exceptions.AuthenticationFailed as e:
+#             # Log failed authentication attempts
+#             logger.warning(f"Failed login attempt for email: {attrs.get('email', 'unknown')}")
+#             raise exceptions.ValidationError(
+#                 {"detail": "Invalid email or password"}
+#             )
+        
+#         # Add custom claims
+#         data.update({
+#             'user': {
+#                 'id': self.user.id,
+#                 'email': self.user.email,
+#                 'name': f"{self.user.first_name} {self.user.last_name}",
+#                 'role': self.user.user_type,
+#                 'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
+#                 'is_verified': self.user.is_verified,
+#                 'password_expired': self.user.is_password_expired(), # should be removed for security concerns
+#                 'requires_password_change': self.user.is_password_expired()
+#             },
+#             'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
+#             'is_verified': self.user.is_verified, # should be removed for security concerns
+#             'requires_password_change': self.user.is_password_expired()
+#         })
+#         return data
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Improved token serializer with better security practices
+    """
+    
     def validate(self, attrs):
         try:
-            data = super().validate(attrs)
-        except exceptions.AuthenticationFailed as e:
-            # Log failed authentication attempts
-            logger.warning(f"Failed login attempt for email: {attrs.get('email', 'unknown')}")
+            # Use authenticate method for better security
+            email = attrs.get('email', '').strip().lower()
+            password = attrs.get('password', '')
+            
+            # Additional validation
+            if not email or not password:
+                raise exceptions.ValidationError(
+                    {"detail": "Email and password are required"}
+                )
+            
+            user = authenticate(username=email, password=password)
+            if not user:
+                # Log failed attempt without exposing user existence
+                logger.warning(
+                    f"Failed login attempt for email: {email}",
+                    extra={'email': email, 'timestamp': timezone.now()}
+                )
+                raise exceptions.AuthenticationFailed(
+                    "Invalid email or password"
+                )
+            
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(
+                    f"Login attempt for inactive account: {email}",
+                    extra={'email': email, 'user_id': user.id}
+                )
+                raise exceptions.AuthenticationFailed(
+                    "Account is inactive"
+                )
+            
+            # Set user for token generation
+            self.user = user
+            
+            # Generate tokens
+            refresh = self.get_token(user)
+            data = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+            
+            # Add minimal user info (remove sensitive fields)
+            data.update({
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': f"{user.first_name} {user.last_name}".strip(),
+                    'role': user.user_type,
+                    'is_verified': user.is_verified,
+                }
+            })
+            
+            # Handle MFA separately in view
+            return data
+            
+        except exceptions.AuthenticationFailed:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during authentication: {str(e)}")
             raise exceptions.ValidationError(
-                {"detail": "Invalid email or password"}
+                {"detail": "Authentication failed"}
             )
-        
-        # Add custom claims
-        data.update({
-            'user': {
-                'id': self.user.id,
-                'email': self.user.email,
-                'name': f"{self.user.first_name} {self.user.last_name}",
-                'role': self.user.user_type,
-                'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
-                'is_verified': self.user.is_verified,
-                'password_expired': self.user.is_password_expired(), # should be removed for security concerns
-                'requires_password_change': self.user.is_password_expired()
-            },
-            'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
-            'is_verified': self.user.is_verified, # should be removed for security concerns
-            'requires_password_change': self.user.is_password_expired()
-        })
-        return data
+
+
+# class UserSerializer(serializers.ModelSerializer):
+#     profile_picture = serializers.SerializerMethodField()
+#     full_name = serializers.SerializerMethodField()
+#     password_expired = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = User
+#         # fields = [
+#         #     'email', 'first_name', 'last_name', 'user_type', 'phone_number',
+#         #     'is_verified', 'mfa_enabled', 'profile_picture'
+#         # ]
+#         fields = [
+#             'id', 'email', 'first_name', 'last_name', 'full_name', 'user_type', 
+#             'phone_number', 'is_verified', 'mfa_enabled', 'profile_picture',
+#             'date_joined', 'last_login', 'password_expired'
+#         ]
+#         read_only_fields = ['id','is_verified', 'mfa_enabled', 'date_joined','last_login','password_expired']
+    
+#     def get_profile_picture(self, obj):
+#         if hasattr(obj, 'profile') and obj.profile.profile_picture:
+#             request = self.context.get('request')
+#             if request:
+#                 return request.build_absolute_uri(obj.profile.profile_picture.url)
+#         return None
+    
+#     def get_full_name(self, obj):
+#         return f"{obj.first_name} {obj.last_name}".strip()
+    
+#     def get_password_expired(self, obj):
+#         return obj.is_password_expired()
+
+
 
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Improved user serializer with better field management
+    """
     profile_picture = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
-    password_expired = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = User
-        # fields = [
-        #     'email', 'first_name', 'last_name', 'user_type', 'phone_number',
-        #     'is_verified', 'mfa_enabled', 'profile_picture'
-        # ]
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'full_name', 'user_type', 
-            'phone_number', 'is_verified', 'mfa_enabled', 'profile_picture',
-            'date_joined', 'last_login', 'password_expired'
+            'id', 'email', 'first_name', 'last_name', 'full_name', 
+            'user_type', 'phone_number', 'is_verified', 'profile_picture', 
+            'date_joined', 'last_login'
         ]
-        read_only_fields = ['id','is_verified', 'mfa_enabled', 'date_joined','last_login','password_expired']
-    
+        read_only_fields = [
+            'id', 'is_verified', 'date_joined', 'last_login'
+        ]
+        extra_kwargs = {
+            'phone_number': {'write_only': True},
+            'email': {'required': True},
+        }
+
     def get_profile_picture(self, obj):
         if hasattr(obj, 'profile') and obj.profile.profile_picture:
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.profile.profile_picture.url)
         return None
-    
+
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
     
-    def get_password_expired(self, obj):
-        return obj.is_password_expired()
-    
+
+
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
@@ -223,7 +331,7 @@ class LoginHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LoginHistory
-        fields = ['id','user_email','ip_address', 'user_agent','session_key', 'login_time', 'logout_time', 'was_successful', 'session_duration']
+        fields = ['id','user_email','ip_address', 'user_agent', 'login_timestamp', 'was_successful', 'session_duration']
 
     def get_session_duration(self, obj):
         if obj.logout_time and obj.login_time:

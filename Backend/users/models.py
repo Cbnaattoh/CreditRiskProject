@@ -10,6 +10,7 @@ import hashlib
 
 
 
+
 class User(AbstractUser):
     USER_TYPES = (
         ('ADMIN', 'Administrator'),
@@ -84,17 +85,23 @@ class UserProfile(models.Model):
     
 
 class LoginHistory(models.Model):
+    """ Login history tracking"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
     ip_address = models.GenericIPAddressField()
-    user_agent = models.CharField(max_length=255)
-    session_key = models.CharField(max_length=40, blank=True, null=True)
-    login_time = models.DateTimeField(auto_now_add=True)
-    logout_time = models.DateTimeField(null=True, blank=True)
-    was_successful = models.BooleanField(default=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    was_successful = models.BooleanField()
+    failure_reason = models.CharField(max_length=100, blank=True, null=True)
+    login_timestamp = models.DateTimeField(default=timezone.now)
+    session_duration = models.DurationField(null=True, blank=True)
     
     class Meta:
-        verbose_name_plural = "Login Histories"
-        ordering = ['-login_time']
+        ordering = ['-login_timestamp']
+        indexes = [
+            models.Index(fields=['user', 'login_timestamp']),
+            models.Index(fields=['ip_address', 'login_timestamp']),
+            models.Index(fields=['was_successful', 'login_timestamp']),
+        ]
     
     def __str__(self):
-        return f"{self.user.email} - {self.login_time}"
+        status = "Success" if self.was_successful else f"Failed ({self.failure_reason})"
+        return f"{self.user.email} - {status} - {self.login_timestamp}"

@@ -50,7 +50,12 @@ User = get_user_model()
 
 
 class LoginThrottle(AnonRateThrottle):
+    """Rate limiting for login attempts"""
     rate = '10/min'
+
+class StrictLoginThrottle(AnonRateThrottle):
+    """Strict rate limiting for repeated failures"""
+    rate = '3/min'
 
 
 class LoginView(TokenObtainPairView):
@@ -59,7 +64,7 @@ class LoginView(TokenObtainPairView):
 
     @login_docs
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email', '').strip()
+        email = request.data.get('email', '').strip().lower()
         password = request.data.get('password', '').strip()
         
         if not email or not password:
@@ -70,118 +75,205 @@ class LoginView(TokenObtainPairView):
         
         # Check for account lockout
         if self._is_account_locked(email):
+            logger.warning(
+                f"Login attempt on locked account: {email}",
+                extra={'email': email, 'ip': self._get_client_ip(request)}
+            )
             return Response(
                 {"detail": "Account temporarily locked due to multiple failed attempts"},
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
         try:
-            user = User.objects.select_related('profile').get(email=email)
+            # Get serializer and validate
+            serializer = self.get_serializer(data=request.data)
             
-            # Check if account is active
-            if not user.is_active:
-                self._log_failed_attempt(email, request, 'Account inactive')
+            if not serializer.is_valid():
+                self._handle_failed_login(email, request, 'Invalid credentials')
                 return Response(
-                    {"detail": "Account is inactive"},
+                    serializer.errors,
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-
-            response = super().post(request, *args, **kwargs)
             
-            if response.status_code == 200:
-                self._handle_successful_login(user, request)
-                
-                # Check for password expiration
-                if user.is_password_expired():
-                    response.data.update({
-                        'requires_password_change': True,
-                        'password_expired': True
-                    })
-                
-                # Handle MFA if enabled
-                if user.mfa_enabled:
-                    return self._handle_mfa_required(user, response)
-                    
-                # Clear failed attempts on successful login
-                self._clear_failed_attempts(email)
-                
-            return response
+            # Get validated data
+            validated_data = serializer.validated_data
+            user = serializer.user
             
-        except User.DoesNotExist:
-            self._log_failed_attempt(email, request, 'User not found')
-            return Response(
-                {"detail": "Invalid email or password"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            # Handle successful authentication
+            self._handle_successful_login(user, request)
+            
+            # Check for password expiration (after successful auth)
+            if user.is_password_expired():
+                validated_data.update({
+                    'requires_password_change': True,
+                    'password_expired': True
+                })
+            
+            # Handle MFA if enabled
+            if user.mfa_enabled:
+                return self._handle_mfa_required(user, validated_data)
+            
+            # Clear failed attempts on successful login
+            self._clear_failed_attempts(email)
+            
+            return Response(validated_data, status=status.HTTP_200_OK)
+            
         except Exception as e:
-            logger.error(f"Login error for {email}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Unexpected login error for {email}: {str(e)}", 
+                exc_info=True,
+                extra={'email': email, 'ip': self._get_client_ip(request)}
+            )
             return Response(
                 {"detail": "Login failed"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+
     def _handle_successful_login(self, user, request):
         """Handle successful login logging and session management"""
         try:
             with transaction.atomic():
+                # Create Login history record
                 LoginHistory.objects.create(
                     user=user,
                     ip_address=self._get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
-                    was_successful=True
+                    was_successful=True,
+                    login_timestamp = timezone.now()
                 )
                 
                 # Update last login
                 user.last_login = timezone.now()
                 user.save(update_fields=['last_login'])
                 
-                logger.info(f"Successful login: {user.email} from IP: {self._get_client_ip(request)}")
+                logger.info(
+                    f"Successful login: {user.email}",
+                    extra={
+                        'user_id': user.id,
+                        'email': user.email,
+                        'ip': self._get_client_ip(request)
+                    }
+                )
         except Exception as e:
             logger.error(f"Error logging successful login: {str(e)}")
 
-    def _handle_mfa_required(self, user, response):
+    def _handle_mfa_required(self, user, response_data):
         """Handle MFA requirement for login"""
-        temp_token = default_token_generator.make_token(user)
-        uid_encoded = urlsafe_base64_encode(force_bytes(user.pk))
-        
-        # Store temp token in cache with expiration
-        cache_key = f"mfa_temp_token:{user.id}"
-        cache.set(cache_key, temp_token, timeout=300)  # 5 minutes
-        
-        response.data.update({
-            'requires_mfa': True,
-            'temp_token': temp_token,
-            'uid': uid_encoded,
-            'access': None,  # Don't provide access token until MFA is verified
-            'refresh': None
-        })
-        return response
+        try:
+            # Generate temporary token for MFA verification
+            temp_token = default_token_generator.make_token(user)
+            uid_encoded = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Store temp token in cache with short expiration
+            cache_key = f"mfa_temp_token:{user.id}:{temp_token}"
+            cache.set(cache_key, {
+                'user_id': user.id,
+                'email': user.email,
+                'created_at': timezone.now().isoformat()
+            }, timeout=300)  # 5 minutes
+            
+            # Return MFA challenge response
+            mfa_response = {
+                'requires_mfa': True,
+                'temp_token': temp_token,
+                'uid': uid_encoded,
+                'user': response_data.get('user'),
+                'message': 'MFA verification required'
+            }
+            
+            logger.info(f"MFA required for user: {user.email}")
+            return Response(mfa_response, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error handling MFA requirement: {str(e)}")
+            return Response(
+                {"detail": "MFA setup error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def _is_account_locked(self, email):
         """Check if account is locked due to failed attempts"""
         cache_key = f"failed_attempts:{email}"
-        attempts = cache.get(cache_key, 0)
-        return attempts >= getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
-
-    def _log_failed_attempt(self, email, request, reason):
-        """Log failed login attempt"""
-        cache_key = f"failed_attempts:{email}"
-        attempts = cache.get(cache_key, 0) + 1
-        cache.set(cache_key, attempts, timeout=3600)  # 1 hour lockout
+        attempt_data = cache.get(cache_key, {})
         
-        # Log to database if user exists
+        max_attempts = getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+        lockout_duration = getattr(settings, 'LOGIN_LOCKOUT_DURATION', 3600)
+        
+        if not attempt_data:
+            return False
+            
+        attempts = attempt_data.get('count', 0)
+        last_attempt = attempt_data.get('last_attempt')
+        
+        if attempts >= max_attempts:
+            if last_attempt:
+                # Check if lockout period has expired
+                lockout_expiry = last_attempt + lockout_duration
+                if timezone.now().timestamp() > lockout_expiry:
+                    # Lockout expired, clear attempts
+                    self._clear_failed_attempts(email)
+                    return False
+            return True
+        
+        return False
+
+    def _handle_failed_login(self, email, request, reason):
+        """Handle failed login attempt with enhanced tracking"""
+        cache_key = f"failed_attempts:{email}"
+        current_time = timezone.now()
+        
+        # Get existing attempt data
+        attempt_data = cache.get(cache_key, {
+            'count': 0,
+            'first_attempt': current_time.timestamp(),
+            'attempts': []
+        })
+        
+        # Update attempt data
+        attempt_data['count'] += 1
+        attempt_data['last_attempt'] = current_time.timestamp()
+        attempt_data['attempts'].append({
+            'timestamp': current_time.timestamp(),
+            'ip': self._get_client_ip(request),
+            'reason': reason
+        })
+        
+        # Keep only recent attempts (last 24 hours)
+        cutoff_time = current_time.timestamp() - 86400  # 24 hours
+        attempt_data['attempts'] = [
+            att for att in attempt_data['attempts'] 
+            if att['timestamp'] > cutoff_time
+        ]
+        
+        # Store updated attempt data
+        cache.set(cache_key, attempt_data, timeout=3600)  # 1 hour
+        
+        # Log failed attempt
         try:
             user = User.objects.get(email=email)
             LoginHistory.objects.create(
                 user=user,
                 ip_address=self._get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
-                was_successful=False
+                was_successful=False,
+                failure_reason=reason,
+                login_timestamp=current_time
             )
         except User.DoesNotExist:
+            # Don't create history for non-existent users
             pass
             
-        logger.warning(f"Failed login attempt: {email} from IP: {self._get_client_ip(request)} - {reason}")
+        logger.warning(
+            f"Failed login attempt: {email} - {reason}",
+            extra={
+                'email': email,
+                'ip': self._get_client_ip(request),
+                'attempt_count': attempt_data['count'],
+                'reason': reason
+            }
+        )
 
     def _clear_failed_attempts(self, email):
         """Clear failed login attempts"""
@@ -189,13 +281,25 @@ class LoginView(TokenObtainPairView):
         cache.delete(cache_key)
 
     def _get_client_ip(self, request):
-        """Get client IP address"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
-        return ip
+        """Get client IP address with improved detection"""
+        # Check for forwarded IPs (common in load balancer setups)
+        forwarded_ips = [
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_REAL_IP',
+            'HTTP_CF_CONNECTING_IP',  # Cloudflare
+            'HTTP_X_CLUSTER_CLIENT_IP',
+        ]
+        
+        for header in forwarded_ips:
+            ip_list = request.META.get(header)
+            if ip_list:
+                # Take the first IP if there are multiple
+                ip = ip_list.split(',')[0].strip()
+                if ip:
+                    return ip
+        
+        # Fallback to REMOTE_ADDR
+        return request.META.get('REMOTE_ADDR', '0.0.0.0')
 
 
 
