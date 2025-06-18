@@ -23,7 +23,7 @@ const ProtectedRoute = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate("/login");
+      navigate("/");
       return;
     }
 
@@ -34,7 +34,7 @@ const ProtectedRoute = () => {
 
   useEffect(() => {
     if (error) {
-      navigate("/login");
+      navigate("/");
     }
   }, [error, navigate]);
 
