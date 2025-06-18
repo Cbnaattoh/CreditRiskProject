@@ -1,12 +1,57 @@
 import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
 import { FiSearch, FiBell, FiHelpCircle, FiLogOut } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  selectCurrentUser,
+  selectIsAuthenticated,
+} from "../../../../components/redux/features/auth/authSlice";
+import { logout } from "../../../../components/redux/features/auth/authSlice";
+import { useLogoutMutation } from "../../../../components/redux/features/auth/authApi";
 
 const Header: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // Get user from Redux store
+  const user = useSelector(selectCurrentUser);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const [logoutMutation] = useLogoutMutation();
+
+  // Generate initials from user name
+  const getInitials = (name: string): string => {
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("")
+      .substring(0, 2);
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logoutMutation().unwrap();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      dispatch(logout());
+      navigate("/");
+      setProfileOpen(false);
+    }
+  };
+
+  // Default user fallback
+  const currentUser = user || {
+    name: "Admin User",
+    email: "admin@riskguard.com",
+    role: "ADMIN",
+  };
+
+  const userInitials = getInitials(currentUser.name);
 
   // Define page titles based on routes
   const getPageInfo = (pathname: string) => {
@@ -93,8 +138,8 @@ const Header: React.FC = () => {
               onClick={() => setProfileOpen(!profileOpen)}
               className="flex items-center space-x-2 focus:outline-none"
             >
-              <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                AU
+              <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-medium">
+                {userInitials}
               </div>
             </button>
 
@@ -107,10 +152,33 @@ const Header: React.FC = () => {
                   className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
                 >
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium">Admin User</p>
-                    <p className="text-xs text-gray-500">admin@riskguard.com</p>
+                    <p
+                      className="text-sm font-medium truncate"
+                      title={currentUser.name}
+                    >
+                      {currentUser.name}
+                    </p>
+                    <p
+                      className="text-xs text-gray-500 truncate"
+                      title={currentUser.email}
+                    >
+                      {currentUser.email}
+                    </p>
+                    {currentUser.role && (
+                      <p className="text-xs text-indigo-600 font-medium mt-1">
+                        {currentUser.role}
+                      </p>
+                    )}
+                    {!isAuthenticated && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Not authenticated
+                      </p>
+                    )}
                   </div>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
                     <FiLogOut className="mr-2" /> Sign out
                   </button>
                 </motion.div>

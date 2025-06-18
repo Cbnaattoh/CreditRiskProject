@@ -1,23 +1,23 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { logout } from "../../redux/features/auth/authSlice";
-import { useVerifyTokenMutation } from "../../redux/features/auth/authApi";
+import { useGetCurrentUserQuery } from "../../redux/features/auth/authApi";
 
 const useAutoLogout = () => {
   const dispatch = useDispatch();
-  const [verifyToken] = useVerifyTokenMutation();
+  const { refetch } = useGetCurrentUserQuery();
 
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        await verifyToken().unwrap();
+        await refetch().unwrap();
       } catch (err) {
         dispatch(logout());
       }
-    }, 5 * 60 * 1000);
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [dispatch, verifyToken]);
+  }, [dispatch, refetch]);
 };
 
 export default useAutoLogout;

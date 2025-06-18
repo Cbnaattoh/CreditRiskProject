@@ -4,7 +4,7 @@ import type {
   BaseQueryApi,
 } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "../../../store";
-import { logout, setAuthToken } from "../../../features/auth/authSlice";
+import { logout, setAuthTokenString } from "../../../features/auth/authSlice";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -52,7 +52,7 @@ const baseQueryWithReauth = async (
 
     if (refreshResult.data) {
       const { token } = refreshResult.data as { token: string };
-      api.dispatch(setAuthToken(token));
+      api.dispatch(setAuthTokenString(token));
       result = await baseQuery(args, api, extraOptions);
     } else {
       api.dispatch(logout());

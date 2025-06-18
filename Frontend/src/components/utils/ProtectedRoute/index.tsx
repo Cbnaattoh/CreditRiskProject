@@ -1,31 +1,52 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, Outlet } from "react-router-dom";
-import { selectIsAuthenticated } from "../../redux/features/auth/authSlice";
-import { useVerify2FAMutation } from "../../redux/features/auth/authApi";
+import {
+  selectIsAuthenticated,
+  selectCurrentUser,
+} from "../../redux/features/auth/authSlice";
+import { useGetCurrentUserQuery } from "../../redux/features/auth/authApi";
 
 const ProtectedRoute = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const [verifyToken] = useVerify2FAMutation();
+  const user = useSelector(selectCurrentUser);
   const navigate = useNavigate();
+  const [shouldVerify, setShouldVerify] = useState(false);
+
+  const {
+    data: userData,
+    error,
+    isLoading,
+  } = useGetCurrentUserQuery(undefined, {
+    skip: !shouldVerify || !isAuthenticated,
+  });
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        await verifyToken().unwrap();
-      } catch (err) {
-        navigate("/login");
-      }
-    };
-
     if (!isAuthenticated) {
       navigate("/login");
-    } else {
-      checkAuth();
+      return;
     }
-  }, [isAuthenticated, navigate, verifyToken]);
 
-  return isAuthenticated ? <Outlet /> : null;
+    if (isAuthenticated && !user) {
+      setShouldVerify(true);
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  useEffect(() => {
+    if (error) {
+      navigate("/login");
+    }
+  }, [error, navigate]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (isLoading) {
+    return <div>Verifying authentication...</div>;
+  }
+
+  return <Outlet />;
 };
 
 export default ProtectedRoute;
