@@ -1,6 +1,14 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().optional(),
+  enableMFA: z.boolean().optional(),
+});
+
+export const registrationSchema = z.object({
+  name: z.string().min(1, "Full name is required"),
   email: z
     .string()
     .min(1, "Email is required")
@@ -16,8 +24,9 @@ export const loginSchema = z.object({
       /[^A-Za-z0-9]/,
       "Password must contain at least one special character"
     ),
-  rememberMe: z.boolean().optional(),
-  enableMFA: z.boolean().optional()
+  acceptTerms: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the terms" }),
+  }),
 });
 
 export const twoFASchema = z.object({
