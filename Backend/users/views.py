@@ -1,9 +1,10 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.exceptions import APIException, ValidationError
 from django.core.exceptions import ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import LoginHistory, UserProfile
@@ -310,21 +311,42 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    parser_classes = [MultiPartParser, FormParser]
+
     @register_docs
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        # Enhanced debugging
+        print(f"Content-Type: {request.content_type}")
+        print(f"Request META: {request.META.get('CONTENT_TYPE', 'Not set')}")
+        print(f"Request data keys: {list(request.data.keys())}")
         
-        email = serializer.validated_data.get('email', '').lower()
-
-        # Double-check for existing user
-        if User.objects.filter(email=email).exists():
-            return Response(
-                {"detail": "User with this email already exists"},
-                status=status.HTTP_409_CONFLICT
-            )
+        # Log data types for debugging
+        for key, value in request.data.items():
+            if hasattr(value, 'read'):  # It's a file
+                print(f"{key}: File object - {getattr(value, 'name', 'unknown')}")
+            else:
+                print(f"{key}: {type(value)} = {value}")
         
         try:
+            serializer = self.get_serializer(data=request.data)
+            
+            # More detailed validation error handling
+            if not serializer.is_valid():
+                print(f"Serializer validation errors: {serializer.errors}")
+                return Response(
+                    {"detail": "Validation failed", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            email = serializer.validated_data.get('email', '').lower()
+
+            # Double-check for existing user
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {"detail": "User with this email already exists"},
+                    status=status.HTTP_409_CONFLICT
+                )
+            
             with transaction.atomic():
                 user = serializer.save()
                 
@@ -347,12 +369,19 @@ class RegisterView(generics.CreateAPIView):
                     'message': 'Registration successful'
                 }, status=status.HTTP_201_CREATED)
                 
+        except serializers.ValidationError as e:
+            logger.error(f"Validation error for registration: {str(e)}")
+            return Response(
+                {"detail": "Validation failed", "errors": e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            logger.error(f"Registration failed for {email}: {str(e)}", exc_info=True)
+            logger.error(f"Registration failed: {str(e)}", exc_info=True)
             return Response(
                 {"detail": "Registration failed. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

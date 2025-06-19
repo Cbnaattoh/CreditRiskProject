@@ -185,7 +185,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         required=True,
         style={'input_type': 'password'},
         min_length=8,
-        help_text='Password must be atleast 8 characters long'
+        help_text='Password must be at least 8 characters long'
     )
     confirm_password = serializers.CharField(
         write_only=True,
@@ -202,7 +202,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     mfa_enabled = serializers.BooleanField(required=False, default=False)
     terms_accepted = serializers.BooleanField(required=True, write_only=True)
 
-
     class Meta:
         model = User
         fields = [
@@ -212,23 +211,66 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'first_name': {'required': True, 'min_length': 2},
             'last_name': {'required': True, 'min_length': 2},
-            'email': {'help_text': 'Enter a valid email address'}
+            'email': {'help_text': 'Enter a valid email address'},
+            'phone_number': {'required': False, 'allow_blank': True}
         }
 
+    def to_internal_value(self, data):
+        """Override to handle FormData boolean conversion and file handling"""
+        # Handle mutable data
+        if hasattr(data, '_mutable') and not data._mutable:
+            data._mutable = True
+        
+        # Convert string booleans to actual booleans for FormData
+        boolean_fields = ['mfa_enabled', 'terms_accepted']
+        for field in boolean_fields:
+            if field in data:
+                value = data[field]
+                if isinstance(value, str):
+                    # Handle various string representations of booleans
+                    data[field] = value.lower() in ('true', '1', 'yes', 'on')
+                elif isinstance(value, bool):
+                    data[field] = value
+                else:
+                    # Default to False for any other type
+                    data[field] = False
+        
+        # Handle empty strings for optional fields
+        optional_fields = ['phone_number']
+        for field in optional_fields:
+            if field in data and data[field] == '':
+                data[field] = None
+        
+        try:
+            return super().to_internal_value(data)
+        except Exception as e:
+            print(f"Error in to_internal_value: {e}")
+            print(f"Data received: {data}")
+            raise
 
     def validate_email(self, value):
         """Custom email validation with consistent normalization"""
-        validate_email(value)
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        
+        try:
+            validate_email(value)
+        except Exception as e:
+            raise serializers.ValidationError("Please enter a valid email address.")
+        
         normalized_email = User.objects.normalize_email(value).lower()
+        
         # Check if email already exists
         if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
+        
         return normalized_email
 
     def validate_phone_number(self, value):
         """Validate phone number format"""
-        if value and not value.startswith('+'):
-            raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
+        if value and value.strip():  # Only validate if not empty
+            if not value.startswith('+'):
+                raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
         return value
 
     def validate_terms_accepted(self, value):
@@ -237,6 +279,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You must accept the terms and conditions.")
         return value
 
+    def validate_profile_picture(self, value):
+        """Validate profile picture"""
+        if value:
+            # Check file size (5MB limit)
+            if value.size > 5 * 1024 * 1024:
+                raise serializers.ValidationError("Profile picture must be smaller than 5MB.")
+            
+            # Check file type
+            allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if hasattr(value, 'content_type') and value.content_type not in allowed_types:
+                raise serializers.ValidationError("Only JPEG, PNG, GIF, and WebP images are allowed.")
+        
+        return value
 
     def validate(self, data):
         """Cross-field validation"""
@@ -249,14 +304,11 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise serializers.ValidationError({"password": list(e.messages)})
         
-        # Check if password is expired (for consistency)
-        # This is mainly for future use cases where password policies might be stricter
-        
         return data
 
     def validate_user_type(self, value):
         """Validate user type"""
-        if value not in USER_TYPES:
+        if value not in [choice[0] for choice in User.USER_TYPES]:
             raise serializers.ValidationError("Invalid user type.")
         
         # Restrict certain user types during registration
@@ -296,7 +348,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Registration failed. Please try again.")
         
 
-
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
@@ -308,7 +359,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['email', 'first_name', 'last_name','full_name', 'phone_number', 'user_type', 'profile_picture_url', 'company', 'job_title', 
+        fields = ['email', 'first_name', 'last_name','full_name', 'phone_number', 'user_type','profile_picture', 'profile_picture_url', 'company', 'job_title', 
                  'department', 'bio', 'timezone']
         extra_kwargs = {
             'profile_picture': {'required': False},
