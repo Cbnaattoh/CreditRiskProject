@@ -20,6 +20,30 @@ interface LoginCredentials {
   enableMFA?: boolean;
 }
 
+interface RegisterCredentials {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  confirmPassword: string;
+  userType: string;
+  profilePicture?: File;
+  mfaEnabled?: boolean;
+  termsAccepted: boolean;
+}
+
+interface RegisterResponse {
+  user: User;
+  token?: string;
+  access?: string;
+  refresh?: string;
+  refreshToken?: string;
+  message: string;
+  requiresVerification?: boolean;
+  verificationEmailSent?: boolean;
+}
+
 interface LoginResponse {
   user: User;
   token: string;
@@ -106,6 +130,82 @@ export const authApi = apiSlice.injectEndpoints({
           return {
             status: response.status,
             data: { detail: "Authentication server error" },
+          };
+        }
+        return response;
+      },
+      invalidatesTags: ["Auth"],
+    }),
+
+    register: builder.mutation<RegisterResponse, RegisterCredentials>({
+      query: (credentials) => {
+        const formData = new FormData();
+
+        formData.append("first_name", credentials.firstName);
+        formData.append("last_name", credentials.lastName);
+        formData.append("email", credentials.email);
+        formData.append("phone_number", credentials.phoneNumber || "");
+        formData.append("password", credentials.password);
+        formData.append("confirm_password", credentials.confirmPassword);
+        formData.append("user_type", credentials.userType);
+        formData.append(
+          "mfa_enabled",
+          credentials.mfaEnabled ? "true" : "false"
+        );
+        formData.append(
+          "terms_accepted",
+          credentials.termsAccepted ? "true" : "false"
+        );
+
+        // Add profile picture if provided
+        if (
+          credentials.profilePicture &&
+          credentials.profilePicture instanceof File
+        ) {
+          formData.append("profile_picture", credentials.profilePicture);
+        }
+
+        return {
+          url: "auth/register/",
+          method: "POST",
+          body: formData,
+          prepareHeaders: (headers) => {
+            headers.delete("Content-Type");
+            return headers;
+          },
+        };
+      },
+      transformResponse: (response: any): RegisterResponse => ({
+        ...response,
+        token: response.access || response.token,
+        refreshToken: response.refresh || response.refreshToken,
+      }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+
+          // If registration returns a token (auto-login), set credentials
+          if (data.token && data.user) {
+            dispatch(
+              setCredentials({
+                user: data.user,
+                token: data.token,
+                refreshToken: data.refreshToken,
+              })
+            );
+          }
+        } catch (error) {
+          console.error("Registration error:", error);
+        }
+      },
+      transformErrorResponse: (response) => {
+        if (
+          typeof response.data === "string" &&
+          response.data.includes("<!DOCTYPE html>")
+        ) {
+          return {
+            status: response.status,
+            data: { detail: "Registration server error" },
           };
         }
         return response;
@@ -271,11 +371,31 @@ export const authApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
+    verifyEmail: builder.mutation<{ message: string }, { token: string }>({
+      query: (data) => ({
+        url: "auth/verify-email/",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Auth", "User"],
+    }),
+
+    resendVerificationEmail: builder.mutation<
+      { message: string },
+      { email: string }
+    >({
+      query: (data) => ({
+        url: "auth/resend-verification/",
+        method: "POST",
+        body: data,
+      }),
+    }),
   }),
 });
 
 export const {
   useLoginMutation,
+  useRegisterMutation,
   useVerifyMFAMutation,
   useSetupMFAMutation,
   useLogoutMutation,
@@ -286,6 +406,8 @@ export const {
   useChangePasswordMutation,
   useRequestPasswordResetMutation,
   useConfirmPasswordResetMutation,
+  useVerifyEmailMutation,
+  useResendVerificationEmailMutation,
 } = authApi;
 
-export type { User };
+export type { User, RegisterCredentials, RegisterResponse };

@@ -10,24 +10,19 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: BASE_URL,
-  prepareHeaders: (headers, { getState }) => {
+  prepareHeaders: (headers, { getState, extra }) => {
     const state = getState() as RootState;
     const token = state.auth.token;
 
-    console.log("Current auth state in prepareHeaders:", {
-      token: token,
-      isAuthenticated: state.auth.isAuthenticated,
-      user: state.auth.user,
-    });
-
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
-      console.log("Authorization header set with token");
     } else {
       console.warn("No token available for request");
     }
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
 
-    headers.set("Content-Type", "application/json");
     headers.set("Accept", "application/json");
     return headers;
   },
