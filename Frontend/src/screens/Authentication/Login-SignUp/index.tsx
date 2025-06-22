@@ -18,28 +18,27 @@ import {
 import { useToast, ToastContainer } from "../../../components/utils/Toast";
 import MFAForm from "./components/MFAForm";
 
-// Import modular components
+// Modular components
 import TabNavigation from "./components/TabNavigation";
 import LoginForm from "./components/LoginForm";
 import RegisterForm from "./components/RegisterForm";
 import SidePanel from "./components/SidePanel";
 import BackgroundElements from "./components/BackgroundElements";
 
-// Import types and constants
+// Types and constants
 import type {
   MFASetupData,
   MFAStep,
   FormStep,
   ActiveTab,
-} from "./components//types";
+} from "./components/types";
 import { ANIMATION_VARIANTS } from "./components/constants";
 
-// Import hooks
+// Hooks
 import { useAuthRedirect } from "./components/hooks/useAuthRedirect";
 import { useFormManagement } from "./components/hooks/useFormManagement";
 
 const Login: React.FC = () => {
-  // State management
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState<string>("Admin");
   const [activeTab, setActiveTab] = useState<ActiveTab>("login");
@@ -49,33 +48,27 @@ const Login: React.FC = () => {
   const [mfaSetupData, setMfaSetupData] = useState<MFASetupData | null>(null);
   const [isSettingUpMFA, setIsSettingUpMFA] = useState(false);
 
-  // Hooks
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { toasts, removeToast, success, error, info } = useToast();
   const { loginMethods, mfaFormMethods, registerMethods, resetForms } =
     useFormManagement();
 
-  // Selectors
   const tempToken = useAppSelector((state) => state.auth.tempToken);
   const uid = useAppSelector((state) => state.auth.uid);
 
-  // API hooks
   const [login, { isLoading: isLoginLoading }] = useLoginMutation();
   const [verifyMFA, { isLoading: isMFALoading }] = useVerifyMFAMutation();
   const [setupMFA, { isLoading: isMFASetupLoading }] = useSetupMFAMutation();
   const [verifyMFASetup] = useVerifyMFASetupMutation();
 
-  // Custom hooks
   useAuthRedirect();
 
-  // Computed values
   const isLoading = useMemo(
     () => isLoginLoading || isMFALoading || isMFASetupLoading || isSettingUpMFA,
     [isLoginLoading, isMFALoading, isMFASetupLoading, isSettingUpMFA]
   );
 
-  // Error handling
   const handleApiError = useCallback(
     (err: any, formType: "login" | "mfa") => {
       console.error(`${formType} error:`, err);
@@ -86,79 +79,122 @@ const Login: React.FC = () => {
         err?.message ||
         "An unknown error occurred";
 
+      if (err?.status === 401 && formStep === 2) {
+        handleBackToLogin();
+        return;
+      }
+
+      if (err?.status === 429) {
+        error("Account temporarily locked due to multiple failed attempts");
+        return;
+      }
+
       const methods = formType === "login" ? loginMethods : mfaFormMethods;
       methods.setError("root", { message: errorMessage });
 
       error(errorMessage);
       setShake(true);
       setTimeout(() => setShake(false), 500);
-
-      if (err?.status === 401) {
-        dispatch(logout());
-        if (formStep === 2) {
-          handleBackToLogin();
-        }
-      }
     },
-    [loginMethods, mfaFormMethods, error, dispatch, formStep]
+    [formStep, loginMethods, mfaFormMethods]
   );
 
-  // MFA Setup
-  const handleMFASetup = useCallback(async () => {
-    try {
-      setIsSettingUpMFA(true);
-      await new Promise((resolve) => setTimeout(resolve, 100));
+  const handleMFASetup = useCallback(
+    async (mfaEnabled: boolean, mfaFullyConfigured: boolean) => {
+      try {
+        setIsSettingUpMFA(true);
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const setupResult = await setupMFA({
-        enable: true,
-        backup_codes_acknowledged: false,
-      }).unwrap();
+        let setupResult;
 
-      setMfaSetupData({
-        uri: setupResult.uri,
-        secret: setupResult.secret,
-        backup_codes: setupResult.backup_codes || [],
-      });
+        if (!mfaEnabled) {
+          // Enable MFA and return secrets
+          setupResult = await setupMFA({ enable: true }).unwrap();
+        } else {
+          // Skip enabling again, just show existing step
+          info("MFA already enabled. Please verify setup.");
+          setMfaStep("setup");
+          setFormStep(2);
+          return;
+        }
 
-      setMfaStep("setup");
-      setFormStep(2);
-      success("Scan the QR code with your authenticator app");
-    } catch (setupError: any) {
-      console.error("MFA Setup Error:", setupError);
-      handleApiError(setupError, "login");
-      if (setupError?.status === 401) {
-        dispatch(logout());
-        navigate("/");
+        setMfaSetupData({
+          uri: setupResult.uri!,
+          secret: setupResult.secret!,
+          backup_codes: setupResult.backup_codes || [],
+        });
+
+        setMfaStep("setup");
+        success("Scan the QR code with your authenticator app");
+        setFormStep(2);
+      } catch (setupError: any) {
+        console.error("MFA Setup Error:", setupError);
+
+        if (
+          setupError?.status === 400 &&
+          setupError?.data?.detail === "MFA is already enabled"
+        ) {
+          info("MFA setup already started. Please continue with verification.");
+          setMfaStep("setup");
+          setFormStep(2);
+          return;
+        }
+
+        handleApiError(setupError, "login");
+
+        if (setupError?.status === 401) {
+          dispatch(logout());
+          navigate("/");
+        }
+      } finally {
+        setIsSettingUpMFA(false);
       }
-    } finally {
-      setIsSettingUpMFA(false);
-    }
-  }, [setupMFA, success, handleApiError, dispatch, navigate]);
+    },
+    [setupMFA, success, handleApiError, dispatch, navigate]
+  );
 
-  // Login submission
   const handleLoginSubmit = useCallback(
     async (data: any) => {
       try {
         const result = await login({
           email: data.email,
           password: data.password,
-          enableMFA: data.enableMFA,
         }).unwrap();
 
-        console.log("Login result:", result);
+        console.log("Login form submission:", data);
 
-        if (result.requiresMFA) {
+        const user = result.user;
+        const mfaEnabled = user?.mfa_enabled === true;
+        const mfaFullyConfigured = user?.mfa_fully_configured === true;
+
+        // SAFETY: MFA required but user missing
+        if (result.requires_mfa && !user) {
+          error(
+            "MFA required but user info is missing. Please contact support."
+          );
+          return;
+        }
+
+        // ✅ User must verify MFA
+        if (result.requires_mfa && mfaFullyConfigured) {
           setFormStep(2);
           setMfaStep("verify");
           info("Two-factor authentication required. Please enter your code.");
           return;
         }
 
-        if (data.enableMFA && !result.user.mfa_enabled) {
-          await handleMFASetup();
-          return;
+        if (data.enableMFA && mfaEnabled && !mfaFullyConfigured) {
+          try {
+            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
+            return;
+          } catch (setupError) {
+            console.error("MFA setup error during login:", setupError);
+            error("MFA setup failed. Please try again.");
+            return;
+          }
         }
 
+        // ✅ Normal login
         success("Login successful! Redirecting...");
         setTimeout(() => navigate("/home"), 1500);
       } catch (err: any) {
@@ -166,10 +202,9 @@ const Login: React.FC = () => {
         handleApiError(err, "login");
       }
     },
-    [login, info, handleMFASetup, success, navigate, handleApiError]
+    [login, handleMFASetup, navigate, success, error, handleApiError]
   );
 
-  // MFA submission
   const handleMFASubmit = useCallback(
     async (data: any) => {
       try {
@@ -187,19 +222,19 @@ const Login: React.FC = () => {
 
         if (mfaStep === "verify") {
           await verifyMFA({
-            token: token,
+            token,
             uid: uid || "",
-            tempToken: tempToken || "",
+            temp_token: tempToken || "",
           }).unwrap();
 
           success("Verification successful! Redirecting...");
           setTimeout(() => navigate("/home"), 1500);
         } else if (mfaStep === "setup") {
-          await verifyMFASetup({ token: token }).unwrap();
+          await verifyMFASetup({ token }).unwrap();
 
-          success("MFA setup completed successfully!");
-          setMfaStep("backup");
+          success("MFA verified successfully!");
           info("Please save your backup codes in a secure location");
+          setMfaStep("backup");
         }
       } catch (err: any) {
         console.error("MFA verification error:", err);
@@ -220,7 +255,6 @@ const Login: React.FC = () => {
     ]
   );
 
-  // Navigation handlers
   const handleForgotPassword = useCallback(() => {
     info("Redirecting to password recovery");
     setTimeout(() => navigate("/forgot-password"), 500);
@@ -235,11 +269,20 @@ const Login: React.FC = () => {
     info("Returned to login form");
   }, [resetForms, dispatch, info]);
 
-  const handleBackupCodesAcknowledged = useCallback(() => {
-    success("MFA setup complete! You can now log in.");
-    handleBackToLogin();
-    dispatch(clearMFAState());
-  }, [success, handleBackToLogin, dispatch]);
+  const handleBackupCodesAcknowledged = useCallback(async () => {
+    try {
+      await setupMFA({
+        enable: true,
+        backup_codes_acknowledged: true,
+      }).unwrap();
+
+      success("MFA setup complete! You can now log in.");
+      setTimeout(() => navigate("/home"), 1000);
+    } catch (err: any) {
+      console.error("Backup acknowledgment failed:", err);
+      handleApiError(err, "mfa");
+    }
+  }, [setupMFA, navigate, success, handleApiError]);
 
   // Background effect
   useEffect(() => {

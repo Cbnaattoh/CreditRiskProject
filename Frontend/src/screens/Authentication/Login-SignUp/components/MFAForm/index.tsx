@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FiAlertCircle, FiShield, FiKey } from "react-icons/fi";
+import { FiAlertCircle, FiShield, FiKey, FiSave } from "react-icons/fi";
 import { FormProvider } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
 import { QRCodeCanvas as QRCode } from "qrcode.react";
@@ -20,8 +20,7 @@ interface MFAFormProps {
   handleMFASubmit: (data: { code: string }) => Promise<void>;
   handleBackToLogin: () => void;
   isLoading: boolean;
-  backupCodes?: string[];
-  handleBackupCodesAcknowledged?: () => void;
+  handleBackupCodesAcknowledged: () => void;
 }
 
 const MFAForm: React.FC<MFAFormProps> = ({
@@ -31,6 +30,7 @@ const MFAForm: React.FC<MFAFormProps> = ({
   handleMFASubmit,
   handleBackToLogin,
   isLoading,
+  handleBackupCodesAcknowledged,
 }) => {
   const [codes, setCodes] = useState<string[]>(["", "", "", "", "", ""]);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -110,6 +110,60 @@ const MFAForm: React.FC<MFAFormProps> = ({
         animate={{ opacity: 1 }}
         className="space-y-6"
       >
+        {/* Backup Codes Step */}
+        {mfaStep === "backup" && mfaSetupData?.backup_codes && (
+          <div className="backup-codes-section">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Save Your Backup Codes
+                </h2>
+                <p className="text-gray-600">
+                  These codes can be used if you lose access to your
+                  authenticator app
+                </p>
+              </div>
+              <div className="bg-yellow-100 p-3 rounded-full">
+                <FiSave className="text-yellow-600 text-xl" />
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="font-medium mb-4 text-yellow-800">
+                Please save these codes in a secure location:
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {mfaSetupData.backup_codes.map((code, index) => (
+                  <div
+                    key={index}
+                    className="p-3 bg-white rounded-lg font-mono text-center border border-yellow-100 shadow-sm"
+                  >
+                    {code}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-yellow-700">
+                <strong>Important:</strong> These codes won't be shown again.
+                Each code can only be used once.
+              </p>
+            </div>
+
+            <div className="pt-4">
+              <motion.button
+                type="button"
+                onClick={handleBackupCodesAcknowledged}
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Processing..." : "I've Saved My Backup Codes"}
+              </motion.button>
+            </div>
+          </div>
+        )}
+
+        {/* Setup Step (QR Code) */}
         {mfaStep === "setup" && (
           <>
             <div className="flex items-center justify-between mb-6">
@@ -151,27 +205,10 @@ const MFAForm: React.FC<MFAFormProps> = ({
                   : "Generating secret..."}
               </div>
             </div>
-            {mfaSetupData?.backup_codes && (
-              <div className="mt-4 text-sm text-gray-500">
-                <p className="font-medium mb-2">Your backup codes:</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {mfaSetupData.backup_codes.map((code, index) => (
-                    <div
-                      key={index}
-                      className="p-2 bg-gray-100 rounded font-mono text-center"
-                    >
-                      {code}
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-red-500">
-                  Save these codes in a secure place. They won't be shown again.
-                </p>
-              </div>
-            )}
           </>
         )}
 
+        {/* Verify Step */}
         {mfaStep === "verify" && (
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -188,6 +225,7 @@ const MFAForm: React.FC<MFAFormProps> = ({
           </div>
         )}
 
+        {/* Error Messages */}
         {mfaFormMethods.formState.errors.root && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -210,60 +248,68 @@ const MFAForm: React.FC<MFAFormProps> = ({
           </motion.div>
         )}
 
-        {/* Hidden input for form validation */}
-        <input
-          type="hidden"
-          {...mfaFormMethods.register("code")}
-          value={codeString}
-        />
-
-        <div className="grid grid-cols-6 gap-3">
-          {codes.map((code, i) => (
+        {/* Code Input (only shown for setup and verify steps) */}
+        {(mfaStep === "setup" || mfaStep === "verify") && (
+          <>
+            {/* Hidden input for form validation */}
             <input
-              key={i}
-              ref={(el) => (inputRefs.current[i] = el)}
-              type="text"
-              maxLength={1}
-              value={code}
-              onChange={(e) => handleCodeChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              onPaste={handlePaste}
-              className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
-                mfaFormMethods.formState.errors.code
-                  ? "border-red-500"
-                  : "border-gray-300"
-              } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors`}
-              autoComplete="off"
+              type="hidden"
+              {...mfaFormMethods.register("code")}
+              value={codeString}
             />
-          ))}
-        </div>
 
-        <div className="pt-4 flex space-x-3">
-          <motion.button
-            type="button"
-            onClick={handleBackToLogin}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
-          >
-            Back
-          </motion.button>
-          <motion.button
-            type="button"
-            onClick={mfaFormMethods.handleSubmit(handleMFASubmit)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            disabled={isLoading || !isCodeComplete || codeString.length !== 6}
-            className={`flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors ${
-              isLoading || !isCodeComplete || codeString.length !== 6
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            {isLoading ? "Verifying..." : "Verify"}
-          </motion.button>
-        </div>
+            <div className="grid grid-cols-6 gap-3">
+              {codes.map((code, i) => (
+                <input
+                  key={i}
+                  ref={(el) => (inputRefs.current[i] = el)}
+                  type="text"
+                  maxLength={1}
+                  value={code}
+                  onChange={(e) => handleCodeChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  onPaste={handlePaste}
+                  className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
+                    mfaFormMethods.formState.errors.code
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors`}
+                  autoComplete="off"
+                />
+              ))}
+            </div>
 
+            <div className="pt-4 flex space-x-3">
+              <motion.button
+                type="button"
+                onClick={handleBackToLogin}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
+              >
+                Back
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={mfaFormMethods.handleSubmit(handleMFASubmit)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={
+                  isLoading || !isCodeComplete || codeString.length !== 6
+                }
+                className={`flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors ${
+                  isLoading || !isCodeComplete || codeString.length !== 6
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                {isLoading ? "Verifying..." : "Verify"}
+              </motion.button>
+            </div>
+          </>
+        )}
+
+        {/* Manual Secret Entry (setup step only) */}
         {mfaStep === "setup" && (
           <div className="mt-4 text-sm text-gray-500">
             <p>Can't scan the QR code? Enter this secret manually:</p>
@@ -273,12 +319,12 @@ const MFAForm: React.FC<MFAFormProps> = ({
           </div>
         )}
 
-        {/* Debug info - remove in production */}
+        {/* Debug info - remove in production
         <div className="text-xs text-gray-400 mt-4">
           <p>Code: {codeString}</p>
           <p>Complete: {isCodeComplete ? "Yes" : "No"}</p>
           <p>Valid: {mfaFormMethods.formState.isValid ? "Yes" : "No"}</p>
-        </div>
+        </div> */}
       </motion.div>
     </FormProvider>
   );

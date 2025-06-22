@@ -6,69 +6,51 @@ import {
   setAuthToken,
 } from "../authSlice";
 
+// Base interfaces
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
   mfa_enabled?: boolean;
+  is_verified?: boolean;
+  mfa_fully_configured?: boolean;
 }
 
+interface TokenData {
+  access: string;
+  refresh: string;
+}
+
+interface BaseResponse {
+  message?: string;
+}
+
+// Authentication request interfaces
 interface LoginCredentials {
   email: string;
   password: string;
-  enableMFA?: boolean;
 }
 
 interface RegisterCredentials {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  phoneNumber: string;
+  phone_number?: string;
   password: string;
-  confirmPassword: string;
-  userType: string;
-  profilePicture?: File;
-  mfaEnabled?: boolean;
-  termsAccepted: boolean;
+  confirm_password: string;
+  user_type: string;
+  profile_picture?: File;
+  mfa_enabled?: boolean;
+  terms_accepted: boolean;
 }
 
-interface RegisterResponse {
-  user: User;
-  token?: string;
-  access?: string;
-  refresh?: string;
-  refreshToken?: string;
-  message: string;
-  requiresVerification?: boolean;
-  verificationEmailSent?: boolean;
-}
-
-interface LoginResponse {
-  user: User;
-  token: string;
-  access?: string;
-  refresh?: string;
-  refreshToken?: string;
-  requiresMFA?: boolean;
-  tempToken?: string;
-  uid?: string;
-  mfaMethods?: string[];
-}
-
-interface MFASetupVerifyCredentials {
-  token: string;
-}
-
-interface VerifyMFACredentials {
-  token: string;
-  tempToken: string;
+// MFA related interfaces
+interface MFACredentials {
   uid: string;
-}
-
-interface RefreshTokenResponse {
+  temp_token: string;
   token: string;
-  access?: string;
+  backup_code?: string;
 }
 
 interface MFASetupRequest {
@@ -76,12 +58,82 @@ interface MFASetupRequest {
   backup_codes_acknowledged?: boolean;
 }
 
-interface MFASetupResponse {
+interface MFASetupResponse extends BaseResponse {
   status: string;
-  secret: string;
-  uri: string;
-  backup_codes: string[];
-  message: string;
+  secret?: string;
+  uri?: string;
+  backup_codes?: string[];
+}
+
+interface MFASetupVerifyRequest {
+  token: string;
+}
+
+// Authentication response interfaces
+interface LoginResponse extends BaseResponse {
+  user?: User;
+  access?: string;
+  refresh?: string;
+  requires_mfa?: boolean;
+  temp_token?: string;
+  uid?: string;
+  mfa_methods?: string[];
+  requires_password_change?: boolean;
+  password_expired?: boolean;
+}
+
+interface RegisterResponse extends BaseResponse {
+  id?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  user_type?: string;
+  is_verified?: boolean;
+  access?: string;
+  refresh?: string;
+}
+
+interface MFAVerifyResponse extends BaseResponse {
+  user: User;
+  access: string;
+  refresh: string;
+  mfa_verified: boolean;
+}
+
+// Utility response interfaces
+interface RefreshTokenResponse {
+  access: string;
+}
+
+interface TokenVerificationResponse {
+  valid: boolean;
+}
+
+interface StatusResponse extends BaseResponse {
+  status: string;
+}
+
+// Password related interfaces
+interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+interface PasswordResetRequest {
+  email: string;
+}
+
+interface PasswordResetConfirmRequest {
+  token: string;
+  new_password: string;
+}
+
+interface EmailVerificationRequest {
+  token: string;
+}
+
+interface ResendVerificationRequest {
+  email: string;
 }
 
 export const authApi = apiSlice.injectEndpoints({
@@ -92,29 +144,42 @@ export const authApi = apiSlice.injectEndpoints({
         method: "POST",
         body: credentials,
       }),
-      transformResponse: (response: any): LoginResponse => ({
-        ...response,
-        token: response.access || response.token,
-        refreshToken: response.response || response.refreshToken,
-      }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
 
-          if (data.requiresMFA) {
+          const user = data.user;
+          const mfaEnabled = user?.mfa_enabled === true;
+          const mfaFullyConfigured = user?.mfa_fully_configured === true;
+
+          if (data.requires_mfa && data.temp_token) {
+            dispatch(setAuthToken({ token: data.temp_token }));
             dispatch(
               setMFARequired({
-                tempToken: data.tempToken!,
+                tempToken: data.temp_token,
                 uid: data.uid!,
-                mfaMethods: data.mfaMethods,
+                mfaMethods: data.mfa_methods,
               })
             );
-          } else {
+            return;
+          }
+
+          if (arg.enableMFA && mfaEnabled && !mfaFullyConfigured) {
+            dispatch(
+              setAuthToken({
+                token: data.access!,
+                refreshToken: data.refresh,
+              })
+            );
+            return;
+          }
+
+          if (data.access && data.user) {
             dispatch(
               setCredentials({
                 user: data.user,
-                token: data.token,
-                refreshToken: data.refreshToken,
+                token: data.access,
+                refreshToken: data.refresh,
               })
             );
           }
@@ -141,28 +206,27 @@ export const authApi = apiSlice.injectEndpoints({
       query: (credentials) => {
         const formData = new FormData();
 
-        formData.append("first_name", credentials.firstName);
-        formData.append("last_name", credentials.lastName);
+        formData.append("first_name", credentials.first_name);
+        formData.append("last_name", credentials.last_name);
         formData.append("email", credentials.email);
-        formData.append("phone_number", credentials.phoneNumber || "");
+        formData.append("phone_number", credentials.phone_number || "");
         formData.append("password", credentials.password);
-        formData.append("confirm_password", credentials.confirmPassword);
-        formData.append("user_type", credentials.userType);
+        formData.append("confirm_password", credentials.confirm_password);
+        formData.append("user_type", credentials.user_type);
         formData.append(
           "mfa_enabled",
-          credentials.mfaEnabled ? "true" : "false"
+          credentials.mfa_enabled ? "true" : "false"
         );
         formData.append(
           "terms_accepted",
-          credentials.termsAccepted ? "true" : "false"
+          credentials.terms_accepted ? "true" : "false"
         );
 
-        // Add profile picture if provided
         if (
-          credentials.profilePicture &&
-          credentials.profilePicture instanceof File
+          credentials.profile_picture &&
+          credentials.profile_picture instanceof File
         ) {
-          formData.append("profile_picture", credentials.profilePicture);
+          formData.append("profile_picture", credentials.profile_picture);
         }
 
         return {
@@ -175,22 +239,24 @@ export const authApi = apiSlice.injectEndpoints({
           },
         };
       },
-      transformResponse: (response: any): RegisterResponse => ({
-        ...response,
-        token: response.access || response.token,
-        refreshToken: response.refresh || response.refreshToken,
-      }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
 
-          // If registration returns a token (auto-login), set credentials
-          if (data.token && data.user) {
+          if (data.access && data.refresh) {
+            const user: User = {
+              id: data.id!,
+              email: data.email!,
+              name: `${data.first_name} ${data.last_name}`.trim(),
+              role: data.user_type!,
+              is_verified: data.is_verified,
+            };
+
             dispatch(
               setCredentials({
-                user: data.user,
-                token: data.token,
-                refreshToken: data.refreshToken,
+                user,
+                token: data.access,
+                refreshToken: data.refresh,
               })
             );
           }
@@ -213,16 +279,16 @@ export const authApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Auth"],
     }),
 
-    verifyMFA: builder.mutation<LoginResponse, VerifyMFACredentials>({
+    verifyMFA: builder.mutation<MFAVerifyResponse, MFACredentials>({
       query: (credentials) => ({
         url: "auth/mfa/verify/",
         method: "POST",
-        body: credentials,
-      }),
-      transformResponse: (response: any): LoginResponse => ({
-        ...response,
-        token: response.access || response.token,
-        refreshToken: response.refresh || response.refreshToken,
+        body: {
+          uid: credentials.uid,
+          temp_token: credentials.temp_token,
+          token: credentials.token,
+          backup_code: credentials.backup_code,
+        },
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
@@ -230,8 +296,8 @@ export const authApi = apiSlice.injectEndpoints({
           dispatch(
             setCredentials({
               user: data.user,
-              token: data.token,
-              refreshToken: data.refreshToken,
+              token: data.access,
+              refreshToken: data.refresh,
             })
           );
         } catch (error) {
@@ -240,6 +306,7 @@ export const authApi = apiSlice.injectEndpoints({
       },
       invalidatesTags: ["Auth", "MFA"],
     }),
+
     setupMFA: builder.mutation<MFASetupResponse, MFASetupRequest>({
       query: (credentials) => ({
         url: "auth/mfa/setup/",
@@ -261,10 +328,7 @@ export const authApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Auth"],
     }),
 
-    verifyMFASetup: builder.mutation<
-      { status: string; message: string },
-      MFASetupVerifyCredentials
-    >({
+    verifyMFASetup: builder.mutation<StatusResponse, MFASetupVerifyRequest>({
       query: (credentials) => ({
         url: "auth/mfa/setup/verify/",
         method: "POST",
@@ -290,7 +354,7 @@ export const authApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Auth", "User", "MFA"],
     }),
 
-    verifyToken: builder.query<{ valid: boolean }, void>({
+    verifyToken: builder.query<TokenVerificationResponse, void>({
       query: () => ({
         url: "auth/verify-token/",
         method: "GET",
@@ -303,15 +367,12 @@ export const authApi = apiSlice.injectEndpoints({
         url: "auth/token/refresh/",
         method: "POST",
       }),
-      transformResponse: (response: any): RefreshTokenResponse => ({
-        token: response.access || response.token,
-      }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
           dispatch(
             setAuthToken({
-              token: data.token,
+              token: data.access,
             })
           );
         } catch (error) {
@@ -339,10 +400,7 @@ export const authApi = apiSlice.injectEndpoints({
       providesTags: ["User"],
     }),
 
-    changePassword: builder.mutation<
-      { message: string },
-      { current_password: string; new_password: string }
-    >({
+    changePassword: builder.mutation<BaseResponse, ChangePasswordRequest>({
       query: (credentials) => ({
         url: "auth/change-password/",
         method: "POST",
@@ -350,10 +408,7 @@ export const authApi = apiSlice.injectEndpoints({
       }),
     }),
 
-    requestPasswordReset: builder.mutation<
-      { message: string },
-      { email: string }
-    >({
+    requestPasswordReset: builder.mutation<BaseResponse, PasswordResetRequest>({
       query: (data) => ({
         url: "auth/password-reset/",
         method: "POST",
@@ -362,8 +417,8 @@ export const authApi = apiSlice.injectEndpoints({
     }),
 
     confirmPasswordReset: builder.mutation<
-      { message: string },
-      { token: string; new_password: string }
+      BaseResponse,
+      PasswordResetConfirmRequest
     >({
       query: (data) => ({
         url: "auth/password-reset/confirm/",
@@ -371,7 +426,8 @@ export const authApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
-    verifyEmail: builder.mutation<{ message: string }, { token: string }>({
+
+    verifyEmail: builder.mutation<BaseResponse, EmailVerificationRequest>({
       query: (data) => ({
         url: "auth/verify-email/",
         method: "POST",
@@ -381,8 +437,8 @@ export const authApi = apiSlice.injectEndpoints({
     }),
 
     resendVerificationEmail: builder.mutation<
-      { message: string },
-      { email: string }
+      BaseResponse,
+      ResendVerificationRequest
     >({
       query: (data) => ({
         url: "auth/resend-verification/",
@@ -410,4 +466,16 @@ export const {
   useResendVerificationEmailMutation,
 } = authApi;
 
-export type { User, RegisterCredentials, RegisterResponse };
+export type {
+  User,
+  LoginCredentials,
+  RegisterCredentials,
+  LoginResponse,
+  RegisterResponse,
+  MFACredentials,
+  MFASetupRequest,
+  MFASetupResponse,
+  MFAVerifyResponse,
+  BaseResponse,
+  StatusResponse,
+};

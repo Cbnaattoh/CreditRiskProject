@@ -17,12 +17,14 @@ import {
 import { logout } from "../../../../components/redux/features/auth/authSlice";
 import { useLogoutMutation } from "../../../../components/redux/features/auth/authApi";
 import defaultAvatar from "../../../../assets/creditrisklogo.png";
+import SignoutModal from "../SignoutModal";
 
 const Header: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [showSignoutModal, setShowSignoutModal] = useState(false);
   const location = useLocation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -35,12 +37,8 @@ const Header: React.FC = () => {
   // Fetch profile picture from backend
   useEffect(() => {
     if (user?.id) {
-      // Replace with your actual API call to fetch profile picture
       const fetchProfilePicture = async () => {
         try {
-          // const response = await fetchProfilePictureAPI(user.id);
-          // setProfileImage(response.data.url);
-          // Mock implementation - replace with actual API call
           setProfileImage(user.profilePictureUrl || null);
           setImageLoaded(true);
         } catch (error) {
@@ -64,6 +62,7 @@ const Header: React.FC = () => {
 
   // Handle logout
   const handleLogout = async () => {
+    setShowSignoutModal(false);
     try {
       await logoutMutation().unwrap();
     } catch (error) {
@@ -176,7 +175,6 @@ const Header: React.FC = () => {
                     alt={currentUser.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      // If image fails to load, show initials instead
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";
                       setProfileImage(null);
@@ -254,7 +252,6 @@ const Header: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        // Handle change photo action
                         setProfileOpen(false);
                       }}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
@@ -267,7 +264,10 @@ const Header: React.FC = () => {
                   {/* Logout */}
                   <div className="border-t border-gray-100 py-1">
                     <button
-                      onClick={handleLogout}
+                      onClick={() => {
+                        setProfileOpen(false);
+                        setShowSignoutModal(true);
+                      }}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
                     >
                       <FiLogOut className="mr-3 text-gray-500" />
@@ -279,6 +279,11 @@ const Header: React.FC = () => {
             </AnimatePresence>
           </div>
         </div>
+        <SignoutModal
+          isOpen={showSignoutModal}
+          onClose={() => setShowSignoutModal(false)}
+          onConfirm={handleLogout}
+        />
       </div>
     </header>
   );

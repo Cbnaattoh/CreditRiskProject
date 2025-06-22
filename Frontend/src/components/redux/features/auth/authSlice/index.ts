@@ -8,6 +8,7 @@ interface User {
   name: string;
   role: string;
   mfa_enabled?: boolean;
+  is_verified?: boolean;
 }
 
 interface AuthState {
@@ -22,7 +23,6 @@ interface AuthState {
   isLoading: boolean;
 }
 
-// Initialize from LocalStorage
 const getInitialToken = (): string | null => {
   if (typeof window !== "undefined") {
     return localStorage.getItem("authToken");
@@ -70,7 +70,6 @@ const authSlice = createSlice({
       state.tempToken = null;
       state.isLoading = false;
 
-      // Persist tokens
       if (typeof window !== "undefined") {
         localStorage.setItem("authToken", token);
         if (refreshToken) {
@@ -96,7 +95,6 @@ const authSlice = createSlice({
       }
     },
 
-    // Alternative action for when you only have the token string
     setAuthTokenString: (state, action: PayloadAction<string>) => {
       state.token = action.payload;
       state.isAuthenticated = true;
@@ -147,7 +145,6 @@ const authSlice = createSlice({
       state.uid = null;
       state.isLoading = false;
 
-      // Clear persisted tokens
       if (typeof window !== "undefined") {
         localStorage.removeItem("authToken");
         localStorage.removeItem("refreshToken");
@@ -169,7 +166,6 @@ export const {
 
 export default authSlice.reducer;
 
-// Selectors
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectIsAuthenticated = (state: RootState) =>
   state.auth.isAuthenticated;
@@ -181,5 +177,4 @@ export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
 export const selectUid = (state: RootState) => state.auth.uid;
 export const selectIsLoading = (state: RootState) => state.auth.isLoading;
 
-// Export User type for reuse
 export type { User };
