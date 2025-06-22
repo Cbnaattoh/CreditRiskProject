@@ -111,8 +111,17 @@ class LoginView(TokenObtainPairView):
                     'password_expired': True
                 })
             
-            # Handle MFA if enabled
-            if user.mfa_enabled:
+            # Ensure MFA is only triggered if fully configured
+            if user.mfa_enabled and user.mfa_secret:
+                # Ensure the user is included in response data
+                validated_data['user'] = {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': f"{user.first_name} {user.last_name}",
+                    'role': user.user_type,
+                    'mfa_enabled': user.mfa_enabled,
+                    'is_verified': user.is_verified
+                }
                 return self._handle_mfa_required(user, validated_data)
             
             # Clear failed attempts on successful login
@@ -175,13 +184,23 @@ class LoginView(TokenObtainPairView):
                 'email': user.email,
                 'created_at': timezone.now().isoformat()
             }, timeout=300)  # 5 minutes
+
+            # Ensure user data is present
+            user_data = response_data.get('user') or {
+                'id': user.id,
+                'email': user.email,
+                'name': f"{user.first_name} {user.last_name}",
+                'role': user.user_type,
+                'mfa_enabled': user.mfa_enabled,
+                'is_verified': user.is_verified,
+            }
             
             # Return MFA challenge response
             mfa_response = {
                 'requires_mfa': True,
                 'temp_token': temp_token,
                 'uid': uid_encoded,
-                'user': response_data.get('user'),
+                'user': user_data,
                 'message': 'MFA verification required'
             }
             
@@ -463,10 +482,13 @@ class MFASetupView(generics.GenericAPIView):
         
         user = request.user
         enable = serializer.validated_data.get('enable', True)
+        acknowledged = serializer.validated_data.get('backup_codes_acknowledged', False)
         
         try:
             with transaction.atomic():
-                if enable:
+                if enable and acknowledged:
+                    return self._acknowledge_backup_codes(user)
+                elif enable:
                     return self._enable_mfa(user)
                 else:
                     return self._disable_mfa(user)
@@ -511,6 +533,21 @@ class MFASetupView(generics.GenericAPIView):
             'backup_codes': codes,
             'message': 'Scan the QR code with your authenticator app and save your backup codes'
         })
+
+    def _acknowledge_backup_codes(self, user):
+        if not user.mfa_enabled:
+            return Response(
+                {'detail': 'MFA must be enabled before acknowledging backup codes'},
+                status=status.HTTP_400_BAD_REQUEST
+        )
+
+        # Log or flag acknowledgment — optional
+        logger.info(f"User {user.email} acknowledged backup codes.")
+        return Response({
+            'status': 'success',
+            'message': 'Backup codes acknowledged. MFA setup complete.'
+    })
+
 
     def _disable_mfa(self, user):
         """Disable MFA for user"""
@@ -630,7 +667,7 @@ class MFAVerifyView(generics.GenericAPIView):
             user = User.objects.get(pk=uid)
             
             # Check cache for temp token
-            cache_key = f"mfa_temp_token:{user.id}"
+            cache_key = f"mfa_temp_token:{user.id}:{temp_token}"
             cached_token = cache.get(cache_key)
             
             if not cached_token or cached_token != temp_token:

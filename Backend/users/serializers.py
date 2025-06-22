@@ -11,34 +11,6 @@ User = get_user_model()
 USER_TYPES = [choice[0] for choice in User.USER_TYPES]
 logger = logging.getLogger(__name__)
 
-# class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-#     def validate(self, attrs):
-#         try:
-#             data = super().validate(attrs)
-#         except exceptions.AuthenticationFailed as e:
-#             # Log failed authentication attempts
-#             logger.warning(f"Failed login attempt for email: {attrs.get('email', 'unknown')}")
-#             raise exceptions.ValidationError(
-#                 {"detail": "Invalid email or password"}
-#             )
-        
-#         # Add custom claims
-#         data.update({
-#             'user': {
-#                 'id': self.user.id,
-#                 'email': self.user.email,
-#                 'name': f"{self.user.first_name} {self.user.last_name}",
-#                 'role': self.user.user_type,
-#                 'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
-#                 'is_verified': self.user.is_verified,
-#                 'password_expired': self.user.is_password_expired(), # should be removed for security concerns
-#                 'requires_password_change': self.user.is_password_expired()
-#             },
-#             'mfa_enabled': self.user.mfa_enabled, # should be removed for security concerns
-#             'is_verified': self.user.is_verified, # should be removed for security concerns
-#             'requires_password_change': self.user.is_password_expired()
-#         })
-#         return data
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
@@ -88,7 +60,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'access': str(refresh.access_token),
             }
             
-            # Add minimal user info (remove sensitive fields)
+            # Add minimal user info
             data.update({
                 'user': {
                     'id': user.id,
@@ -96,6 +68,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     'name': f"{user.first_name} {user.last_name}".strip(),
                     'role': user.user_type,
                     'is_verified': user.is_verified,
+                    'mfa_enabled': user.mfa_enabled,
+                    'mfa_fully_configured': user.is_mfa_fully_configured,
                 }
             })
             
@@ -111,36 +85,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             )
 
 
-# class UserSerializer(serializers.ModelSerializer):
-#     profile_picture = serializers.SerializerMethodField()
-#     full_name = serializers.SerializerMethodField()
-#     password_expired = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = User
-#         # fields = [
-#         #     'email', 'first_name', 'last_name', 'user_type', 'phone_number',
-#         #     'is_verified', 'mfa_enabled', 'profile_picture'
-#         # ]
-#         fields = [
-#             'id', 'email', 'first_name', 'last_name', 'full_name', 'user_type', 
-#             'phone_number', 'is_verified', 'mfa_enabled', 'profile_picture',
-#             'date_joined', 'last_login', 'password_expired'
-#         ]
-#         read_only_fields = ['id','is_verified', 'mfa_enabled', 'date_joined','last_login','password_expired']
-    
-#     def get_profile_picture(self, obj):
-#         if hasattr(obj, 'profile') and obj.profile.profile_picture:
-#             request = self.context.get('request')
-#             if request:
-#                 return request.build_absolute_uri(obj.profile.profile_picture.url)
-#         return None
-    
-#     def get_full_name(self, obj):
-#         return f"{obj.first_name} {obj.last_name}".strip()
-    
-#     def get_password_expired(self, obj):
-#         return obj.is_password_expired()
 
 
 
@@ -150,13 +94,14 @@ class UserSerializer(serializers.ModelSerializer):
     """
     profile_picture = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
+    mfa_fully_configured = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'full_name', 
             'user_type', 'phone_number', 'is_verified', 'profile_picture', 
-            'date_joined', 'last_login'
+            'date_joined', 'last_login', 'mfa_fully_configured'
         ]
         read_only_fields = [
             'id', 'is_verified', 'date_joined', 'last_login'
@@ -175,6 +120,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
+    
+    def get_mfa_fully_configured(self, obj):
+        return obj.is_mfa_fully_configured
     
 
 
@@ -392,13 +340,15 @@ class LoginHistorySerializer(serializers.ModelSerializer):
 
 class MFASetupSerializer(serializers.Serializer):
     enable = serializers.BooleanField(required=True)
-    backup_codes_acknowledged = serializers.BooleanField(required=False, default=False)
+    backup_codes_acknowledged = serializers.BooleanField(required=False)
     
     def validate(self, data):
-        if data['enable'] and not data.get('backup_codes_acknowledged'):
-            raise serializers.ValidationError(
-                "You must acknowledge that you've saved your backup codes."
-            )
+        enable = data.get("enable")
+        acknowledged = data.get("backup_codes_acknowledged", False)
+
+        if enable and acknowledged:
+            if not self.context['request'].user.mfa_enabled:
+                raise serializers.ValidationError("MFA must be enabled before acknowledging backup codes.")
         return data
     
     

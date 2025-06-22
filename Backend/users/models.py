@@ -65,6 +65,10 @@ class User(AbstractUser):
             return True
         expiration_days = getattr(settings, 'PASSWORD_EXPIRATION_DAYS', 90)
         return (timezone.now() - self.last_password_change).days > expiration_days
+    
+    @property
+    def is_mfa_fully_configured(self):
+        return self.mfa_enabled and bool(self.mfa_secret)
 
     def __str__(self):
         return self.email 

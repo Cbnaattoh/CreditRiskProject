@@ -63,7 +63,7 @@ class PasswordExpirationMiddleware:
         if view_func.__name__ in ['PasswordChangeView', 'LogoutView']:
             return None
             
-        if request.user.check_password_expiration():
+        if request.user.is_password_expired():
             from django.urls import reverse
             return redirect(reverse('password_change_required'))
             
