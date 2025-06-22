@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
 import {
   FiSearch,
   FiBell,
@@ -10,78 +9,33 @@ import {
   FiCamera,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  selectCurrentUser,
-  selectIsAuthenticated,
-} from "../../../../components/redux/features/auth/authSlice";
-import { logout } from "../../../../components/redux/features/auth/authSlice";
-import { useLogoutMutation } from "../../../../components/redux/features/auth/authApi";
+import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/useAuth";
 import defaultAvatar from "../../../../assets/creditrisklogo.png";
 import SignoutModal from "../SignoutModal";
 
 const Header: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [showSignoutModal, setShowSignoutModal] = useState(false);
   const location = useLocation();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Get user from Redux store
-  const user = useSelector(selectCurrentUser);
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const [logoutMutation] = useLogoutMutation();
+  const {
+    user,
+    userInitials,
+    profileImage,
+    handleImageError,
+    logout,
+    isLoggingOut,
+    logoutError,
+  } = useAuth();
 
-  // Fetch profile picture from backend
-  useEffect(() => {
-    if (user?.id) {
-      const fetchProfilePicture = async () => {
-        try {
-          setProfileImage(user.profilePictureUrl || null);
-          setImageLoaded(true);
-        } catch (error) {
-          console.error("Error fetching profile picture:", error);
-          setImageLoaded(true);
-        }
-      };
-      fetchProfilePicture();
-    }
-  }, [user]);
-
-  // Generate initials from user name
-  const getInitials = (name: string): string => {
-    if (!name) return "";
-    return name
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase())
-      .join("")
-      .substring(0, 2);
-  };
-
-  // Handle logout
+  // Handle logout with modal
   const handleLogout = async () => {
     setShowSignoutModal(false);
-    try {
-      await logoutMutation().unwrap();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      dispatch(logout());
-      navigate("/");
-      setProfileOpen(false);
-    }
+    await logout();
+    setProfileOpen(false);
   };
-
-  // Default user fallback
-  const currentUser = user || {
-    name: "Admin User",
-    email: "admin@riskguard.com",
-    role: "ADMIN",
-  };
-
-  const userInitials = getInitials(currentUser.name);
 
   // Define page titles based on routes
   const getPageInfo = (pathname: string) => {
@@ -172,13 +126,9 @@ const Header: React.FC = () => {
                 {profileImage ? (
                   <img
                     src={profileImage}
-                    alt={currentUser.name}
+                    alt={user.name}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = "none";
-                      setProfileImage(null);
-                    }}
+                    onError={handleImageError}
                   />
                 ) : (
                   <span className="text-indigo-600 font-medium text-sm">
@@ -203,7 +153,7 @@ const Header: React.FC = () => {
                       {profileImage ? (
                         <img
                           src={profileImage}
-                          alt={currentUser.name}
+                          alt={user.name}
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
@@ -220,19 +170,19 @@ const Header: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p
                         className="text-sm font-medium text-gray-900 truncate"
-                        title={currentUser.name}
+                        title={user.name}
                       >
-                        {currentUser.name}
+                        {user.name}
                       </p>
                       <p
                         className="text-xs text-gray-500 truncate"
-                        title={currentUser.email}
+                        title={user.email}
                       >
-                        {currentUser.email}
+                        {user.email}
                       </p>
-                      {currentUser.role && (
+                      {user.role && (
                         <p className="text-xs text-indigo-600 font-medium mt-1">
-                          {currentUser.role}
+                          {user.role}
                         </p>
                       )}
                     </div>
@@ -269,10 +219,16 @@ const Header: React.FC = () => {
                         setShowSignoutModal(true);
                       }}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+                      disabled={isLoggingOut}
                     >
                       <FiLogOut className="mr-3 text-gray-500" />
-                      Sign out
+                      {isLoggingOut ? "Signing out..." : "Sign out"}
                     </button>
+                    {logoutError && (
+                      <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-t border-red-100">
+                        {logoutError}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}

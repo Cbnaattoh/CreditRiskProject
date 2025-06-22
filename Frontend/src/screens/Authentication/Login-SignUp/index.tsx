@@ -108,10 +108,8 @@ const Login: React.FC = () => {
         let setupResult;
 
         if (!mfaEnabled) {
-          // Enable MFA and return secrets
           setupResult = await setupMFA({ enable: true }).unwrap();
         } else {
-          // Skip enabling again, just show existing step
           info("MFA already enabled. Please verify setup.");
           setMfaStep("setup");
           setFormStep(2);
@@ -167,7 +165,6 @@ const Login: React.FC = () => {
         const mfaEnabled = user?.mfa_enabled === true;
         const mfaFullyConfigured = user?.mfa_fully_configured === true;
 
-        // SAFETY: MFA required but user missing
         if (result.requires_mfa && !user) {
           error(
             "MFA required but user info is missing. Please contact support."
