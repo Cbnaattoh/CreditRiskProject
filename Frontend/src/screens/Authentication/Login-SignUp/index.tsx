@@ -159,8 +159,6 @@ const Login: React.FC = () => {
           password: data.password,
         }).unwrap();
 
-        console.log("Login form submission:", data);
-
         const user = result.user;
         const mfaEnabled = user?.mfa_enabled === true;
         const mfaFullyConfigured = user?.mfa_fully_configured === true;
@@ -172,11 +170,13 @@ const Login: React.FC = () => {
           return;
         }
 
-        // ✅ User must verify MFA
+        success("Login successful!");
         if (result.requires_mfa && mfaFullyConfigured) {
           setFormStep(2);
           setMfaStep("verify");
-          info("Two-factor authentication required. Please enter your code.");
+          setTimeout(() => {
+            info("Two-factor authentication required. Please enter your code.");
+          }, 500);
           return;
         }
 
@@ -191,15 +191,16 @@ const Login: React.FC = () => {
           }
         }
 
-        // ✅ Normal login
-        success("Login successful! Redirecting...");
-        setTimeout(() => navigate("/home"), 1500);
+        setTimeout(() => {
+          info("Redirecting to dashboard...");
+        }, 500);
+        setTimeout(() => navigate("/home"), 5000);
       } catch (err: any) {
         console.error("Login error:", err);
         handleApiError(err, "login");
       }
     },
-    [login, handleMFASetup, navigate, success, error, handleApiError]
+    [login, handleMFASetup, navigate, success, error, info, handleApiError]
   );
 
   const handleMFASubmit = useCallback(
@@ -254,7 +255,7 @@ const Login: React.FC = () => {
 
   const handleForgotPassword = useCallback(() => {
     info("Redirecting to password recovery");
-    setTimeout(() => navigate("/forgot-password"), 500);
+    setTimeout(() => navigate("/forgot-password"), 1500);
   }, [info, navigate]);
 
   const handleBackToLogin = useCallback(() => {
@@ -355,7 +356,7 @@ const Login: React.FC = () => {
         transition={{ delay: 1 }}
         className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-400"
       >
-        © {new Date().getFullYear()} RiskGuard Pro. All rights reserved.
+        © {new Date().getFullYear()} RiskGuard. All rights reserved.
       </motion.div>
     </div>
   );

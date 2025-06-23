@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FiHome,
   FiFileText,
-  FiAlertTriangle,
-  FiBarChart2,
   FiSettings,
   FiUser,
   FiChevronLeft,
@@ -13,6 +11,7 @@ import {
   FiSliders,
 } from "react-icons/fi";
 import { RiUserSearchLine } from "react-icons/ri";
+import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/useAuth";
 
 import Logo from "../../../../components/utils/Logo";
 
@@ -20,6 +19,16 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const [isOpen, setIsOpen] = useState(!isMobile);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+
+  const {
+    user,
+    userInitials,
+    profileImage,
+    handleImageError,
+    logout,
+    isLoggingOut,
+    logoutError,
+  } = useAuth();
 
   const navItems = [
     { path: "/home", icon: <FiHome />, label: "Dashboard" },
@@ -122,8 +131,8 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
                 <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-blue-800"></span>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium">Admin User</p>
-                <p className="text-xs text-blue-300">Administrator</p>
+                <p className="text-sm font-medium">{user.name}</p>
+                <p className="text-xs text-blue-300">{user.role}</p>
               </div>
             </div>
           </div>
@@ -132,5 +141,4 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     </>
   );
 };
-
 export default Sidebar;
