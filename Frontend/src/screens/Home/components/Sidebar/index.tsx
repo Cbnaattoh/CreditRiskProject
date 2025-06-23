@@ -20,15 +20,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
-  const {
-    user,
-    userInitials,
-    profileImage,
-    handleImageError,
-    logout,
-    isLoggingOut,
-    logoutError,
-  } = useAuth();
+  const { user, profileImage } = useAuth();
 
   const navItems = [
     { path: "/home", icon: <FiHome />, label: "Dashboard" },
@@ -126,7 +118,11 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
             <div className="flex items-center p-3 rounded-lg bg-blue-800">
               <div className="relative">
                 <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  <FiUser className="text-white" />
+                  {profileImage ? (
+                    profileImage
+                  ) : (
+                    <FiUser className="text-white" />
+                  )}
                 </div>
                 <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-blue-800"></span>
               </div>

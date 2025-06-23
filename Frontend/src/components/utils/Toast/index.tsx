@@ -29,7 +29,6 @@ const Toast: React.FC<ToastProps> = ({
   const [isVisible, setIsVisible] = useState(true);
   const [progress, setProgress] = useState(100);
 
-  // Handle toast dismissal
   useEffect(() => {
     if (!isVisible && onClose) {
       const timer = setTimeout(() => onClose(), 500);
@@ -37,7 +36,6 @@ const Toast: React.FC<ToastProps> = ({
     }
   }, [isVisible, onClose]);
 
-  // Auto-dismiss after duration
   useEffect(() => {
     const dismissTimer = setTimeout(() => {
       setIsVisible(false);
@@ -53,7 +51,6 @@ const Toast: React.FC<ToastProps> = ({
     };
   }, [duration]);
 
-  // Get styles based on toast type
   const getToastStyles = () => {
     const baseStyles = "rounded-xl shadow-lg overflow-hidden";
     const typeStyles = {
@@ -217,7 +214,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="w-full max-w-xs"
             style={{
-              zIndex: 1000 + index, // Ensure proper stacking
+              zIndex: 1000 + index,
             }}
           >
             <div className={getToastStyles(toast.type)}>
@@ -317,6 +314,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
     }
   }
 };
+
 // Hook to manage toast state
 export const useToast = () => {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
@@ -331,7 +329,6 @@ export const useToast = () => {
 
     setToasts((prev) => [...prev, newToast]);
 
-    // Auto-remove after duration
     setTimeout(() => {
       removeToast(id);
     }, (options?.duration || 5000) + 500);

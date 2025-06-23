@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import { FormProvider } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
@@ -21,6 +21,33 @@ interface LoginFormProps {
   isLoading: boolean;
 }
 
+const rememberMeHelpers = {
+  saveCredentials: (email: string, rememberMe: boolean) => {
+    if (rememberMe) {
+      localStorage.setItem("rememberedEmail", email);
+      localStorage.setItem("rememberMe", "true");
+    } else {
+      localStorage.removeItem("rememberedEmail");
+      localStorage.removeItem("rememberMe");
+    }
+  },
+
+  loadSavedCredentials: () => {
+    const rememberedEmail = localStorage.getItem("rememberedEmail");
+    const rememberMe = localStorage.getItem("rememberMe") === "true";
+
+    return {
+      email: rememberedEmail || "",
+      rememberMe: rememberMe,
+    };
+  },
+
+  clearSavedCredentials: () => {
+    localStorage.removeItem("rememberedEmail");
+    localStorage.removeItem("rememberMe");
+  },
+};
+
 const LoginForm: React.FC<LoginFormProps> = ({
   loginMethods,
   showPassword,
@@ -29,12 +56,30 @@ const LoginForm: React.FC<LoginFormProps> = ({
   handleForgotPassword,
   isLoading,
 }) => {
+  useEffect(() => {
+    const savedCredentials = rememberMeHelpers.loadSavedCredentials();
+    if (savedCredentials.rememberMe && savedCredentials.email) {
+      loginMethods.setValue("email", savedCredentials.email);
+      loginMethods.setValue("rememberMe", true);
+    }
+  }, [loginMethods]);
+
+  const handleSubmitWithRememberMe = async (data: any) => {
+    try {
+      rememberMeHelpers.saveCredentials(data.email, data.rememberMe);
+      await handleLoginSubmit(data);
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    }
+  };
+
   return (
     <FormProvider {...loginMethods}>
       <motion.form
         key="login"
         {...ANIMATION_VARIANTS.formSlide}
-        onSubmit={loginMethods.handleSubmit(handleLoginSubmit)}
+        onSubmit={loginMethods.handleSubmit(handleSubmitWithRememberMe)}
         className="w-full"
       >
         <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
@@ -217,4 +262,5 @@ const LoginForm: React.FC<LoginFormProps> = ({
   );
 };
 
+export { rememberMeHelpers };
 export default LoginForm;

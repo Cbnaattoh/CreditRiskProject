@@ -6,9 +6,19 @@ interface SignoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  showSuccessToast: (message: string) => void;
 }
 
-const SignoutModal: React.FC<SignoutModalProps> = ({ isOpen, onClose, onConfirm }) => {
+const SignoutModal: React.FC<SignoutModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  showSuccessToast,
+}) => {
+  const handleConfirm = () => {
+    showSuccessToast("Redirecting to login page...");
+    onConfirm();
+  };
   return (
     <AnimatePresence>
       {isOpen && (
@@ -45,7 +55,9 @@ const SignoutModal: React.FC<SignoutModalProps> = ({ isOpen, onClose, onConfirm 
                     <FiAlertTriangle className="h-6 w-6 text-red-500" />
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Sign out</h3>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Sign out
+                    </h3>
                     <p className="text-sm text-gray-500">
                       Are you sure you want to sign out?
                     </p>
@@ -61,7 +73,8 @@ const SignoutModal: React.FC<SignoutModalProps> = ({ isOpen, onClose, onConfirm 
 
               <div className="mt-6">
                 <p className="text-sm text-gray-600">
-                  You'll need to sign in again to access your account. Any unsaved changes may be lost.
+                  You'll need to sign in again to access your account. Any
+                  unsaved changes may be lost.
                 </p>
               </div>
 
@@ -78,7 +91,7 @@ const SignoutModal: React.FC<SignoutModalProps> = ({ isOpen, onClose, onConfirm 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={onConfirm}
+                  onClick={handleConfirm}
                   className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-sm font-medium text-white shadow-sm hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center transition-all"
                 >
                   <FiLogOut className="mr-2" />
