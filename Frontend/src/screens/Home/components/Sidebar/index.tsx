@@ -12,7 +12,6 @@ import {
 } from "react-icons/fi";
 import { RiUserSearchLine } from "react-icons/ri";
 import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/useAuth";
-
 import Logo from "../../../../components/utils/Logo";
 
 const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {

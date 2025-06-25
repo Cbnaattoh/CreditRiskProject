@@ -204,6 +204,8 @@ export const authApi = apiSlice.injectEndpoints({
 
     register: builder.mutation<RegisterResponse, RegisterCredentials>({
       query: (credentials) => {
+        console.log("🔍 Register mutation called with:", credentials);
+
         const formData = new FormData();
 
         formData.append("first_name", credentials.first_name);
@@ -227,21 +229,28 @@ export const authApi = apiSlice.injectEndpoints({
           credentials.profile_picture instanceof File
         ) {
           formData.append("profile_picture", credentials.profile_picture);
+          console.log(
+            "📎 Profile picture added:",
+            credentials.profile_picture.name
+          );
+        }
+
+        console.log("📋 FormData contents:");
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}:`, value);
         }
 
         return {
           url: "auth/register/",
-          method: "POST",
+          method: "POST" as const,
           body: formData,
-          prepareHeaders: (headers) => {
-            headers.delete("Content-Type");
-            return headers;
-          },
         };
       },
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
+          console.log("⏳ Waiting for query to complete...");
           const { data } = await queryFulfilled;
+          console.log("✅ Registration successful:", data);
 
           if (data.access && data.refresh) {
             const user: User = {
@@ -261,10 +270,11 @@ export const authApi = apiSlice.injectEndpoints({
             );
           }
         } catch (error) {
-          console.error("Registration error:", error);
+          console.error("❌ Registration error in onQueryStarted:", error);
         }
       },
       transformErrorResponse: (response) => {
+        console.log("🔴 Error response received:", response);
         if (
           typeof response.data === "string" &&
           response.data.includes("<!DOCTYPE html>")

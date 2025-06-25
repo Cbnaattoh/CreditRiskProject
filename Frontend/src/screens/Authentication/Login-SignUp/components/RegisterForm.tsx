@@ -18,6 +18,7 @@ import { ANIMATION_VARIANTS } from "./constants";
 import type { ActiveTab } from "./types";
 import { useRegisterMutation } from "../../../../components/redux/features/auth/authApi";
 import { useToast } from "../../../../components/utils/Toast";
+import type { RegisterCredentials } from "../../../../components/redux/features/auth/authApi";
 
 interface RegisterFormProps {
   registerMethods: UseFormReturn<any>;
@@ -35,55 +36,46 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
   const handleSubmit = async (data: any) => {
     try {
-      // Validate passwords match
-      if (data.password !== data.confirmPassword) {
-        registerMethods.setError("confirmPassword", {
+      if (data.password !== data.confirm_password) {
+        registerMethods.setError("confirm_password", {
           type: "manual",
           message: "Passwords do not match",
         });
         return;
       }
 
-      const registrationData = {
-        firstName: data.firstName,
-        lastName: data.lastName,
+      const credentials: RegisterCredentials = {
+        first_name: data.first_name,
+        last_name: data.last_name,
         email: data.email,
-        phoneNumber: data.phoneNumber || "",
+        phone_number: data.phone_number || "",
         password: data.password,
-        confirmPassword: data.confirmPassword,
-        userType: data.userType,
-        mfaEnabled: data.enableMFA || false,
-        termsAccepted: data.acceptTerms,
-        profilePicture: data.profilePicture?.[0] || null,
+        confirm_password: data.confirm_password,
+        user_type: data.user_type,
+        mfa_enabled: data.mfa_enabled || false,
+        terms_accepted: data.terms_accepted || false,
+        profile_picture: data.profile_picture?.[0] || undefined,
       };
 
-      console.log("Submitting registration data:", {
-        ...registrationData,
-        profilePicture: registrationData.profilePicture
-          ? "File selected"
-          : "No file",
+      console.log("Submitting credentials:", {
+        first_name: credentials.first_name,
+        email: credentials.email,
+        profile_picture: credentials.profile_picture?.name || "None",
         password: "***",
-        confirmPassword: "***",
       });
 
-      // Register user with all data including profile picture
-      const result = await register(registrationData).unwrap();
-
-      // Handle successful registration
+      const result = await register(credentials).unwrap();
       success(result.message || "Account created successfully!");
 
       if (result.requiresVerification) {
         success("Please check your email to verify your account.");
       }
 
-      // Check if user is logged in automatically after registration
-      if (result.token && result.user) {
-        // Auto-login successful
+      if (result.access && result.user) {
         setTimeout(() => {
           window.location.href = "/home";
         }, 2000);
       } else {
-        // Registration successful but no auto-login, redirect to login
         setTimeout(() => {
           setActiveTab("login");
           success(
@@ -93,25 +85,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       }
     } catch (err: any) {
       console.error("Registration error:", err);
-
-      // Handle different types of errors
       if (err.status === 400 && err.data?.errors) {
-        // Handle validation errors from the backend
         const errors = err.data.errors;
 
         Object.keys(errors).forEach((field) => {
           const errorMessages = errors[field];
 
-          // Map backend field names to frontend field names
           const fieldMapping: Record<string, string> = {
-            terms_accepted: "acceptTerms",
-            mfa_enabled: "enableMFA",
-            first_name: "firstName",
-            last_name: "lastName",
-            phone_number: "phoneNumber",
-            confirm_password: "confirmPassword",
-            user_type: "userType",
-            profile_picture: "profilePicture",
+            terms_accepted: "terms_accepted",
+            mfa_enabled: "mfa_enabled",
+            first_name: "first_name",
+            last_name: "last_name",
+            phone_number: "phone_number",
+            confirm_password: "confirm_password",
+            user_type: "user_type",
+            profile_picture: "profile_picture",
           };
 
           const frontendField = fieldMapping[field] || field;
@@ -131,7 +119,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
         error("Please fix the errors below and try again.");
       } else if (err.status === 409) {
-        // Handle conflict
         const errorMessage =
           err.data?.detail || "User with this email already exists.";
         registerMethods.setError("email", {
@@ -140,14 +127,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         });
         error(errorMessage);
       } else if (err.status === 500) {
-        // Handle server errors
         error("Server error occurred. Please try again later.");
       } else if (
         err.data &&
         typeof err.data === "string" &&
         err.data.includes("JSON parse error")
       ) {
-        // Handle the specific JSON parse error
         error(
           "There was an issue processing your profile picture. Please try with a different image or without an image."
         );
@@ -157,7 +142,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             "Please try with a different image or remove the profile picture.",
         });
       } else {
-        // Handle other errors
         const errorMessage =
           err?.data?.detail ||
           err?.data?.message ||
@@ -212,7 +196,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               <div className="relative">
                 <input
                   type="text"
-                  {...registerMethods.register("firstName", {
+                  {...registerMethods.register("first_name", {
                     required: "First name is required",
                   })}
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10"
@@ -220,9 +204,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 />
                 <FiUser className="absolute left-3 top-3.5 text-gray-400" />
               </div>
-              {registerMethods.formState.errors.firstName && (
+              {registerMethods.formState.errors.first_name && (
                 <p className="text-red-500 text-xs mt-1">
-                  {registerMethods.formState.errors.firstName.message}
+                  {registerMethods.formState.errors.first_name.message}
                 </p>
               )}
             </div>
@@ -234,7 +218,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               <div className="relative">
                 <input
                   type="text"
-                  {...registerMethods.register("lastName", {
+                  {...registerMethods.register("last_name", {
                     required: "Last name is required",
                   })}
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10"
@@ -242,9 +226,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 />
                 <FiUser className="absolute left-3 top-3.5 text-gray-400" />
               </div>
-              {registerMethods.formState.errors.lastName && (
+              {registerMethods.formState.errors.last_name && (
                 <p className="text-red-500 text-xs mt-1">
-                  {registerMethods.formState.errors.lastName.message}
+                  {registerMethods.formState.errors.last_name.message}
                 </p>
               )}
             </div>
@@ -278,15 +262,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="relative">
               <input
                 type="tel"
-                {...registerMethods.register("phoneNumber")}
+                {...registerMethods.register("phone_number")}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10"
                 placeholder="+1 (555) 123-4567"
               />
               <FiPhone className="absolute left-3 top-3.5 text-gray-400" />
             </div>
-            {registerMethods.formState.errors.phoneNumber && (
+            {registerMethods.formState.errors.phone_number && (
               <p className="text-red-500 text-xs mt-1">
-                {registerMethods.formState.errors.phoneNumber.message}
+                {registerMethods.formState.errors.phone_number.message}
               </p>
             )}
           </div>
@@ -342,7 +326,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
-                {...registerMethods.register("confirmPassword")}
+                {...registerMethods.register("confirm_password")}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 pr-10"
                 placeholder="••••••••"
               />
@@ -355,9 +339,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
               </button>
             </div>
-            {registerMethods.formState.errors.confirmPassword && (
+            {registerMethods.formState.errors.confirm_password && (
               <p className="text-red-500 text-xs mt-1">
-                {registerMethods.formState.errors.confirmPassword.message}
+                {registerMethods.formState.errors.confirm_password.message}
               </p>
             )}
           </div>
@@ -370,7 +354,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="relative">
               <input
                 type="file"
-                {...registerMethods.register("profilePicture")}
+                {...registerMethods.register("profile_picture")}
                 accept="image/*"
                 className="w-full px-10 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
               />
@@ -383,18 +367,18 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               User Type *
             </label>
             <select
-              {...registerMethods.register("userType")}
+              {...registerMethods.register("user_type")}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400"
               defaultValue="User"
             >
-              <option value="Administrator">Administrator</option>
-              <option value="User">Client User</option>
-              <option value="Manager">Compliance Auditor</option>
-              <option value="Analyst">Risk Analyst</option>
+              <option value="ADMIN">Administrator</option>
+              <option value="CLIENT">Client User</option>
+              <option value="AUDITOR">Compliance Auditor</option>
+              <option value="ANALYST">Risk Analyst</option>
             </select>
-            {registerMethods.formState.errors.userType && (
+            {registerMethods.formState.errors.user_type && (
               <p className="text-red-500 text-xs mt-1">
-                {registerMethods.formState.errors.userType.message}
+                {registerMethods.formState.errors.user_type.message}
               </p>
             )}
           </div>
@@ -404,7 +388,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="flex items-center">
               <input
                 type="checkbox"
-                {...registerMethods.register("enableMFA")}
+                {...registerMethods.register("mfa_enabled")}
                 id="mfa"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
@@ -416,7 +400,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="flex items-start">
               <input
                 type="checkbox"
-                {...registerMethods.register("acceptTerms")}
+                {...registerMethods.register("terms_accepted")}
                 id="terms"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5"
               />
@@ -435,9 +419,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 *
               </label>
             </div>
-            {registerMethods.formState.errors.acceptTerms && (
+            {registerMethods.formState.errors.terms_accepted && (
               <p className="text-red-500 text-xs ml-6">
-                {registerMethods.formState.errors.acceptTerms.message}
+                {registerMethods.formState.errors.terms_accepted.message}
               </p>
             )}
           </div>

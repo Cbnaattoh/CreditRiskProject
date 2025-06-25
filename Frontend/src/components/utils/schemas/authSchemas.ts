@@ -27,29 +27,29 @@ export const registrationSchema = z
         /[^A-Za-z0-9]/,
         "Password must contain at least one special character"
       ),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-    phoneNumber: z
+    confirm_password: z.string().min(1, "Please confirm your password"),
+    phone_number: z
       .string()
       .min(6, "Please enter a valid phone number")
       .optional()
       .or(z.literal("")),
-    profilePicture: z.instanceof(FileList).optional(),
-    userType: z.enum(["Administrator", "User", "Manager", "Analyst"]),
-    acceptTerms: z.literal(true, {
+    profile_picture: z.instanceof(FileList).optional(),
+    user_type: z.enum(["ADMIN", "CLIENT", "AUDITOR", "ANALYST"]),
+    terms_accepted: z.literal(true, {
       errorMap: () => ({ message: "You must accept the terms and conditions" }),
     }),
-    enableMFA: z.boolean().optional(),
+    mfa_enabled: z.boolean().optional(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",
-    path: ["confirmPassword"],
+    path: ["confirm_password"],
   });
 
 // Frontend-specific registration schema for the form
 export const frontendRegistrationSchema = z
   .object({
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
+    first_name: z.string().min(1, "First name is required"),
+    last_name: z.string().min(1, "Last name is required"),
     email: z
       .string()
       .min(1, "Email is required")
@@ -65,22 +65,24 @@ export const frontendRegistrationSchema = z
         /[^A-Za-z0-9]/,
         "Password must contain at least one special character"
       ),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-    phoneNumber: z
+    confirm_password: z.string().min(1, "Please confirm your password"),
+    phone_number: z
       .string()
       .min(6, "Please enter a valid phone number")
       .optional()
       .or(z.literal("")),
-    profilePicture: z.instanceof(FileList).optional(),
-    userType: z.enum(["Administrator", "User", "Manager", "Analyst"]),
-    acceptTerms: z.literal(true, {
-      errorMap: () => ({ message: "You must accept the terms and conditions" }),
-    }),
-    enableMFA: z.boolean().optional(),
+    profile_picture: z.instanceof(FileList).optional(),
+    user_type: z.enum(["ADMIN", "CLIENT", "AUDITOR", "ANALYST"]),
+    terms_accepted: z.boolean().optional(),
+    mfa_enabled: z.boolean().optional(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",
-    path: ["confirmPassword"],
+    path: ["confirm_password"],
+  })
+  .refine((data) => data.terms_accepted === true, {
+    message: "You must accept the terms and conditions",
+    path: ["terms_accepted"],
   });
 
 export const twoFASchema = z.object({

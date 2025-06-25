@@ -14,7 +14,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const baseQuery = fetchBaseQuery({
   baseUrl: BASE_URL,
   credentials: "include",
-  prepareHeaders: (headers, { getState }) => {
+  prepareHeaders: (headers, { getState, endpoint }) => {
     const state = getState() as RootState;
     const token = state.auth.token;
 
@@ -24,8 +24,12 @@ const baseQuery = fetchBaseQuery({
 
     headers.set("Accept", "application/json");
 
-    if (!headers.has("Content-Type")) {
-      headers.set("Content-Type", "application/json");
+    const formDataEndpoints = ["register"];
+
+    if (!formDataEndpoints.includes(endpoint as string)) {
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
     }
 
     return headers;
@@ -42,7 +46,6 @@ const baseQueryWithReauth = async (
 
   const error = result?.error as FetchBaseQueryError | undefined;
 
-  // ✅ Automatic reauth on 401
   if (error?.status === 401) {
     console.warn("Access token expired. Attempting refresh...");
 
@@ -83,7 +86,6 @@ const baseQueryWithReauth = async (
     }
   }
 
-  // 🧼 Clean up HTML error pages (fallback errors)
   if (
     error &&
     typeof error.data === "string" &&
@@ -110,7 +112,6 @@ export const apiSlice = createApi({
   refetchOnMountOrArgChange: true,
 });
 
-// ✅ Shared API error type
 export type ApiError = {
   status: number;
   data: {
