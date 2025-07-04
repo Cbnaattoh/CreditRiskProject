@@ -334,22 +334,10 @@ class RegisterView(generics.CreateAPIView):
 
     @register_docs
     def create(self, request, *args, **kwargs):
-        # Enhanced debugging
-        print(f"Content-Type: {request.content_type}")
-        print(f"Request META: {request.META.get('CONTENT_TYPE', 'Not set')}")
-        print(f"Request data keys: {list(request.data.keys())}")
-        
-        # Log data types for debugging
-        for key, value in request.data.items():
-            if hasattr(value, 'read'):  # It's a file
-                print(f"{key}: File object - {getattr(value, 'name', 'unknown')}")
-            else:
-                print(f"{key}: {type(value)} = {value}")
         
         try:
             serializer = self.get_serializer(data=request.data)
             
-            # More detailed validation error handling
             if not serializer.is_valid():
                 print(f"Serializer validation errors: {serializer.errors}")
                 return Response(
@@ -377,7 +365,6 @@ class RegisterView(generics.CreateAPIView):
                 
                 logger.info(f"New user registered: {user.email}")
                 
-                # Return user data without sensitive information
                 return Response({
                     'id': user.id,
                     'email': user.email,
