@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "../../../store";
+import { clearUserState } from "../../../../utils/services/userPersist";
 
 interface User {
   id: string;
@@ -148,6 +149,8 @@ const authSlice = createSlice({
       if (typeof window !== "undefined") {
         localStorage.removeItem("authToken");
         localStorage.removeItem("refreshToken");
+
+        clearUserState();
       }
     },
   },

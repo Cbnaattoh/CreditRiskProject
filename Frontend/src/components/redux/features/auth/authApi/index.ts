@@ -91,6 +91,22 @@ interface RegisterResponse extends BaseResponse {
   is_verified?: boolean;
   access?: string;
   refresh?: string;
+  detail?: string;
+  errors?: {
+    email?: string[];
+    first_name?: string[];
+    last_name?: string[];
+    phone_number?: string[];
+    password?: string[];
+    confirm_password?: string[];
+    user_type?: string[];
+    terms_accepted?: string[];
+    mfa_enabled?: string[];
+    profile_picture?: string[];
+    [key: string]: string[] | undefined;
+  };
+  requiresVerification?: boolean;
+  message?: string;
 }
 
 interface MFAVerifyResponse extends BaseResponse {
@@ -204,7 +220,7 @@ export const authApi = apiSlice.injectEndpoints({
 
     register: builder.mutation<RegisterResponse, RegisterCredentials>({
       query: (credentials) => {
-        console.log("🔍 Register mutation called with:", credentials);
+        // console.log("🔍 Register mutation called with:", credentials);
 
         const formData = new FormData();
 
@@ -229,16 +245,16 @@ export const authApi = apiSlice.injectEndpoints({
           credentials.profile_picture instanceof File
         ) {
           formData.append("profile_picture", credentials.profile_picture);
-          console.log(
-            "📎 Profile picture added:",
-            credentials.profile_picture.name
-          );
+          // console.log(
+          //   "📎 Profile picture added:",
+          //   credentials.profile_picture.name
+          // );
         }
 
-        console.log("📋 FormData contents:");
-        for (let [key, value] of formData.entries()) {
-          console.log(`  ${key}:`, value);
-        }
+        // console.log("📋 FormData contents:");
+        // for (let [key, value] of formData.entries()) {
+        //   console.log(`  ${key}:`, value);
+        // }
 
         return {
           url: "auth/register/",
@@ -246,33 +262,31 @@ export const authApi = apiSlice.injectEndpoints({
           body: formData,
         };
       },
-      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
-        try {
-          console.log("⏳ Waiting for query to complete...");
-          const { data } = await queryFulfilled;
-          console.log("✅ Registration successful:", data);
+      // async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+      //   try {
+      //     const { data } = await queryFulfilled;
 
-          if (data.access && data.refresh) {
-            const user: User = {
-              id: data.id!,
-              email: data.email!,
-              name: `${data.first_name} ${data.last_name}`.trim(),
-              role: data.user_type!,
-              is_verified: data.is_verified,
-            };
+      //     if (data.access && data.refresh && !data.errors) {
+      //       const user: User = {
+      //         id: data.id!,
+      //         email: data.email!,
+      //         name: `${data.first_name} ${data.last_name}`.trim(),
+      //         role: data.user_type!,
+      //         is_verified: data.is_verified,
+      //       };
 
-            dispatch(
-              setCredentials({
-                user,
-                token: data.access,
-                refreshToken: data.refresh,
-              })
-            );
-          }
-        } catch (error) {
-          console.error("❌ Registration error in onQueryStarted:", error);
-        }
-      },
+      //       dispatch(
+      //         setCredentials({
+      //           user,
+      //           token: data.access,
+      //           refreshToken: data.refresh,
+      //         })
+      //       );
+      //     }
+      //   } catch (error) {
+      //     console.error("❌ Registration error in onQueryStarted:", error);
+      //   }
+      // },
       transformErrorResponse: (response) => {
         console.log("🔴 Error response received:", response);
         if (
@@ -281,7 +295,9 @@ export const authApi = apiSlice.injectEndpoints({
         ) {
           return {
             status: response.status,
-            data: { detail: "Registration server error" },
+            data: {
+              detail: "Registration server error",
+            },
           };
         }
         return response;

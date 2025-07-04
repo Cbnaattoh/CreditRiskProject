@@ -8,8 +8,12 @@ function App() {
 
   return (
     <>
+      <ToastContainer
+        toasts={toasts}
+        removeToast={removeToast}
+        position="top-right"
+      />
       <div className="flex-1">
-        <ToastContainer toasts={toasts} removeToast={removeToast}/>
         <AppRoutes />
       </div>
     </>

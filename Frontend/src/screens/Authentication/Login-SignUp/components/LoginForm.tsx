@@ -19,6 +19,9 @@ interface LoginFormProps {
   handleLoginSubmit: (data: any) => Promise<void>;
   handleForgotPassword: () => void;
   isLoading: boolean;
+  showSuccessToast: (message: string) => void;
+  showErrorToast: (message: string) => void;
+  showInfoToast: (message: string) => void;
 }
 
 const rememberMeHelpers = {
@@ -55,6 +58,9 @@ const LoginForm: React.FC<LoginFormProps> = ({
   handleLoginSubmit,
   handleForgotPassword,
   isLoading,
+  // showSuccessToast,
+  // showErrorToast,
+  // showInfoToast
 }) => {
   useEffect(() => {
     const savedCredentials = rememberMeHelpers.loadSavedCredentials();

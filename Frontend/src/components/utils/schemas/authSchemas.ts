@@ -7,7 +7,7 @@ export const loginSchema = z.object({
   enableMFA: z.boolean().optional(),
 });
 
-// Backend registration schema - matches what the API expects
+// Backend registration schema
 export const registrationSchema = z
   .object({
     first_name: z.string().min(1, "First name is required"),
@@ -34,7 +34,7 @@ export const registrationSchema = z
       .optional()
       .or(z.literal("")),
     profile_picture: z.instanceof(FileList).optional(),
-    user_type: z.enum(["ADMIN", "CLIENT", "AUDITOR", "ANALYST"]),
+    user_type: z.enum(["CLIENT", "AUDITOR", "ANALYST"]),
     terms_accepted: z.literal(true, {
       errorMap: () => ({ message: "You must accept the terms and conditions" }),
     }),
@@ -72,7 +72,7 @@ export const frontendRegistrationSchema = z
       .optional()
       .or(z.literal("")),
     profile_picture: z.instanceof(FileList).optional(),
-    user_type: z.enum(["ADMIN", "CLIENT", "AUDITOR", "ANALYST"]),
+    user_type: z.enum(["CLIENT", "AUDITOR", "ANALYST"]),
     terms_accepted: z.boolean().optional(),
     mfa_enabled: z.boolean().optional(),
   })

@@ -35,7 +35,7 @@ export const useFormManagement = () => {
       phone_number: "",
       password: "",
       confirm_password: "",
-      user_type: "User",
+      user_type: "CLIENT",
       mfa_enabled: false,
       terms_accepted: false,
       profile_picture: undefined,
@@ -51,7 +51,6 @@ export const useFormManagement = () => {
     },
   });
 
-  // Reset all forms with proper dependency management
   const resetForms = useCallback(() => {
     loginMethods.reset();
     registerMethods.reset();

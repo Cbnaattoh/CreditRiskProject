@@ -323,6 +323,9 @@ const Login: React.FC = () => {
                     handleLoginSubmit={handleLoginSubmit}
                     handleForgotPassword={handleForgotPassword}
                     isLoading={isLoading}
+                    showSuccessToast={success}
+                    showErrorToast={error}
+                    showInfoToast={info}
                   />
                 ) : (
                   <MFAForm
@@ -336,12 +339,16 @@ const Login: React.FC = () => {
                     handleBackupCodesAcknowledged={
                       handleBackupCodesAcknowledged
                     }
+                    showSuccessToast={success}
+                    showErrorToast={error}
                   />
                 )
               ) : (
                 <RegisterForm
                   registerMethods={registerMethods}
                   setActiveTab={setActiveTab}
+                  showSuccessToast={success}
+                  showErrorToast={error}
                 />
               )}
             </AnimatePresence>
