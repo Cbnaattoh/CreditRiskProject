@@ -28,6 +28,9 @@ const Header: React.FC = () => {
     user,
     userInitials,
     profileImage,
+    profileImageUrl,
+    imageLoaded,
+    imageError,
     handleImageError,
     logout,
     isLoggingOut,
@@ -75,6 +78,32 @@ const Header: React.FC = () => {
   };
 
   const { title, subtitle } = getPageInfo(location.pathname);
+
+  // Profile picture component for reusability
+  const ProfilePicture = ({ size = "h-10 w-10", showRing = false }) => {
+    const sizeClasses = size;
+    const ringClasses = showRing ? "ring-2 ring-indigo-100" : "";
+
+    return (
+      <div
+        className={`relative ${sizeClasses} rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden ${ringClasses}`}
+      >
+        {profileImage && !imageError ? (
+          <img
+            src={profileImage}
+            alt={user.name}
+            className="w-full h-full object-cover"
+            onError={handleImageError}
+            onLoad={() => console.log("Profile image loaded successfully")}
+          />
+        ) : (
+          <span className="text-indigo-600 font-medium text-sm">
+            {userInitials}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -133,20 +162,7 @@ const Header: React.FC = () => {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 focus:outline-none"
               >
-                <div className="relative h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
-                  {profileImage ? (
-                    <img
-                      src={profileImage}
-                      alt={user.name}
-                      className="w-full h-full object-cover"
-                      onError={handleImageError}
-                    />
-                  ) : (
-                    <span className="text-indigo-600 font-medium text-sm">
-                      {userInitials}
-                    </span>
-                  )}
-                </div>
+                <ProfilePicture />
               </button>
 
               <AnimatePresence>
@@ -160,24 +176,7 @@ const Header: React.FC = () => {
                   >
                     {/* Profile header */}
                     <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-gray-100 flex items-center space-x-4">
-                      <div className="relative h-14 w-14 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm ring-2 ring-indigo-100">
-                        {profileImage ? (
-                          <img
-                            src={profileImage}
-                            alt={user.name}
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        ) : (
-                          <>
-                            <img
-                              src={defaultAvatar}
-                              alt="Default avatar"
-                              className="absolute inset-0 w-full h-full object-cover"
-                            />
-                            <FiUser className="text-indigo-500 absolute inset-0 m-auto" />
-                          </>
-                        )}
-                      </div>
+                      <ProfilePicture size="h-14 w-14" showRing={true} />
                       <div className="flex-1 min-w-0">
                         <p
                           className="text-sm font-medium text-gray-900 truncate"
@@ -214,6 +213,7 @@ const Header: React.FC = () => {
                       <button
                         onClick={() => {
                           setProfileOpen(false);
+                          // Add your photo upload logic here
                         }}
                         className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
                       >

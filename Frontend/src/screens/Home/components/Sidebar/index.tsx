@@ -19,7 +19,8 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
-  const { user, profileImage } = useAuth();
+  const { user, profileImage, userInitials, imageError, handleImageError } =
+    useAuth();
 
   const navItems = [
     { path: "/home", icon: <FiHome />, label: "Dashboard" },
@@ -35,6 +36,26 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
 
   const toggleSidebar = () => setIsOpen(!isOpen);
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+
+  // Profile picture component
+  const SidebarProfilePicture = () => {
+    return (
+      <div className="relative h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden">
+        {profileImage && !imageError ? (
+          <img
+            src={profileImage}
+            alt={user.name}
+            className="w-full h-full object-cover"
+            onError={handleImageError}
+          />
+        ) : (
+          <span className="text-white text-xs font-medium">
+            {userInitials || <FiUser className="text-white" />}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -116,13 +137,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
             <div className="flex items-center p-3 rounded-lg bg-blue-800">
               <div className="relative">
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  {profileImage ? (
-                    profileImage
-                  ) : (
-                    <FiUser className="text-white" />
-                  )}
-                </div>
+                <SidebarProfilePicture />
                 <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-blue-800"></span>
               </div>
               <div className="ml-3">
@@ -136,4 +151,5 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     </>
   );
 };
+
 export default Sidebar;

@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createSelector } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "../../../store";
 
@@ -146,7 +146,7 @@ export const {
 
 export default userSlice.reducer;
 
-// Selectors
+// Basic selectors
 export const selectUserProfile = (state: RootState) => state.user.profile;
 export const selectUserLoading = (state: RootState) => state.user.isLoading;
 export const selectUserError = (state: RootState) => state.user.error;
@@ -155,55 +155,77 @@ export const selectUserLastUpdated = (state: RootState) =>
 export const selectUserPreferences = (state: RootState) =>
   state.user.preferences;
 
-// Derived selectors
-export const selectUserFullName = (state: RootState) => {
-  const profile = state.user.profile;
-  if (!profile) return null;
+// Memoized derived selectors
+export const selectUserFullName = createSelector(
+  [selectUserProfile],
+  (profile) => {
+    if (!profile) return null;
 
-  if (profile.first_name && profile.last_name) {
-    return `${profile.first_name} ${profile.last_name}`.trim();
-  }
-
-  return profile.name || profile.email;
-};
-
-export const selectUserInitials = (state: RootState) => {
-  const profile = state.user.profile;
-  if (!profile) return "";
-
-  if (profile.first_name && profile.last_name) {
-    return `${profile.first_name.charAt(0)}${profile.last_name.charAt(
-      0
-    )}`.toUpperCase();
-  }
-
-  if (profile.name) {
-    const nameParts = profile.name.split(" ");
-    if (nameParts.length >= 2) {
-      return `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`.toUpperCase();
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name} ${profile.last_name}`.trim();
     }
-    return profile.name.charAt(0).toUpperCase();
+
+    return profile.name || profile.email;
   }
+);
 
-  return profile.email.charAt(0).toUpperCase();
-};
+export const selectUserInitials = createSelector(
+  [selectUserProfile],
+  (profile) => {
+    try {
+      const name =
+        profile?.name ||
+        (profile?.first_name && profile?.last_name
+          ? `${profile.first_name} ${profile.last_name}`
+          : profile?.first_name || profile?.last_name || "");
+      if (!name || typeof name !== "string") {
+        return "U";
+      }
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return "U";
+      }
+      return trimmedName
+        .split(" ")
+        .filter((word) => word && word.length > 0)
+        .map((word) => word.charAt(0).toUpperCase())
+        .join("")
+        .substring(0, 2);
+    } catch (error) {
+      console.warn("Error in selectUserInitials:", error);
+      return "U";
+    }
+  }
+);
 
-export const selectIsUserVerified = (state: RootState) =>
-  state.user.profile?.is_verified ?? false;
+export const selectIsUserVerified = createSelector(
+  [selectUserProfile],
+  (profile) => profile?.is_verified ?? false
+);
 
-export const selectIsMFAEnabled = (state: RootState) =>
-  state.user.profile?.mfa_enabled ?? false;
+export const selectIsMFAEnabled = createSelector(
+  [selectUserProfile],
+  (profile) => profile?.mfa_enabled ?? false
+);
 
-export const selectIsMFAFullyConfigured = (state: RootState) =>
-  state.user.profile?.mfa_fully_configured ?? false;
+export const selectIsMFAFullyConfigured = createSelector(
+  [selectUserProfile],
+  (profile) => profile?.mfa_fully_configured ?? false
+);
 
-export const selectUserTheme = (state: RootState) =>
-  state.user.preferences.theme ?? "light";
+export const selectUserTheme = createSelector(
+  [selectUserPreferences],
+  (preferences) => preferences.theme ?? "light"
+);
 
-export const selectUserLanguage = (state: RootState) =>
-  state.user.preferences.language ?? "en";
+export const selectUserLanguage = createSelector(
+  [selectUserPreferences],
+  (preferences) => preferences.language ?? "en"
+);
 
-export const selectNotificationsEnabled = (state: RootState) =>
-  state.user.preferences.notifications ?? true;
+export const selectNotificationsEnabled = createSelector(
+  [selectUserPreferences],
+  (preferences) => preferences.notifications ?? true
+);
 
 export type { User, UserState };
