@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../../Home/components/Sidebar";
 import Header from "../../Home/components/Header";
+import { ThemeToggle } from "../../Settings/components/ThemeToggle";
 
 const MainLayout: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -22,6 +23,8 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      <ThemeToggle/>
     </div>
   );
 };

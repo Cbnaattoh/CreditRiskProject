@@ -68,8 +68,6 @@ const AccountSettings = () => {
         ))}
       </div>
 
-      <ThemeToggle />
-
       {/* Main Card */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
