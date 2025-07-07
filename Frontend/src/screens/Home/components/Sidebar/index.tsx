@@ -118,7 +118,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
           isMobile ? "" : "lg:translate-x-0"
         }`}
       >
-        {/* Premium gradient overlay */}
+        {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/30 dark:from-indigo-900/20 dark:via-transparent dark:to-purple-900/10 pointer-events-none" />
 
         {/* Header */}
