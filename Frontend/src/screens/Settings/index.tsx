@@ -1,6 +1,5 @@
 import { useState} from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ThemeToggle } from "./components/ThemeToggle";
 import { TabNavigation } from "./components/TabNavigation";
 import { AccountTab } from "./components/AccountTab";
 import { SecurityTab } from "./components/SecurityTab";
