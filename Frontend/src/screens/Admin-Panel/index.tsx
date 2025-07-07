@@ -97,22 +97,24 @@ const Tabs: React.FC<{ tabs: Tab[]; defaultActiveTab?: number }> = ({
   const [selectedTab, setSelectedTab] = useState(tabs[defaultActiveTab].label);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="border-b border-gray-200">
+    <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-300">
+      <div className="border-b border-gray-200/50 dark:border-gray-700/50">
         <nav className="flex -mb-px">
           {tabs.map((tab) => (
-            <button
+            <motion.button
               key={tab.label}
+              whileHover={{ backgroundColor: "rgba(79, 70, 229, 0.05)" }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedTab(tab.label)}
-              className={`flex items-center py-4 px-6 text-sm font-medium border-b-2 ${
+              className={`flex items-center py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
                 selectedTab === tab.label
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
               {tab.icon && <span className="mr-2">{tab.icon}</span>}
               {tab.label}
-            </button>
+            </motion.button>
           ))}
         </nav>
       </div>
@@ -123,7 +125,7 @@ const Tabs: React.FC<{ tabs: Tab[]; defaultActiveTab?: number }> = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
           className="p-6"
         >
           {tabs.find((tab) => tab.label === selectedTab)?.content}
@@ -162,23 +164,32 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
   };
 
   return (
-    <motion.div layout className="bg-white rounded-xl shadow-sm p-4 mb-6">
+    <motion.div
+      layout
+      className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-4 mb-6 transition-all duration-300"
+    >
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-        <button
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Filters
+        </h3>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center text-indigo-600 hover:text-indigo-800"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200"
         >
           {isExpanded ? (
             <>
-              <FiX className="mr-1" /> Hide
+              <FiX className="h-4 w-4" />
+              <span>Hide</span>
             </>
           ) : (
             <>
-              <FiFilter className="mr-1" /> Show Filters
+              <FiFilter className="h-4 w-4" />
+              <span>Show Filters</span>
             </>
           )}
-        </button>
+        </motion.button>
       </div>
 
       <AnimatePresence>
@@ -187,16 +198,16 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
             className="overflow-hidden"
           >
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Date Range
                 </label>
                 <div className="flex items-center space-x-2">
-                  <div className="relative">
+                  <div className="relative flex-1">
                     <input
                       type="date"
                       value={filters.dateRange.start}
@@ -209,12 +220,14 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
                           },
                         })
                       }
-                      className="pl-8 pr-2 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      className="pl-9 pr-3 py-2 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
                     />
-                    <FiCalendar className="absolute left-2 top-3 text-gray-400" />
+                    <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   </div>
-                  <span>to</span>
-                  <div className="relative">
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">
+                    to
+                  </span>
+                  <div className="relative flex-1">
                     <input
                       type="date"
                       value={filters.dateRange.end}
@@ -227,15 +240,15 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
                           },
                         })
                       }
-                      className="pl-8 pr-2 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      className="pl-9 pr-3 py-2 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
                     />
-                    <FiCalendar className="absolute left-2 top-3 text-gray-400" />
+                    <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Event Type
                 </label>
                 <select
@@ -243,7 +256,7 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
                   onChange={(e) =>
                     setFilters({ ...filters, eventType: e.target.value })
                   }
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
                 >
                   <option value="all">All Events</option>
                   <option value="login">Login</option>
@@ -253,7 +266,7 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Status
                 </label>
                 <select
@@ -261,7 +274,7 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
                   onChange={(e) =>
                     setFilters({ ...filters, status: e.target.value })
                   }
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
                 >
                   <option value="all">All Statuses</option>
                   <option value="success">Success</option>
@@ -271,19 +284,27 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end space-x-3">
-              <button
+            <div className="mt-6 flex justify-end space-x-3">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleResetFilters}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 shadow-sm"
               >
                 Reset
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileHover={{
+                  scale: 1.03,
+                  boxShadow:
+                    "0 4px 6px -1px rgba(79, 70, 229, 0.3), 0 2px 4px -1px rgba(79, 70, 229, 0.2)",
+                }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleApplyFilters}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 hover:from-indigo-600 hover:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all duration-200"
               >
                 Apply Filters
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         )}
@@ -295,11 +316,10 @@ const FilterSection: React.FC<{ onFilter: (filters: Filters) => void }> = ({
 // Main Component
 const AdminPanel: React.FC = () => {
   const [filteredLogs, setFilteredLogs] = useState<LogEntry[]>(initialLogs);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleFilter = (filters: Filters) => {
-    // Implement your actual filtering logic here
     const filtered = initialLogs.filter((log) => {
-      // Date filtering
       if (filters.dateRange.start && filters.dateRange.end) {
         const logDate = new Date(log.timestamp).getTime();
         const startDate = new Date(filters.dateRange.start).getTime();
@@ -307,12 +327,10 @@ const AdminPanel: React.FC = () => {
         if (logDate < startDate || logDate > endDate) return false;
       }
 
-      // Event type filtering
       if (filters.eventType !== "all" && log.event !== filters.eventType) {
         return false;
       }
 
-      // Status filtering
       if (filters.status !== "all" && log.status !== filters.status) {
         return false;
       }
@@ -324,29 +342,35 @@ const AdminPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <div className="flex-1 p-6 overflow-auto">
         <Tabs
           tabs={[
             {
               label: "User Management",
               content: (
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div className="w-full md:w-1/2">
                       <div className="relative">
                         <input
                           type="text"
                           placeholder="Search by name, email or role..."
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <FiSearch className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
                     </div>
-                    <button className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition duration-150 ease-in-out flex items-center justify-center gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 hover:from-indigo-600 hover:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
+                    >
                       <FiPlus className="w-5 h-5" />
                       Add User
-                    </button>
+                    </motion.button>
                   </div>
                   <UserManagementTable users={users} />
                 </div>
@@ -355,7 +379,7 @@ const AdminPanel: React.FC = () => {
             {
               label: "System Logs",
               content: (
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
                   <FilterSection onFilter={handleFilter} />
                   <div className="mt-6">
                     <SystemLogsTable logs={filteredLogs} />
