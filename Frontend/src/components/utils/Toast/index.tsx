@@ -114,22 +114,26 @@ const CloseIcon = ({ className }: { className?: string }) => (
 
 // Utility functions
 const getToastStyles = (type: ToastType): string => {
-  const baseStyles = "rounded-xl shadow-lg overflow-hidden backdrop-blur-sm";
+  const baseStyles =
+    "rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl border relative";
   const typeStyles = {
-    success: "bg-green-50/95 border border-green-200",
-    error: "bg-red-50/95 border border-red-200",
-    info: "bg-blue-50/95 border border-blue-200",
-    warning: "bg-amber-50/95 border border-amber-200",
+    success:
+      "bg-green-50/90 dark:bg-green-900/30 border-green-200/50 dark:border-green-700/30 shadow-green-500/20 dark:shadow-green-500/10",
+    error:
+      "bg-red-50/90 dark:bg-red-900/30 border-red-200/50 dark:border-red-700/30 shadow-red-500/20 dark:shadow-red-500/10",
+    info: "bg-blue-50/90 dark:bg-blue-900/30 border-blue-200/50 dark:border-blue-700/30 shadow-blue-500/20 dark:shadow-blue-500/10",
+    warning:
+      "bg-amber-50/90 dark:bg-amber-900/30 border-amber-200/50 dark:border-amber-700/30 shadow-amber-500/20 dark:shadow-amber-500/10",
   };
   return `${baseStyles} ${typeStyles[type]}`;
 };
 
 const getProgressBarColor = (type: ToastType): string => {
   const colors = {
-    success: "bg-green-500",
-    error: "bg-red-500",
-    info: "bg-blue-500",
-    warning: "bg-amber-500",
+    success: "bg-gradient-to-r from-green-500 to-emerald-500",
+    error: "bg-gradient-to-r from-red-500 to-rose-500",
+    info: "bg-gradient-to-r from-blue-500 to-indigo-500",
+    warning: "bg-gradient-to-r from-amber-500 to-orange-500",
   };
   return colors[type];
 };
@@ -137,10 +141,22 @@ const getProgressBarColor = (type: ToastType): string => {
 const getIcon = (type: ToastType) => {
   const iconClass = "flex-shrink-0";
   const icons = {
-    success: <CheckIcon className={`${iconClass} text-green-600`} />,
-    error: <AlertIcon className={`${iconClass} text-red-600`} />,
-    info: <InfoIcon className={`${iconClass} text-blue-600`} />,
-    warning: <WarningIcon className={`${iconClass} text-amber-600`} />,
+    success: (
+      <CheckIcon
+        className={`${iconClass} text-green-600 dark:text-green-400`}
+      />
+    ),
+    error: (
+      <AlertIcon className={`${iconClass} text-red-600 dark:text-red-400`} />
+    ),
+    info: (
+      <InfoIcon className={`${iconClass} text-blue-600 dark:text-blue-400`} />
+    ),
+    warning: (
+      <WarningIcon
+        className={`${iconClass} text-amber-600 dark:text-amber-400`}
+      />
+    ),
   };
   return icons[type];
 };
@@ -196,7 +212,7 @@ const Toast: React.FC<ToastProps> = ({
   return (
     <div
       className={`
-        transform transition-all duration-300 ease-out w-full max-w-sm
+        transform transition-all duration-500 ease-out w-full max-w-sm
         ${
           isVisible
             ? "translate-x-0 opacity-100 scale-100"
@@ -208,8 +224,11 @@ const Toast: React.FC<ToastProps> = ({
       aria-atomic="true"
     >
       <div className={getToastStyles(type)}>
+        {/* Glass morphism effect */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/60 via-white/30 to-white/20 dark:from-gray-800/50 dark:via-gray-900/30 dark:to-gray-800/20" />
+
         {/* Progress bar */}
-        <div className="h-1 w-full bg-black/10 overflow-hidden">
+        <div className="relative h-1 w-full bg-black/10 dark:bg-white/10 overflow-hidden">
           <div
             className={`h-full transition-all duration-75 ease-linear ${getProgressBarColor(
               type
@@ -219,22 +238,24 @@ const Toast: React.FC<ToastProps> = ({
         </div>
 
         {/* Toast content */}
-        <div className="p-4 flex items-start gap-3">
-          <div className="mt-0.5">{getIcon(type)}</div>
+        <div className="relative p-5 flex items-start gap-4">
+          <div className="mt-0.5 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg">
+            {getIcon(type)}
+          </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-800 break-words">
+            <p className="text-sm font-semibold text-gray-800 dark:text-white break-words leading-relaxed">
               {message}
             </p>
           </div>
 
           <button
             onClick={handleClose}
-            className="ml-2 p-1.5 rounded-full hover:bg-black/10 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="ml-2 p-2 rounded-full hover:bg-white/50 dark:hover:bg-gray-700/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 backdrop-blur-sm border border-white/20 dark:border-gray-600/20 shadow-sm"
             aria-label="Close notification"
             type="button"
           >
-            <CloseIcon className="text-gray-500 hover:text-gray-700" />
+            <CloseIcon className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" />
           </button>
         </div>
       </div>
@@ -251,10 +272,10 @@ export const ToastContainer: React.FC<
 > = ({ toasts, removeToast, position = "top-right" }) => {
   const getPositionStyles = (): string => {
     const positions = {
-      "top-right": "top-4 right-4",
-      "top-left": "top-4 left-4",
-      "bottom-right": "bottom-4 right-4",
-      "bottom-left": "bottom-4 left-4",
+      "top-right": "top-6 right-6",
+      "top-left": "top-6 left-6",
+      "bottom-right": "bottom-6 right-6",
+      "bottom-left": "bottom-6 left-6",
     };
     return positions[position];
   };
@@ -267,7 +288,7 @@ export const ToastContainer: React.FC<
       aria-live="polite"
       aria-label="Notifications"
     >
-      <div className="space-y-2 pointer-events-auto">
+      <div className="space-y-3 pointer-events-auto">
         {toasts.map((toast, index) => (
           <div
             key={toast.id}
@@ -275,6 +296,7 @@ export const ToastContainer: React.FC<
               zIndex: 1000 + index,
               animationDelay: `${index * 100}ms`,
             }}
+            className="animate-in slide-in-from-right-full duration-500 ease-out"
           >
             <Toast {...toast} onClose={() => removeToast(toast.id)} />
           </div>
