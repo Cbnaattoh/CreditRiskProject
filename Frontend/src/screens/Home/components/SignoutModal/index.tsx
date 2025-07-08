@@ -129,7 +129,7 @@ const SignoutModal: React.FC<SignoutModalProps> = ({
     setIsProcessing(true);
     showSuccessToast("Signing out securely...");
 
-    // Simulate processing delay for better UX
+   
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     onConfirm();

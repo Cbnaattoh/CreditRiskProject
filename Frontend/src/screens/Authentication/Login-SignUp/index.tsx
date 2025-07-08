@@ -282,16 +282,17 @@ const Login: React.FC = () => {
     }
   }, [setupMFA, navigate, success, handleApiError]);
 
-  // Background effect
+  // Background effect - Updated for dark theme
   useEffect(() => {
-    document.body.className = "bg-gradient-to-br from-gray-50 to-indigo-50";
+    document.body.className =
+      "bg-gradient-to-br from-gray-50 to-indigo-50 dark:from-gray-900 dark:to-indigo-900";
     return () => {
       document.body.className = "";
     };
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-gray-50 to-indigo-50 dark:from-gray-900 dark:to-indigo-900">
       <ToastContainer
         toasts={toasts}
         removeToast={removeToast}
@@ -301,14 +302,17 @@ const Login: React.FC = () => {
 
       <motion.div
         {...ANIMATION_VARIANTS.pageEnter}
-        className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden relative z-10 backdrop-blur-sm bg-opacity-90 border border-white border-opacity-20"
+        className="w-full max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden relative z-10 border border-gray-200/50 dark:border-gray-700/50"
       >
-        <div className="flex flex-col md:flex-row">
+        {/* Gradient overlay - matching sidebar style */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/30 dark:from-indigo-900/20 dark:via-transparent dark:to-purple-900/10 pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row relative">
           {/* Left Side Panel */}
           <SidePanel userType={userType} setUserType={setUserType} />
 
           {/* Right Side Form Panel */}
-          <div className="w-full md:w-3/5 p-10 flex flex-col justify-center">
+          <div className="w-full md:w-3/5 p-10 flex flex-col justify-center bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
             {/* Tab Navigation */}
             <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -361,7 +365,7 @@ const Login: React.FC = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-400"
+        className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-400 dark:text-gray-500"
       >
         © {new Date().getFullYear()} RiskGuard. All rights reserved.
       </motion.div>

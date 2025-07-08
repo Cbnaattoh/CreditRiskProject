@@ -88,15 +88,15 @@ const LoginForm: React.FC<LoginFormProps> = ({
         onSubmit={loginMethods.handleSubmit(handleSubmitWithRememberMe)}
         className="w-full"
       >
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
-        <p className="text-gray-600 mb-8">Sign in to your RiskGuard account</p>
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Welcome Back</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-8">Sign in to your RiskGuard account</p>
 
         {loginMethods.formState.errors.root && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start"
+            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-start border border-red-200/50 dark:border-red-800/50"
           >
             <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
             <div>{loginMethods.formState.errors.root.message}</div>
@@ -108,13 +108,13 @@ const LoginForm: React.FC<LoginFormProps> = ({
           <div>
             <label
               htmlFor="email"
-              className="block text-gray-700 text-sm font-medium mb-2"
+              className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2"
             >
               Email Address
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiMail className="text-gray-400" />
+                <FiMail className="text-gray-400 dark:text-gray-500" />
               </div>
               <input
                 type="email"
@@ -123,13 +123,13 @@ const LoginForm: React.FC<LoginFormProps> = ({
                 placeholder="your@email.com"
                 className={`pl-10 w-full px-4 py-3 rounded-xl border ${
                   loginMethods.formState.errors.email
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400`}
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600`}
               />
             </div>
             {loginMethods.formState.errors.email && (
-              <p className="mt-1 text-sm text-red-600">
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                 {loginMethods.formState.errors.email.message}
               </p>
             )}
@@ -139,13 +139,13 @@ const LoginForm: React.FC<LoginFormProps> = ({
           <div>
             <label
               htmlFor="password"
-              className="block text-gray-700 text-sm font-medium mb-2"
+              className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2"
             >
               Password
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiLock className="text-gray-400" />
+                <FiLock className="text-gray-400 dark:text-gray-500" />
               </div>
               <input
                 type={showPassword ? "text" : "password"}
@@ -154,9 +154,9 @@ const LoginForm: React.FC<LoginFormProps> = ({
                 placeholder="••••••••"
                 className={`pl-10 w-full px-4 py-3 rounded-xl border ${
                   loginMethods.formState.errors.password
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400`}
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600`}
               />
               <button
                 type="button"
@@ -164,14 +164,14 @@ const LoginForm: React.FC<LoginFormProps> = ({
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
-                  <FiEyeOff className="text-gray-400 hover:text-gray-600" />
+                  <FiEyeOff className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400" />
                 ) : (
-                  <FiEye className="text-gray-400 hover:text-gray-600" />
+                  <FiEye className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400" />
                 )}
               </button>
             </div>
             {loginMethods.formState.errors.password && (
-              <p className="mt-1 text-sm text-red-600">
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                 {loginMethods.formState.errors.password.message}
               </p>
             )}
@@ -183,11 +183,11 @@ const LoginForm: React.FC<LoginFormProps> = ({
               id="enableMFA"
               type="checkbox"
               {...loginMethods.register("enableMFA")}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              className="h-4 w-4 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
             />
             <label
               htmlFor="enableMFA"
-              className="ml-2 block text-sm text-gray-700"
+              className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
             >
               Set up Two-Factor Authentication
             </label>
@@ -200,18 +200,18 @@ const LoginForm: React.FC<LoginFormProps> = ({
                 id="remember"
                 type="checkbox"
                 {...loginMethods.register("rememberMe")}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
               />
               <label
                 htmlFor="remember"
-                className="ml-2 block text-sm text-gray-700"
+                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
               >
                 Remember me
               </label>
             </div>
             <button
               type="button"
-              className="text-sm text-indigo-600 hover:text-indigo-900 font-medium cursor-pointer"
+              className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 font-medium cursor-pointer transition-colors"
               onClick={handleForgotPassword}
             >
               Forgot Password?
@@ -225,7 +225,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               disabled={isLoading || !loginMethods.formState.isValid}
-              className={`w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all ${
+              className={`w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 dark:from-indigo-500 dark:to-purple-500 dark:hover:from-indigo-600 dark:hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all ${
                 isLoading || !loginMethods.formState.isValid
                   ? "opacity-80 cursor-not-allowed"
                   : ""

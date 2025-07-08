@@ -131,7 +131,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     } catch (err: any) {
       console.error("Registration error:", err);
 
-      // 🔴 Validation errors
       if (err.status === 400 && err.data?.errors) {
         const errors = err.data.errors;
 
@@ -166,10 +165,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         });
 
         showErrorToast("Please fix the errors below and try again.");
-      }
-
-      // 🔴 Conflict errors
-      else if (err.status === 409) {
+      } else if (err.status === 409) {
         const errorMessage =
           err.data?.detail || "User with this email already exists.";
         registerMethods.setError("email", {
@@ -177,15 +173,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           message: errorMessage,
         });
         showErrorToast(errorMessage);
-      }
-
-      // 🔴 Server errors
-      else if (err.status === 500) {
+      } else if (err.status === 500) {
         showErrorToast("Server error occurred. Please try again later.");
-      }
-
-      // 🔴 Profile picture JSON parsing issue
-      else if (
+      } else if (
         err.data &&
         typeof err.data === "string" &&
         err.data.includes("JSON parse error")
@@ -198,10 +188,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           message:
             "Please try with a different image or remove the profile picture.",
         });
-      }
-
-      // 🔴 All other cases
-      else {
+      } else {
         const errorMessage =
           err?.data?.detail ||
           err?.data?.message ||
@@ -224,10 +211,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         {...ANIMATION_VARIANTS.formSlide}
         className="w-full"
       >
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
           Create Account
         </h2>
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 dark:text-gray-400 mb-8">
           Join our platform to access advanced credit risk analysis tools.
         </p>
 
@@ -236,7 +223,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start"
+            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-start border border-red-200/50 dark:border-red-800/50"
           >
             <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
             <div>{registerMethods.formState.errors.root.message}</div>
@@ -250,7 +237,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           {/* Personal Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                 First Name *
               </label>
               <div className="relative">
@@ -272,19 +259,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                     },
                   })}
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 ${
-                    isLoading ? "opacity-50 cursor-not-allowed" : ""
-                  } ${
+                  className={`w-full px-4 py-3 rounded-xl border ${
                     registerMethods.formState.errors.first_name
-                      ? "border-red-300 bg-red-50"
-                      : ""
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 ${
+                    isLoading ? "opacity-80 cursor-not-allowed" : ""
                   }`}
                   placeholder="John"
                 />
-                <FiUser className="absolute left-3 top-3.5 text-gray-400" />
+                <FiUser className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
               </div>
               {registerMethods.formState.errors.first_name && (
-                <p className="text-red-500 text-xs mt-1 flex items-center">
+                <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                   <FiX className="mr-1" />
                   {registerMethods.formState.errors.first_name.message}
                 </p>
@@ -292,7 +279,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                 Last Name *
               </label>
               <div className="relative">
@@ -314,19 +301,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                     },
                   })}
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 ${
-                    isLoading ? "opacity-50 cursor-not-allowed" : ""
-                  } ${
+                  className={`w-full px-4 py-3 rounded-xl border ${
                     registerMethods.formState.errors.last_name
-                      ? "border-red-300 bg-red-50"
-                      : ""
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 ${
+                    isLoading ? "opacity-80 cursor-not-allowed" : ""
                   }`}
                   placeholder="Doe"
                 />
-                <FiUser className="absolute left-3 top-3.5 text-gray-400" />
+                <FiUser className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
               </div>
               {registerMethods.formState.errors.last_name && (
-                <p className="text-red-500 text-xs mt-1 flex items-center">
+                <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                   <FiX className="mr-1" />
                   {registerMethods.formState.errors.last_name.message}
                 </p>
@@ -336,7 +323,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
           {/* Contact Information */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               Email Address *
             </label>
             <div className="relative">
@@ -350,19 +337,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   },
                 })}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 ${
-                  isLoading ? "opacity-50 cursor-not-allowed" : ""
-                } ${
+                className={`w-full px-4 py-3 rounded-xl border ${
                   registerMethods.formState.errors.email
-                    ? "border-red-300 bg-red-50"
-                    : ""
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 ${
+                  isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 placeholder="your@email.com"
               />
-              <FiMail className="absolute left-3 top-3.5 text-gray-400" />
+              <FiMail className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
             </div>
             {registerMethods.formState.errors.email && (
-              <p className="text-red-500 text-xs mt-1 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.email.message}
               </p>
@@ -370,7 +357,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               Phone Number
             </label>
             <div className="relative">
@@ -383,19 +370,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   },
                 })}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 ${
-                  isLoading ? "opacity-50 cursor-not-allowed" : ""
-                } ${
+                className={`w-full px-4 py-3 rounded-xl border ${
                   registerMethods.formState.errors.phone_number
-                    ? "border-red-300 bg-red-50"
-                    : ""
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 ${
+                  isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 placeholder="+1 (555) 123-4567"
               />
-              <FiPhone className="absolute left-3 top-3.5 text-gray-400" />
+              <FiPhone className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
             </div>
             {registerMethods.formState.errors.phone_number && (
-              <p className="text-red-500 text-xs mt-1 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.phone_number.message}
               </p>
@@ -404,7 +391,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
           {/* Account Security */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               Password *
             </label>
             <div className="relative">
@@ -428,20 +415,20 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 })}
                 disabled={isLoading}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 pr-10 ${
-                  isLoading ? "opacity-50 cursor-not-allowed" : ""
-                } ${
+                className={`w-full px-4 py-3 rounded-xl border ${
                   registerMethods.formState.errors.password
-                    ? "border-red-300 bg-red-50"
-                    : ""
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 pr-10 ${
+                  isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 placeholder="••••••••"
               />
-              <FiLock className="absolute left-3 top-3.5 text-gray-400" />
+              <FiLock className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
                 disabled={isLoading}
               >
                 {showPassword ? <FiEyeOff /> : <FiEye />}
@@ -451,7 +438,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             {password && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center mb-2">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full transition-all ${
                         passwordStrength.score <= 2
@@ -465,7 +452,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                       }}
                     />
                   </div>
-                  <span className="ml-2 text-xs text-gray-600">
+                  <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">
                     {passwordStrength.score <= 2
                       ? "Weak"
                       : passwordStrength.score <= 3
@@ -477,12 +464,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   {passwordStrength.requirements.map((req) => (
                     <div key={req.key} className="flex items-center text-xs">
                       {req.met ? (
-                        <FiCheck className="mr-2 text-green-500" />
+                        <FiCheck className="mr-2 text-green-500 dark:text-green-400" />
                       ) : (
-                        <FiX className="mr-2 text-red-500" />
+                        <FiX className="mr-2 text-red-500 dark:text-red-400" />
                       )}
                       <span
-                        className={req.met ? "text-green-600" : "text-gray-500"}
+                        className={
+                          req.met
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-gray-500 dark:text-gray-400"
+                        }
                       >
                         {req.label}
                       </span>
@@ -493,7 +484,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             )}
 
             {registerMethods.formState.errors.password && (
-              <p className="text-red-500 text-xs mt-1 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.password.message}
               </p>
@@ -501,7 +492,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               Confirm Password *
             </label>
             <div className="relative">
@@ -511,24 +502,24 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   required: "Please confirm your password",
                 })}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 pl-10 pr-10 ${
-                  isLoading ? "opacity-50 cursor-not-allowed" : ""
-                } ${
+                className={`w-full px-4 py-3 rounded-xl border ${
                   registerMethods.formState.errors.confirm_password
-                    ? "border-red-300 bg-red-50"
+                    ? "border-red-500 dark:border-red-500"
                     : registerMethods.watch("confirm_password") &&
                       registerMethods.watch("confirm_password") ===
                         registerMethods.watch("password")
-                    ? "border-green-300 bg-green-50"
-                    : ""
+                    ? "border-green-500 dark:border-green-500"
+                    : "border-gray-300 dark:border-gray-700"
+                } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 pl-10 pr-10 ${
+                  isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 placeholder="••••••••"
               />
-              <FiLock className="absolute left-3 top-3.5 text-gray-400" />
+              <FiLock className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
                 disabled={isLoading}
               >
                 {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
@@ -536,11 +527,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               {registerMethods.watch("confirm_password") &&
                 registerMethods.watch("confirm_password") ===
                   registerMethods.watch("password") && (
-                  <FiCheckCircle className="absolute right-10 top-3.5 text-green-500" />
+                  <FiCheckCircle className="absolute right-10 top-3.5 text-green-500 dark:text-green-400" />
                 )}
             </div>
             {registerMethods.formState.errors.confirm_password && (
-              <p className="text-red-500 text-xs mt-1 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.confirm_password.message}
               </p>
@@ -549,7 +540,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
           {/* Profile Details */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               Profile Picture
             </label>
             <div className="flex items-center space-x-4">
@@ -558,7 +549,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   <img
                     src={profilePreview}
                     alt="Profile preview"
-                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-300"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
                   />
                   <button
                     type="button"
@@ -590,17 +581,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                     })}
                     accept="image/*"
                     disabled={isLoading}
-                    className={`w-full px-10 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 ${
-                      isLoading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                    className={`w-full px-10 py-3 rounded-xl border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-indigo-300 dark:hover:file:bg-gray-600 ${
+                      isLoading ? "opacity-80 cursor-not-allowed" : ""
+                    } bg-white dark:bg-gray-800/50 backdrop-blur-sm`}
                   />
-                  <FiImage className="absolute left-3 top-3.5 text-gray-400" />
+                  <FiImage className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500" />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Max file size: 5MB. Supported formats: JPG, PNG, GIF
                 </p>
                 {registerMethods.formState.errors.profile_picture && (
-                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                     <FiX className="mr-1" />
                     {registerMethods.formState.errors.profile_picture.message}
                   </p>
@@ -610,7 +601,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
               User Type *
             </label>
             <select
@@ -618,12 +609,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 required: "Please select a user type",
               })}
               disabled={isLoading}
-              className={`w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-gray-400 ${
-                isLoading ? "opacity-50 cursor-not-allowed" : ""
-              } ${
+              className={`w-full px-4 py-3 rounded-xl border ${
                 registerMethods.formState.errors.user_type
-                  ? "border-red-300 bg-red-50"
-                  : ""
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-700"
+              } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 ${
+                isLoading ? "opacity-80 cursor-not-allowed" : ""
               }`}
               defaultValue="CLIENT"
             >
@@ -632,7 +623,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               <option value="ANALYST">Risk Analyst</option>
             </select>
             {registerMethods.formState.errors.user_type && (
-              <p className="text-red-500 text-xs mt-1 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.user_type.message}
               </p>
@@ -647,13 +638,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 {...registerMethods.register("mfa_enabled")}
                 id="mfa"
                 disabled={isLoading}
-                className={`h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded ${
+                className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 border-gray-300 dark:border-gray-600 rounded ${
                   isLoading ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               />
-              <label htmlFor="mfa" className="ml-2 block text-sm text-gray-700">
+              <label
+                htmlFor="mfa"
+                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >
                 Enable Multi-Factor Authentication (MFA)
-                <span className="block text-xs text-gray-500">
+                <span className="block text-xs text-gray-500 dark:text-gray-400">
                   Recommended for enhanced security
                 </span>
               </label>
@@ -667,18 +661,18 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 })}
                 id="terms"
                 disabled={isLoading}
-                className={`h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5 ${
+                className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 border-gray-300 dark:border-gray-600 rounded mt-0.5 ${
                   isLoading ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               />
               <label
                 htmlFor="terms"
-                className="ml-2 block text-sm text-gray-700"
+                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
               >
                 I agree to the{" "}
                 <a
                   href="#"
-                  className="text-indigo-600 hover:underline"
+                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -687,7 +681,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 and{" "}
                 <a
                   href="#"
-                  className="text-indigo-600 hover:underline"
+                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -697,7 +691,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               </label>
             </div>
             {registerMethods.formState.errors.terms_accepted && (
-              <p className="text-red-500 text-xs ml-6 flex items-center">
+              <p className="text-red-600 dark:text-red-400 text-xs ml-6 flex items-center">
                 <FiX className="mr-1" />
                 {registerMethods.formState.errors.terms_accepted.message}
               </p>
@@ -709,7 +703,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             disabled={isLoading}
             whileHover={{ scale: isLoading ? 1 : 1.02 }}
             whileTap={{ scale: isLoading ? 1 : 0.98 }}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 dark:from-indigo-500 dark:to-purple-500 dark:hover:from-indigo-600 dark:hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (
               <>
@@ -722,12 +716,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </motion.button>
 
           <div className="text-center pt-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Already have an account?{" "}
               <button
                 type="button"
                 onClick={() => setActiveTab("login")}
-                className="text-indigo-600 hover:underline font-medium"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
                 disabled={isLoading}
               >
                 Sign In
