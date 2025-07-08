@@ -19,6 +19,7 @@ export type FormData = {
   otherNames?: string;
   dob: string;
   nationalIDNumber: string;
+  ssnitNumber?: string;
   gender: string;
   maritalStatus: string;
 
@@ -29,6 +30,7 @@ export type FormData = {
   digitalAddress: string;
   region: string;
   city: string;
+  landmark?: string;
   postalCode?: string;
 
   // Employment
@@ -39,9 +41,21 @@ export type FormData = {
 
   // Financials
   annualIncome: number;
-  otherIncome?: number;
-  totalAssets?: number;
-  totalLiabilities?: number;
+  collections12mo?: number;
+  dti: number;
+  loanAmount: number;
+  interestRate: number;
+  creditHistoryLength: number;
+  revolvingUtilization?: number;
+  maxBankcardBalance?: number;
+  delinquencies2yr?: number;
+  totalAccounts: number;
+  inquiries6mo?: number;
+  revolvingAccounts12mo?: number;
+  employmentLength: string;
+  publicRecords?: number;
+  openAccounts?: number;
+  homeOwnership: string;
 };
 
 export type FormErrors = {

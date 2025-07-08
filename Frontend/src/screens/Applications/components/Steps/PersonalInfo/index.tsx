@@ -53,6 +53,14 @@ export const PersonalInfoStep = ({
           placeholder="GHA-XXXXXXXXX-X"
         />
         <FormInput
+          label="SSNIT Number"
+          name="ssnitNumber"
+          register={register}
+          error={errors.ssnitNumber}
+          required
+          placeholder="PXXXXXXXXXX"
+        />
+        <FormInput
           label="Gender"
           name="gender"
           type="select"

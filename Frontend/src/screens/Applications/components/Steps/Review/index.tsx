@@ -45,21 +45,89 @@ export const ReviewStep = ({ formValues, uploadedFiles }: ReviewStepProps) => (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
             <div>
               Annual Income:{" "}
-              {formValues.annualIncome ? `$${formValues.annualIncome}` : "-"}
+              {formValues.annualIncome ? `GHC ${formValues.annualIncome}` : "-"}
             </div>
             <div>
-              Other Income:{" "}
-              {formValues.otherIncome ? `$${formValues.otherIncome}` : "-"}
-            </div>
-            <div>
-              Total Assets:{" "}
-              {formValues.totalAssets ? `$${formValues.totalAssets}` : "-"}
-            </div>
-            <div>
-              Total Liabilities:{" "}
-              {formValues.totalLiabilities
-                ? `$${formValues.totalLiabilities}`
+              Collections in Past 12 Months:{" "}
+              {formValues.collections12mo !== undefined
+                ? formValues.collections12mo
                 : "-"}
+            </div>
+            <div>
+              Debt-to-Income Ratio:{" "}
+              {formValues.dti !== undefined ? `${formValues.dti}%` : "-"}
+            </div>
+            <div>
+              Loan Amount:{" "}
+              {formValues.loanAmount ? `GHC ${formValues.loanAmount}` : "-"}
+            </div>
+            <div>
+              Interest Rate:{" "}
+              {formValues.interestRate !== undefined
+                ? `${formValues.interestRate}%`
+                : "-"}
+            </div>
+            <div>
+              Credit History Length:{" "}
+              {formValues.creditHistoryLength !== undefined
+                ? `${formValues.creditHistoryLength} years`
+                : "-"}
+            </div>
+            <div>
+              Revolving Utilization Rate:{" "}
+              {formValues.revolvingUtilization !== undefined
+                ? `${formValues.revolvingUtilization}%`
+                : "-"}
+            </div>
+            <div>
+              Maximum Balance on Bankcards:{" "}
+              {formValues.maxBankcardBalance !== undefined
+                ? `GHC ${formValues.maxBankcardBalance}`
+                : "-"}
+            </div>
+            <div>
+              Number of Delinquencies in Past 2 Years:{" "}
+              {formValues.delinquencies2yr !== undefined
+                ? formValues.delinquencies2yr
+                : "-"}
+            </div>
+            <div>
+              Total Number of Accounts:{" "}
+              {formValues.totalAccounts !== undefined
+                ? formValues.totalAccounts
+                : "-"}
+            </div>
+            <div>
+              Number of Inquiries in Last 6 Months:{" "}
+              {formValues.inquiries6mo !== undefined
+                ? formValues.inquiries6mo
+                : "-"}
+            </div>
+            <div>
+              Number of Revolving Accounts Opened in Last 12 Months:{" "}
+              {formValues.revolvingAccounts12mo !== undefined
+                ? formValues.revolvingAccounts12mo
+                : "-"}
+            </div>
+            <div>
+              Employment Length:{" "}
+              {formValues.employmentLength || "-"}
+            </div>
+            <div>
+              Number of Public Records:{" "}
+              {formValues.publicRecords !== undefined
+                ? formValues.publicRecords
+                : "-"}
+            </div>
+            <div>
+              Number of Open Accounts:{" "}
+              {formValues.openAccounts !== undefined
+                ? formValues.openAccounts
+                : "-"}
+            </div>
+            <div>
+              Home Ownership:{" "}
+              {formValues.homeOwnership || "-"}
             </div>
           </div>
         </div>
