@@ -7,7 +7,7 @@ import { PersonalInfoStep } from "./components/Steps/PersonalInfo";
 import { EmploymentStep } from "./components/Steps/Employment";
 import { FinancialsStep } from "./components/Steps/Financial";
 import { DocumentsStep } from "./components/Steps/Documents";
-import { ReviewStep } from "./components/Steps/Review";
+import ReviewStep from "./components/Steps/Review";
 import type {
   FormData,
   FormStep,
