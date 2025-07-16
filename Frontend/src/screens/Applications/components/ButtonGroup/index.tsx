@@ -29,7 +29,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
             onClick={onSaveDraft}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
+            className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700/50 backdrop-blur-sm text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-300 dark:hover:bg-gray-600/50 transition-all border border-gray-300/50 dark:border-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
           >
             Save Draft
           </motion.button>
@@ -43,7 +43,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
             onClick={onPrevious}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
+            className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700/50 backdrop-blur-sm text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-300 dark:hover:bg-gray-600/50 transition-all border border-gray-300/50 dark:border-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
           >
             Previous
           </motion.button>
@@ -55,7 +55,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
             onClick={onNext}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-medium hover:from-indigo-700 hover:to-blue-700 transition-colors"
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 dark:from-indigo-500 dark:to-blue-500 dark:hover:from-indigo-600 dark:hover:to-blue-600 text-white font-medium transition-all shadow-lg hover:shadow-xl dark:shadow-gray-900/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
           >
             Continue
           </motion.button>
@@ -66,7 +66,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             disabled={isSubmitting}
-            className={`px-6 py-3 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium hover:from-green-700 hover:to-emerald-700 transition-colors ${
+            className={`px-6 py-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600 text-white font-medium transition-all shadow-lg hover:shadow-xl dark:shadow-gray-900/20 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
               isSubmitting ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
@@ -91,7 +91,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
-                </svg>
+                </svg>s
                 Submitting...
               </span>
             ) : (

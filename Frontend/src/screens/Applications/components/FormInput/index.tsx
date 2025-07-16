@@ -28,9 +28,11 @@ export const FormInput = ({
   min,
   max,
 }: FormInputProps) => {
-  const inputClass = `w-full px-4 py-3 rounded-lg border ${
-    error ? "border-red-500" : "border-gray-300"
-  } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${className}`;
+  const inputClass = `w-full px-4 py-3 rounded-xl border ${
+    error 
+      ? "border-red-500 dark:border-red-500" 
+      : "border-gray-300 dark:border-gray-700"
+  } bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all hover:border-gray-400 dark:hover:border-gray-600 ${className}`;
 
   const registerOptions = {
     required,
@@ -41,8 +43,8 @@ export const FormInput = ({
 
   return (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {label} {required && <span className="text-red-500 dark:text-red-400">*</span>}
       </label>
       {type === "select" ? (
         <select
@@ -70,7 +72,7 @@ export const FormInput = ({
         />
       )}
       {error && (
-        <p className="mt-1 text-sm text-red-600">
+        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
           {error.type === "required"
             ? "This field is required"
             : error.message || "Invalid input"}

@@ -19,17 +19,17 @@ const FormSection: React.FC<FormSectionProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl shadow-sm overflow-hidden mb-6"
+      className="bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden mb-6 border border-gray-200/50 dark:border-gray-700/50"
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center p-6 focus:outline-none"
+        className="w-full flex justify-between items-center p-6 focus:outline-none hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
         {isOpen ? (
-          <FiChevronUp className="h-5 w-5 text-gray-500" />
+          <FiChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         ) : (
-          <FiChevronDown className="h-5 w-5 text-gray-500" />
+          <FiChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         )}
       </button>
 
@@ -42,7 +42,9 @@ const FormSection: React.FC<FormSectionProps> = ({
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6">{children}</div>
+            <div className="px-6 pb-6 border-t border-gray-200/50 dark:border-gray-700/50">
+              {children}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
