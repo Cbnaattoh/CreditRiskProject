@@ -22,7 +22,6 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
   const { user, profileImage, userInitials, imageError, handleImageError } =
     useAuth();
 
-  // Enhanced nav items with better icons and descriptions
   const navItems = [
     {
       path: "/home",
@@ -152,7 +151,10 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
         <nav className="relative p-4 flex-1 overflow-y-auto">
           <ul className="space-y-2">
             {navItems.map((item, index) => {
-              const isActive = location.pathname === item.path;
+              const isActive =
+                location.pathname === item.path ||
+                (item.path !== "/home" &&
+                  location.pathname.startsWith(item.path));
               return (
                 <motion.li
                   key={item.path}

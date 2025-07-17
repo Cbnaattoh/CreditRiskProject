@@ -5,6 +5,7 @@ import ConfidenceScore from "./components/ConfidenceScore";
 import ComparativeAnalysisTable from "./components/ComparativeAnalysisTable";
 import ScenarioSimulationForm from "./components/ScenarioSimulationForm";
 import DownloadReportButton from "./components/DownloadReportButton";
+import { ChartContainer } from "../Home/components/Charts";
 
 const PredictionOutcome: React.FC = () => {
   return (
@@ -37,6 +38,9 @@ const PredictionOutcome: React.FC = () => {
               Risk Level Distribution
             </h2>
             <div className="h-64">
+              {/* <ChartContainer title="Risk Level Distribution">
+                <RiskLevelChart />
+              </ChartContainer> */}
               <RiskLevelChart />
             </div>
           </motion.div>
