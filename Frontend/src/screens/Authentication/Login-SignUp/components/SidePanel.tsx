@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiUser, FiChevronDown, FiShield, FiStar } from "react-icons/fi";
+import {
+  FiUser,
+  FiChevronDown,
+  FiShield,
+  FiStar,
+  FiTrendingUp,
+  FiActivity,
+} from "react-icons/fi";
 import Logo from "../../../../components/utils/Logo";
 import { FEATURES, USER_TYPES } from "./constants";
 
@@ -10,10 +17,7 @@ interface SidePanelProps {
 }
 
 const SidePanel: React.FC<SidePanelProps> = ({ userType, setUserType }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
-
-  const selectedUserType = USER_TYPES.find((type) => type.value === userType);
 
   return (
     <motion.div
@@ -148,112 +152,66 @@ const SidePanel: React.FC<SidePanelProps> = ({ userType, setUserType }) => {
         </div>
       </motion.div>
 
-      {/* Premium User Type Selector */}
+      {/* Platform Statistics */}
       <motion.div
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.8 }}
         className="mt-8 relative"
       >
-        <h3 className="text-white/90 text-sm font-medium mb-3 flex items-center">
-          <FiUser className="text-blue-300 mr-2" />
-          Access Level
+        <h3 className="text-white/90 text-sm font-medium mb-4 flex items-center">
+          <FiTrendingUp className="text-blue-300 mr-2" />
+          Platform Insights
         </h3>
 
-        <div className="relative">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full flex items-center justify-between p-4 bg-white/10 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-white/10 hover:border-white/40 dark:hover:border-white/20 transition-all duration-300 group"
+        <div className="grid grid-cols-2 gap-4">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="bg-white/10 dark:bg-white/5 backdrop-blur-xl p-4 rounded-2xl border border-white/20 dark:border-white/10 hover:border-white/40 dark:hover:border-white/20 transition-all duration-300"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                <FiUser className="text-white text-lg" />
+              <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <FiActivity className="text-white text-sm" />
               </div>
-              <div className="text-left">
-                <div className="text-white font-semibold text-base">
-                  {selectedUserType?.label}
-                </div>
-                <div className="text-blue-200/80 text-sm">
-                  {selectedUserType?.description || "Select your role"}
-                </div>
+              <div>
+                <div className="text-white font-bold text-lg">99.8%</div>
+                <div className="text-blue-200/80 text-xs">Accuracy Rate</div>
               </div>
             </div>
+          </motion.div>
 
-            <motion.div
-              animate={{ rotate: isDropdownOpen ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-              className="text-white/70 group-hover:text-white transition-colors duration-200"
-            >
-              <FiChevronDown className="text-lg" />
-            </motion.div>
-          </motion.button>
-
-          {/* Enhanced Dropdown */}
-          <AnimatePresence>
-            {isDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-2xl overflow-hidden z-50"
-              >
-                <div className="p-2">
-                  {USER_TYPES.map((type, index) => (
-                    <motion.button
-                      key={type.value}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ scale: 1.02, x: 4 }}
-                      onClick={() => {
-                        setUserType(type.value);
-                        setIsDropdownOpen(false);
-                      }}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center space-x-3 ${
-                        userType === type.value
-                          ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg"
-                          : "hover:bg-gray-100 dark:hover:bg-gray-800/50 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          userType === type.value
-                            ? "bg-white/20"
-                            : "bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50"
-                        }`}
-                      >
-                        <FiUser
-                          className={`text-sm ${
-                            userType === type.value
-                              ? "text-white"
-                              : "text-indigo-600 dark:text-indigo-400"
-                          }`}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{type.label}</div>
-                        {type.description && (
-                          <div
-                            className={`text-xs mt-1 ${
-                              userType === type.value
-                                ? "text-white/80"
-                                : "text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {type.description}
-                          </div>
-                        )}
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="bg-white/10 dark:bg-white/5 backdrop-blur-xl p-4 rounded-2xl border border-white/20 dark:border-white/10 hover:border-white/40 dark:hover:border-white/20 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center">
+                <FiShield className="text-white text-sm" />
+              </div>
+              <div>
+                <div className="text-white font-bold text-lg">10M+</div>
+                <div className="text-blue-200/80 text-xs">Risk Assessments</div>
+              </div>
+            </div>
+          </motion.div>
         </div>
+
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="mt-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-xl p-4 rounded-2xl border border-white/20 dark:border-white/10 hover:border-white/40 dark:hover:border-white/20 transition-all duration-300"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-white font-semibold text-sm">
+                Real-time Processing
+              </div>
+              <div className="text-blue-200/80 text-xs">
+                Average response time: 0.3s
+              </div>
+            </div>
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          </div>
+        </motion.div>
       </motion.div>
 
       {/* Subtle brand accent */}

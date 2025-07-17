@@ -120,7 +120,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// Premium legend component
+// Legend component
 const CustomLegend = ({ payload }: any) => {
   return (
     <div className="flex flex-wrap justify-center gap-4 mt-6">
