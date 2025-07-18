@@ -1,22 +1,20 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  FiUser,
-  FiChevronDown,
   FiShield,
   FiStar,
   FiTrendingUp,
   FiActivity,
 } from "react-icons/fi";
 import Logo from "../../../../components/utils/Logo";
-import { FEATURES, USER_TYPES } from "./constants";
+import { FEATURES } from "./constants";
 
 interface SidePanelProps {
   userType: string;
   setUserType: (type: string) => void;
 }
 
-const SidePanel: React.FC<SidePanelProps> = ({ userType, setUserType }) => {
+const SidePanel: React.FC<SidePanelProps> = () => {
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   return (

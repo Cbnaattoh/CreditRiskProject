@@ -100,7 +100,6 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({
     const step = steps[index];
     if (step.isDisabled) return;
 
-    // Only allow navigation to completed steps or adjacent steps
     if (step.isCompleted || Math.abs(index - currentStep) <= 1) {
       setCurrentStep(index);
     }
@@ -176,7 +175,7 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({
 
       {/* Main Step Container */}
       <div className="flex justify-between items-start relative">
-        {/* Enhanced Progress Connector */}
+        {/* Progress Connector */}
         {showConnector && (
           <div
             className={`absolute top-5 left-0 right-0 ${config.connector} z-0`}

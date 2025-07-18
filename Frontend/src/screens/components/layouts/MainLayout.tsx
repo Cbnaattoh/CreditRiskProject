@@ -3,11 +3,18 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "../../Home/components/Sidebar";
 import Header from "../../Home/components/Header";
 import { ThemeToggle } from "../../Settings/components/ThemeToggle";
+import TimedLogout from "../../../components/utils/common/TimedLogout";
+import { useAuth } from "../../Authentication/Login-SignUp/components/hooks/useAuth";
+import { useToast } from "../../../components/utils/Toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MainLayout: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Authentication hooks
+  const { user, logout } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -26,6 +33,21 @@ const MainLayout: React.FC = () => {
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Authentication handlers
+  const handleLogout = async () => {
+    try {
+      await logout();
+      showToast("Session expired. You have been logged out.", "info");
+    } catch (error) {
+      console.error("Logout error:", error);
+      showToast("Error during logout. Please try again.", "error");
+    }
+  };
+
+  const handleSessionExtended = () => {
+    console.log("Session extended successfully");
+  };
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors duration-300">
@@ -62,6 +84,19 @@ const MainLayout: React.FC = () => {
           <ThemeToggle />
         </motion.div>
       </AnimatePresence>
+
+      <TimedLogout
+        isActive={!!user}
+        onLogout={handleLogout}
+        onSessionExtended={handleSessionExtended}
+        showToast={showToast}
+        sessionDuration={5}
+        warningThreshold={3}
+        gracePeriod={60}
+        variant="default"
+        enableActivityDetection={true}
+        debugMode={false}
+      />
     </div>
   );
 };

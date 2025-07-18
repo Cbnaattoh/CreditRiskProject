@@ -101,17 +101,14 @@ export const useAuth = (): UseAuthReturn => {
     (imagePath: string | null | undefined): string | null => {
       if (!imagePath) return null;
 
-      // If it's already a full URL, return as is
       if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
         return imagePath;
       }
 
-      // If it's a relative path, construct the full URL
-      // Get the base URL from Vite environment variables
       const baseUrl =
         import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
 
-      // Remove trailing slash from baseUrl and leading slash from imagePath to avoid double slashes
+      // Remove trailing slash from baseUrl and leading slash from imagePath
       const cleanBaseUrl = baseUrl.endsWith("/")
         ? baseUrl.slice(0, -1)
         : baseUrl;
@@ -154,7 +151,7 @@ export const useAuth = (): UseAuthReturn => {
       setProfileImage(imageUrl);
       setImageError(false);
 
-      // Preload the image to check if it's valid
+      // Preload the image
       if (imageUrl) {
         const img = new Image();
         img.onload = () => {
