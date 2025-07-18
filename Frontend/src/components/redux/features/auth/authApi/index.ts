@@ -388,10 +388,11 @@ export const authApi = apiSlice.injectEndpoints({
       providesTags: ["Auth"],
     }),
 
-    refreshToken: builder.mutation<RefreshTokenResponse, void>({
-      query: () => ({
+    refreshToken: builder.mutation<RefreshTokenResponse, { refresh: string }>({
+      query: ({ refresh }) => ({
         url: "auth/token/refresh/",
         method: "POST",
+        body: { refresh },
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
