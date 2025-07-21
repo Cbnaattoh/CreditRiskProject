@@ -13,53 +13,37 @@ import {
 } from "../../../../../components/redux/features/user/userSlice";
 import { useLogoutMutation } from "../../../../../components/redux/features/auth/authApi";
 import { useGetUserProfileQuery } from "../../../../../components/redux/features/user/userApi";
-
-interface User {
-  id?: string;
-  name: string;
-  email: string;
-  role?: string;
-  profile_picture?: string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
-  mfa_enabled?: boolean;
-  is_verified?: boolean;
-  mfa_fully_configured?: boolean;
-  date_joined?: string;
-  last_login?: string;
-}
+import type {
+  AuthUser,
+  UserProfile,
+  CompleteUser,
+} from "../../../../../components/redux/features/user/types/user";
+import { combineUserData } from "../../../../../components/redux/features/user/types/user";
 
 interface UseAuthReturn {
-  // User data
-  user: User;
-  currentUser: User | null;
-  userProfile: User | null;
+  user: CompleteUser;
+  currentUser: AuthUser | null;
+  userProfile: UserProfile | null;
   isAuthenticated: boolean;
   userInitials: string;
   userFullName: string | null;
 
-  // Profile picture handling
   profileImage: string | null;
   profileImageUrl: string | null;
   imageLoaded: boolean;
   imageError: boolean;
 
-  // Actions
   logout: () => Promise<void>;
   handleImageError: () => void;
   refreshProfile: () => void;
 
-  // Utilities
   hasRole: (role: string) => boolean;
   isAdmin: boolean;
   isManager: boolean;
 
-  // Loading states
   isLoggingOut: boolean;
   isProfileLoading: boolean;
 
-  // Error states
   logoutError: string | null;
   profileError: string | null;
 }
@@ -68,7 +52,6 @@ export const useAuth = (): UseAuthReturn => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Redux state
   const currentUser = useSelector(selectCurrentUser);
   const userProfile = useSelector(selectUserProfile);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -77,14 +60,12 @@ export const useAuth = (): UseAuthReturn => {
   const userInitials = selectorUserInitials || "";
   const userFullName = selectorUserFullName || null;
 
-  // Local state
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
-  // RTK Query mutation
   const [logoutMutation] = useLogoutMutation();
   const {
     data: profileData,
@@ -108,7 +89,6 @@ export const useAuth = (): UseAuthReturn => {
       const baseUrl =
         import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
 
-      // Remove trailing slash from baseUrl and leading slash from imagePath
       const cleanBaseUrl = baseUrl.endsWith("/")
         ? baseUrl.slice(0, -1)
         : baseUrl;
@@ -121,7 +101,6 @@ export const useAuth = (): UseAuthReturn => {
     []
   );
 
-  // Generate initials from user name
   const getInitials = useCallback((name: string | null | undefined): string => {
     if (!name || typeof name !== "string") return "U";
 
@@ -141,13 +120,14 @@ export const useAuth = (): UseAuthReturn => {
     }
   }, []);
 
-  // Handle profile picture loading
   useEffect(() => {
-    const profilePicture =
-      userProfile?.profile_picture || currentUser?.profile_picture;
+    const profilePictureUrl =
+      userProfile?.profile_picture_url ||
+      userProfile?.profile_picture ||
+      (currentUser as any)?.profile_picture;
 
-    if (profilePicture) {
-      const imageUrl = constructImageUrl(profilePicture);
+    if (profilePictureUrl) {
+      const imageUrl = constructImageUrl(profilePictureUrl);
       setProfileImage(imageUrl);
       setImageError(false);
 
@@ -171,8 +151,9 @@ export const useAuth = (): UseAuthReturn => {
       setImageError(false);
     }
   }, [
+    userProfile?.profile_picture_url,
     userProfile?.profile_picture,
-    currentUser?.profile_picture,
+    (currentUser as any)?.profile_picture,
     constructImageUrl,
   ]);
 
@@ -203,54 +184,78 @@ export const useAuth = (): UseAuthReturn => {
     setImageError(true);
   }, []);
 
-  // Safely construct user name with fallbacks
-  const getUserName = useCallback(() => {
+  const getUserName = useCallback((): string => {
     if (userFullName) return userFullName;
+    if (userProfile?.full_name) return userProfile.full_name;
     if (currentUser?.name) return currentUser.name;
-    if (userProfile?.name) return userProfile.name;
-    if (currentUser?.first_name && currentUser?.last_name) {
-      return `${currentUser.first_name} ${currentUser.last_name}`;
-    }
     if (userProfile?.first_name && userProfile?.last_name) {
-      return `${userProfile.first_name} ${userProfile.last_name}`;
+      return `${userProfile.first_name} ${userProfile.last_name}`.trim();
     }
-    if (currentUser?.first_name) return currentUser.first_name;
+    if (currentUser?.first_name && currentUser?.last_name) {
+      return `${currentUser.first_name} ${currentUser.last_name}`.trim();
+    }
     if (userProfile?.first_name) return userProfile.first_name;
+    if (currentUser?.first_name) return currentUser.first_name;
+    if (userProfile?.email) return userProfile.email;
+    if (currentUser?.email) return currentUser.email;
     return "Guest User";
   }, [userFullName, currentUser, userProfile]);
 
-  // Combine user data from auth and user profile
-  const combinedUser: User = {
-    ...currentUser,
-    ...userProfile,
-    name: getUserName(),
-  };
-
-  // Safe user object with fallback
-  const user: User = isAuthenticated
-    ? combinedUser
-    : {
-        name: "Guest User",
+  // Create combined user data using the helper function from types
+  const createCompleteUser = useCallback((): CompleteUser => {
+    if (!isAuthenticated || !currentUser) {
+      return {
+        id: "guest",
         email: "guest@example.com",
-        role: "GUEST",
+        first_name: "Guest",
+        last_name: "User",
+        name: "Guest User",
+        full_name: "Guest User",
+        user_type: "GUEST",
+        phone_number: undefined,
+        is_verified: false,
+        mfa_enabled: false,
+        mfa_fully_configured: false,
+        date_joined: new Date().toISOString(),
+        last_login: null,
       };
+    }
 
-  // Role checking utilities
+    if (userProfile) {
+      return combineUserData(currentUser, userProfile);
+    }
+
+    return {
+      ...currentUser,
+      full_name:
+        currentUser.name ||
+        `${currentUser.first_name} ${currentUser.last_name}`.trim(),
+      profile_picture: undefined,
+      profile_picture_url: undefined,
+      company: undefined,
+      job_title: undefined,
+      department: undefined,
+      bio: undefined,
+      timezone: undefined,
+    };
+  }, [isAuthenticated, currentUser, userProfile]);
+
+  const user = createCompleteUser();
+
   const hasRole = useCallback(
     (role: string): boolean => {
-      if (!user?.role) return false;
-      return user.role === role;
+      if (!user?.user_type) return false;
+      return user.user_type === role;
     },
-    [user?.role]
+    [user?.user_type]
   );
 
   const isAdmin = hasRole("ADMIN");
   const isManager = hasRole("MANAGER");
 
-  const finalUserInitials = userInitials || getInitials(user.name);
+  const finalUserInitials = userInitials || getInitials(getUserName());
 
   return {
-    // User data
     user,
     currentUser,
     userProfile,
@@ -258,27 +263,22 @@ export const useAuth = (): UseAuthReturn => {
     userInitials: finalUserInitials,
     userFullName,
 
-    // Profile picture
     profileImage,
     profileImageUrl: profileImage,
     imageLoaded,
     imageError,
 
-    // Actions
     logout,
     handleImageError,
     refreshProfile,
 
-    // Utilities
     hasRole,
     isAdmin,
     isManager,
 
-    // Loading states
     isLoggingOut,
     isProfileLoading,
 
-    // Error states
     logoutError,
     profileError: profileError ? String(profileError) : null,
   };

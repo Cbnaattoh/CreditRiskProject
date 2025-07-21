@@ -11,15 +11,13 @@ export interface BaseUser {
 }
 
 export interface AuthUser extends BaseUser {
-  // Fields from CustomTokenObtainPairSerializer
-  name: string;                                           
+  name: string;
   mfa_enabled: boolean;
   mfa_fully_configured: boolean;
 }
 
 export interface UserProfile extends BaseUser {
-  // Fields from UserProfileSerializer
-  full_name: string; // Computed field from backend
+  full_name: string;
   profile_picture?: string | null;
   profile_picture_url?: string | null;
   company?: string;
@@ -30,7 +28,6 @@ export interface UserProfile extends BaseUser {
 }
 
 export interface CompleteUser extends BaseUser {
-  // Combined interface for complete user data
   name: string;
   full_name: string;
   mfa_enabled: boolean;
@@ -44,19 +41,15 @@ export interface CompleteUser extends BaseUser {
   timezone?: string;
 }
 
-// Login response interfaces matching backend
 export interface LoginResponse {
-  // From CustomTokenObtainPairSerializer
   refresh: string;
   access: string;
   user: AuthUser;
 
-  // MFA related fields
   requires_mfa?: boolean;
   temp_token?: string;
   uid?: string;
 
-  // Password related
   requires_password_change?: boolean;
   password_expired?: boolean;
 }
@@ -88,7 +81,6 @@ export interface LoginHistoryResponse {
   results: LoginHistoryEntry[];
 }
 
-// Registration interfaces
 export interface RegisterRequest {
   first_name: string;
   last_name: string;
@@ -116,7 +108,6 @@ export interface RegisterResponse {
   requiresVerification?: boolean;
 }
 
-// MFA interfaces
 export interface MFACredentials {
   uid: string;
   temp_token: string;
@@ -144,7 +135,6 @@ export interface MFAVerifyResponse {
   mfa_verified: boolean;
 }
 
-// Utility types for API responses
 export interface ApiResponse<T = any> {
   data?: T;
   message?: string;

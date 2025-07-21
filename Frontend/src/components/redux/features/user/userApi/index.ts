@@ -1,57 +1,28 @@
 import { apiSlice } from "../../api/baseApi";
 import { setUser } from "../userSlice";
-
-// Base interfaces
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
-  profile_picture?: string;
-  mfa_enabled?: boolean;
-  is_verified?: boolean;
-  mfa_fully_configured?: boolean;
-  date_joined?: string;
-  last_login?: string;
-}
-
-interface BaseResponse {
-  message?: string;
-}
-
-// User profile interfaces
-interface UserProfileResponse extends User {}
+import type {
+  UserProfile,
+  UserProfileResponse,
+  //LoginHistoryEntry,
+  LoginHistoryResponse,
+} from "../types/user";
+import { transformUserProfile } from "../types/user";
 
 interface UserUpdateRequest {
   first_name?: string;
   last_name?: string;
   phone_number?: string;
+  company?: string;
+  job_title?: string;
+  department?: string;
+  bio?: string;
+  timezone?: string;
   profile_picture?: File;
 }
 
-interface UserUpdateResponse extends BaseResponse {
-  user?: User;
-}
-
-// Login history interfaces
-interface LoginHistoryEntry {
-  id: string;
-  ip_address: string;
-  user_agent: string;
-  location?: string;
-  login_time: string;
-  is_successful: boolean;
-  device_info?: string;
-}
-
-interface LoginHistoryResponse {
-  count: number;
-  next?: string;
-  previous?: string;
-  results: LoginHistoryEntry[];
+interface UserUpdateResponse {
+  message?: string;
+  user?: UserProfile;
 }
 
 interface LoginHistoryParams {
@@ -67,6 +38,7 @@ export const userApi = apiSlice.injectEndpoints({
         url: "users/me/",
         method: "GET",
       }),
+      transformResponse: (response: any) => transformUserProfile(response),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
@@ -102,6 +74,21 @@ export const userApi = apiSlice.injectEndpoints({
         }
         if (updateData.phone_number !== undefined) {
           formData.append("phone_number", updateData.phone_number);
+        }
+        if (updateData.company !== undefined) {
+          formData.append("company", updateData.company);
+        }
+        if (updateData.job_title !== undefined) {
+          formData.append("job_title", updateData.job_title);
+        }
+        if (updateData.department !== undefined) {
+          formData.append("department", updateData.department);
+        }
+        if (updateData.bio !== undefined) {
+          formData.append("bio", updateData.bio);
+        }
+        if (updateData.timezone !== undefined) {
+          formData.append("timezone", updateData.timezone);
         }
 
         if (
@@ -146,16 +133,16 @@ export const userApi = apiSlice.injectEndpoints({
       LoginHistoryResponse,
       LoginHistoryParams | void
     >({
-      query: (params = {}) => {
+      query: (params?: LoginHistoryParams) => {
         const searchParams = new URLSearchParams();
 
-        if (params.page) {
+        if (params?.page) {
           searchParams.append("page", params.page.toString());
         }
-        if (params.page_size) {
+        if (params?.page_size) {
           searchParams.append("page_size", params.page_size.toString());
         }
-        if (params.ordering) {
+        if (params?.ordering) {
           searchParams.append("ordering", params.ordering);
         }
 
@@ -201,13 +188,4 @@ export const {
   useGetUserLoginHistoryQuery,
 } = userApi;
 
-export type {
-  User,
-  UserProfileResponse,
-  UserUpdateRequest,
-  UserUpdateResponse,
-  LoginHistoryEntry,
-  LoginHistoryResponse,
-  LoginHistoryParams,
-  BaseResponse,
-};
+export type { UserUpdateRequest, UserUpdateResponse, LoginHistoryParams };

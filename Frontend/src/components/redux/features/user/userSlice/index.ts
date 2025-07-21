@@ -1,25 +1,10 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "../../../store";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
-  profile_picture?: string;
-  mfa_enabled?: boolean;
-  is_verified?: boolean;
-  mfa_fully_configured?: boolean;
-  date_joined?: string;
-  last_login?: string;
-}
+import type { UserProfile } from "../types/user";
 
 interface UserState {
-  profile: User | null;
+  profile: UserProfile | null;
   isLoading: boolean;
   error: string | null;
   lastUpdated: string | null;
@@ -28,6 +13,8 @@ interface UserState {
     language?: string;
     notifications?: boolean;
   };
+  syncedWithAuth: boolean;
+  lastAuthSync: string | null;
 }
 
 const initialState: UserState = {
@@ -40,19 +27,23 @@ const initialState: UserState = {
     language: "en",
     notifications: true,
   },
+  syncedWithAuth: false,
+  lastAuthSync: null,
 };
 
 const userSlice = createSlice({
   name: "user",
   initialState,
   reducers: {
-    setUser: (state, action: PayloadAction<User>) => {
+    setUser: (state, action: PayloadAction<UserProfile>) => {
       state.profile = action.payload;
       state.lastUpdated = new Date().toISOString();
       state.error = null;
+      state.syncedWithAuth = true;
+      state.lastAuthSync = new Date().toISOString();
     },
 
-    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+    updateUser: (state, action: PayloadAction<Partial<UserProfile>>) => {
       if (state.profile) {
         state.profile = { ...state.profile, ...action.payload };
         state.lastUpdated = new Date().toISOString();
@@ -93,31 +84,56 @@ const userSlice = createSlice({
         language: "en",
         notifications: true,
       };
+      state.syncedWithAuth = false;
+      state.lastAuthSync = null;
     },
 
-    syncUserFromAuth: (state, action: PayloadAction<User>) => {
+    syncUserFromAuth: (state, action: PayloadAction<UserProfile | null>) => {
       const authUser = action.payload;
+
+      if (!authUser) {
+        state.profile = null;
+        state.syncedWithAuth = true;
+        state.lastAuthSync = new Date().toISOString();
+        return;
+      }
+
       if (!state.profile || state.profile.id !== authUser.id) {
         state.profile = authUser;
         state.lastUpdated = new Date().toISOString();
+      } else {
+        state.profile = { ...state.profile, ...authUser };
+        state.lastUpdated = new Date().toISOString();
       }
+
+      state.syncedWithAuth = true;
+      state.lastAuthSync = new Date().toISOString();
+      state.error = null;
+    },
+
+    markAuthOutOfSync: (state) => {
+      state.syncedWithAuth = false;
     },
 
     updateUserField: (
       state,
-      action: PayloadAction<{ field: keyof User; value: any }>
+      action: PayloadAction<{ field: keyof UserProfile; value: any }>
     ) => {
       if (state.profile) {
         const { field, value } = action.payload;
         (state.profile as any)[field] = value;
         state.lastUpdated = new Date().toISOString();
+        if (["email", "is_verified", "mfa_enabled"].includes(field)) {
+          state.syncedWithAuth = false;
+        }
       }
     },
 
     toggleMFA: (state, action: PayloadAction<boolean>) => {
       if (state.profile) {
-        state.profile.mfa_enabled = action.payload;
+        (state.profile as any).mfa_enabled = action.payload;
         state.lastUpdated = new Date().toISOString();
+        state.syncedWithAuth = false;
       }
     },
 
@@ -125,7 +141,11 @@ const userSlice = createSlice({
       if (state.profile) {
         state.profile.is_verified = action.payload;
         state.lastUpdated = new Date().toISOString();
+        state.syncedWithAuth = false;
       }
+    },
+    forceUserClear: (state) => {
+      return { ...initialState };
     },
   },
 });
@@ -139,9 +159,11 @@ export const {
   updateUserPreferences,
   clearUser,
   syncUserFromAuth,
+  markAuthOutOfSync,
   updateUserField,
   toggleMFA,
   updateVerificationStatus,
+  forceUserClear,
 } = userSlice.actions;
 
 export default userSlice.reducer;
@@ -155,6 +177,42 @@ export const selectUserLastUpdated = (state: RootState) =>
 export const selectUserPreferences = (state: RootState) =>
   state.user.preferences;
 
+// Synchronization Selectors
+export const selectUserSyncedWithAuth = (state: RootState) =>
+  state.user.syncedWithAuth;
+export const selectLastAuthSync = (state: RootState) => state.user.lastAuthSync;
+
+export const selectUserAuthConsistency = createSelector(
+  [(state: RootState) => state.auth, (state: RootState) => state.user],
+  (auth, user) => {
+    const hasAuthUser = !!auth.user;
+    const hasUserProfile = !!user.profile;
+    const isAuthenticated = auth.isAuthenticated;
+
+    return {
+      hasAuthUser,
+      hasUserProfile,
+      isAuthenticated,
+      syncedWithAuth: user.syncedWithAuth,
+
+      // Consistency checks
+      authUserMatchesProfile: auth.user?.id === user.profile?.id,
+      statesInSync: hasAuthUser === hasUserProfile,
+      needsSync: !user.syncedWithAuth || hasAuthUser !== hasUserProfile,
+
+      // Specific inconsistency types
+      ghostUser: hasUserProfile && !hasAuthUser,
+      ghostAuth: hasAuthUser && !hasUserProfile,
+      authWithoutAuthentication: hasAuthUser && !isAuthenticated,
+
+      shouldClearUser: !hasAuthUser && hasUserProfile,
+      shouldSetUser: hasAuthUser && !hasUserProfile,
+      shouldSync:
+        hasAuthUser && hasUserProfile && auth.user?.id !== user.profile?.id,
+    };
+  }
+);
+
 // Memoized derived selectors
 export const selectUserFullName = createSelector(
   [selectUserProfile],
@@ -165,7 +223,7 @@ export const selectUserFullName = createSelector(
       return `${profile.first_name} ${profile.last_name}`.trim();
     }
 
-    return profile.name || profile.email;
+    return profile.full_name || profile.email;
   }
 );
 
@@ -174,7 +232,7 @@ export const selectUserInitials = createSelector(
   (profile) => {
     try {
       const name =
-        profile?.name ||
+        profile?.full_name ||
         (profile?.first_name && profile?.last_name
           ? `${profile.first_name} ${profile.last_name}`
           : profile?.first_name || profile?.last_name || "");
@@ -203,16 +261,6 @@ export const selectIsUserVerified = createSelector(
   (profile) => profile?.is_verified ?? false
 );
 
-export const selectIsMFAEnabled = createSelector(
-  [selectUserProfile],
-  (profile) => profile?.mfa_enabled ?? false
-);
-
-export const selectIsMFAFullyConfigured = createSelector(
-  [selectUserProfile],
-  (profile) => profile?.mfa_fully_configured ?? false
-);
-
 export const selectUserTheme = createSelector(
   [selectUserPreferences],
   (preferences) => preferences.theme ?? "light"
@@ -228,4 +276,4 @@ export const selectNotificationsEnabled = createSelector(
   (preferences) => preferences.notifications ?? true
 );
 
-export type { User, UserState };
+export type { UserState };

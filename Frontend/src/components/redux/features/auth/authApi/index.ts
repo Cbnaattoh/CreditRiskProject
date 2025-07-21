@@ -5,118 +5,28 @@ import {
   logout,
   setAuthToken,
 } from "../authSlice";
+import type {
+  AuthUser,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+  MFACredentials,
+  MFASetupRequest,
+  MFASetupResponse,
+  MFAVerifyResponse,
+} from "../../user/types/user";
+import { transformAuthUser } from "../../user/types/user";
 
-// Base interfaces
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  mfa_enabled?: boolean;
-  is_verified?: boolean;
-  mfa_fully_configured?: boolean;
-}
-
-interface TokenData {
-  access: string;
-  refresh: string;
-}
-
-interface BaseResponse {
-  message?: string;
-}
-
-// Authentication request interfaces
 interface LoginCredentials {
   email: string;
   password: string;
-}
-
-interface RegisterCredentials {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone_number?: string;
-  password: string;
-  confirm_password: string;
-  user_type: string;
-  profile_picture?: File;
-  mfa_enabled?: boolean;
-  terms_accepted: boolean;
-}
-
-// MFA related interfaces
-interface MFACredentials {
-  uid: string;
-  temp_token: string;
-  token: string;
-  backup_code?: string;
-}
-
-interface MFASetupRequest {
-  enable: boolean;
-  backup_codes_acknowledged?: boolean;
-}
-
-interface MFASetupResponse extends BaseResponse {
-  status: string;
-  secret?: string;
-  uri?: string;
-  backup_codes?: string[];
+  enableMFA?: boolean;
 }
 
 interface MFASetupVerifyRequest {
   token: string;
 }
 
-// Authentication response interfaces
-interface LoginResponse extends BaseResponse {
-  user?: User;
-  access?: string;
-  refresh?: string;
-  requires_mfa?: boolean;
-  temp_token?: string;
-  uid?: string;
-  mfa_methods?: string[];
-  requires_password_change?: boolean;
-  password_expired?: boolean;
-}
-
-interface RegisterResponse extends BaseResponse {
-  id?: string;
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  user_type?: string;
-  is_verified?: boolean;
-  access?: string;
-  refresh?: string;
-  detail?: string;
-  errors?: {
-    email?: string[];
-    first_name?: string[];
-    last_name?: string[];
-    phone_number?: string[];
-    password?: string[];
-    confirm_password?: string[];
-    user_type?: string[];
-    terms_accepted?: string[];
-    mfa_enabled?: string[];
-    profile_picture?: string[];
-    [key: string]: string[] | undefined;
-  };
-  requiresVerification?: boolean;
-  message?: string;
-}
-
-interface MFAVerifyResponse extends BaseResponse {
-  user: User;
-  access: string;
-  refresh: string;
-  mfa_verified: boolean;
-}
-
-// Utility response interfaces
 interface RefreshTokenResponse {
   access: string;
 }
@@ -125,11 +35,11 @@ interface TokenVerificationResponse {
   valid: boolean;
 }
 
-interface StatusResponse extends BaseResponse {
+interface StatusResponse {
+  message?: string;
   status: string;
 }
 
-// Password related interfaces
 interface ChangePasswordRequest {
   current_password: string;
   new_password: string;
@@ -152,13 +62,20 @@ interface ResendVerificationRequest {
   email: string;
 }
 
+interface BaseResponse {
+  message?: string;
+}
+
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginCredentials>({
       query: (credentials) => ({
         url: "auth/login/",
         method: "POST",
-        body: credentials,
+        body: {
+          email: credentials.email,
+          password: credentials.password,
+        },
       }),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
@@ -174,7 +91,7 @@ export const authApi = apiSlice.injectEndpoints({
               setMFARequired({
                 tempToken: data.temp_token,
                 uid: data.uid!,
-                mfaMethods: data.mfa_methods,
+                mfaMethods: ["totp"],
               })
             );
             return;
@@ -218,10 +135,8 @@ export const authApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Auth"],
     }),
 
-    register: builder.mutation<RegisterResponse, RegisterCredentials>({
+    register: builder.mutation<RegisterResponse, RegisterRequest>({
       query: (credentials) => {
-        // console.log("🔍 Register mutation called with:", credentials);
-
         const formData = new FormData();
 
         formData.append("first_name", credentials.first_name);
@@ -245,16 +160,7 @@ export const authApi = apiSlice.injectEndpoints({
           credentials.profile_picture instanceof File
         ) {
           formData.append("profile_picture", credentials.profile_picture);
-          // console.log(
-          //   "📎 Profile picture added:",
-          //   credentials.profile_picture.name
-          // );
         }
-
-        // console.log("📋 FormData contents:");
-        // for (let [key, value] of formData.entries()) {
-        //   console.log(`  ${key}:`, value);
-        // }
 
         return {
           url: "auth/register/",
@@ -262,31 +168,6 @@ export const authApi = apiSlice.injectEndpoints({
           body: formData,
         };
       },
-      // async onQueryStarted(arg, { dispatch, queryFulfilled }) {
-      //   try {
-      //     const { data } = await queryFulfilled;
-
-      //     if (data.access && data.refresh && !data.errors) {
-      //       const user: User = {
-      //         id: data.id!,
-      //         email: data.email!,
-      //         name: `${data.first_name} ${data.last_name}`.trim(),
-      //         role: data.user_type!,
-      //         is_verified: data.is_verified,
-      //       };
-
-      //       dispatch(
-      //         setCredentials({
-      //           user,
-      //           token: data.access,
-      //           refreshToken: data.refresh,
-      //         })
-      //       );
-      //     }
-      //   } catch (error) {
-      //     console.error("❌ Registration error in onQueryStarted:", error);
-      //   }
-      // },
       transformErrorResponse: (response) => {
         console.log("🔴 Error response received:", response);
         if (
@@ -409,8 +290,9 @@ export const authApi = apiSlice.injectEndpoints({
       },
     }),
 
-    getCurrentUser: builder.query<User, void>({
+    getCurrentUser: builder.query<AuthUser, void>({
       query: () => "users/me/",
+      transformResponse: (response: any) => transformAuthUser(response),
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
@@ -493,16 +375,4 @@ export const {
   useResendVerificationEmailMutation,
 } = authApi;
 
-export type {
-  User,
-  LoginCredentials,
-  RegisterCredentials,
-  LoginResponse,
-  RegisterResponse,
-  MFACredentials,
-  MFASetupRequest,
-  MFASetupResponse,
-  MFAVerifyResponse,
-  BaseResponse,
-  StatusResponse,
-};
+export type { LoginCredentials, BaseResponse, StatusResponse };
