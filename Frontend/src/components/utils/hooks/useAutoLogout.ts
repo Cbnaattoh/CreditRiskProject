@@ -124,7 +124,7 @@ const useAutoLogout = () => {
         return;
       }
 
-      const logoutTime = timeUntilExpiry - 30000;
+      const logoutTime = timeUntilExpiry - 300000;
 
       if (logoutTime > 0) {
         console.log(

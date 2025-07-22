@@ -24,23 +24,41 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const baseQuery = fetchBaseQuery({
   baseUrl: BASE_URL,
   credentials: "include",
+  // prepareHeaders: (headers, { getState, endpoint }) => {
+  //   const state = getState() as RootState;
+  //   const token = selectAuthToken(state);
+  //   const isTokenValid = selectIsTokenValid(state);
+
+  //   if (token && isTokenValid) {
+  //     headers.set("Authorization", `Bearer ${token}`);
+  //   } else if (token && isTokenExpired(token)) {
+  //     console.warn("🟡 Token is expired, not setting Authorization header");
+  //   }
+
+  //   headers.set("Accept", "application/json");
+
+  //   const formDataEndpoints = ["register"];
+
+  //   if (!formDataEndpoints.includes(endpoint as string)) {
+  //     if (!headers.has("Content-Type")) {
+  //       headers.set("Content-Type", "application/json");
+  //     }
+  //   }
+
+  //   return headers;
+  // },
   prepareHeaders: (headers, { getState, endpoint }) => {
     const state = getState() as RootState;
     const token = selectAuthToken(state);
-    const isTokenValid = selectIsTokenValid(state);
 
-  
-    if (token && isTokenValid) {
+    // Send token regardless of expiration status - let server handle validation
+    if (token) {
       headers.set("Authorization", `Bearer ${token}`);
-    } else if (token && isTokenExpired(token)) {
-
-      console.warn("🟡 Token is expired, not setting Authorization header");
     }
 
     headers.set("Accept", "application/json");
 
     const formDataEndpoints = ["register"];
-
     if (!formDataEndpoints.includes(endpoint as string)) {
       if (!headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
@@ -63,12 +81,16 @@ const baseQueryWithReauth = async (
   const currentToken = selectAuthToken(state);
   const isTokenValid = selectIsTokenValid(state);
 
-  
+  console.log("🔵 Token state:", {
+    hasToken: !!currentToken,
+    isValid: isTokenValid,
+    isExpired: currentToken ? isTokenExpired(currentToken) : "N/A",
+  });
+
   if (currentToken && !isTokenValid) {
     console.warn("🟡 Token expired before request. Attempting refresh...");
     const refreshResult = await attemptTokenRefresh(api, extraOptions);
     if (!refreshResult) {
-      
       return {
         error: {
           status: 401,
@@ -152,7 +174,7 @@ const attemptTokenRefresh = async (
     return false;
   }
 
-  // Check if refresh token is also expired (if it follows JWT format)
+  // Check if refresh token is also expired
   if (isTokenExpired(refreshToken)) {
     console.error("🔴 Refresh token is also expired. Forcing logout.");
     api.dispatch(refreshTokenFailure());
@@ -249,7 +271,6 @@ const attemptTokenRefresh = async (
 // Helper function to handle logout redirect
 const redirectToLogin = () => {
   if (typeof window !== "undefined") {
-    // Use replace to prevent back button issues
     window.location.replace("/login");
   }
 };

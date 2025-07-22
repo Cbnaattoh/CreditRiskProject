@@ -104,6 +104,16 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
   const styles = variantConfig[variant];
 
+  // Session timer management
+  const resetSessionTimer = useCallback(() => {
+    if (sessionTimerRef.current) {
+      clearInterval(sessionTimerRef.current);
+    }
+    setTimeRemaining(sessionDuration * 60);
+    setShowWarning(false);
+    setShowFinalWarning(false);
+  }, [sessionDuration]);
+
   // Activity detection
   const updateActivityStats = useCallback(
     (eventType: keyof Omit<ActivityStats, "totalEvents" | "lastActivity">) => {
@@ -113,7 +123,7 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
       const secondsSinceLastActivity =
         (now.getTime() - lastActivityRef.current.getTime()) / 1000;
 
-      if (secondsSinceLastActivity < 10) return;
+      if (secondsSinceLastActivity < 1) return;
 
       lastActivityRef.current = now;
 
@@ -128,7 +138,7 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
         resetSessionTimer();
       }
     },
-    [enableActivityDetection, isActive, isSessionPaused]
+    [enableActivityDetection, isActive, isSessionPaused, resetSessionTimer]
   );
 
   // Activity event handlers
@@ -179,16 +189,6 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
     handleClick,
     handleScroll,
   ]);
-
-  // Session timer management
-  const resetSessionTimer = useCallback(() => {
-    if (sessionTimerRef.current) {
-      clearInterval(sessionTimerRef.current);
-    }
-    setTimeRemaining(sessionDuration * 60);
-    setShowWarning(false);
-    setShowFinalWarning(false);
-  }, [sessionDuration]);
 
   const startSessionTimer = useCallback(() => {
     if (sessionTimerRef.current) {

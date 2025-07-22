@@ -29,32 +29,6 @@ const isTokenExpired = (token: string | null): boolean => {
   }
 };
 
-// const getInitialToken = (): string | null => {
-//   if (typeof window !== "undefined") {
-//     const token = localStorage.getItem("authToken");
-//     // Check if token is expired on app initialization
-//     if (token && isTokenExpired(token)) {
-//       localStorage.removeItem("authToken");
-//       localStorage.removeItem("refreshToken");
-//       clearUserState();
-//       return null;
-//     }
-//     return token;
-//   }
-//   return null;
-// };
-
-// const getInitialRefreshToken = (): string | null => {
-//   if (typeof window !== "undefined") {
-//     const token = localStorage.getItem("authToken");
-//     if (token && isTokenExpired(token)) {
-//       return null;
-//     }
-//     return localStorage.getItem("refreshToken");
-//   }
-//   return null;
-// };
-
 const validateAndCleanupToken = (): {
   token: string | null;
   refreshToken: string | null;
