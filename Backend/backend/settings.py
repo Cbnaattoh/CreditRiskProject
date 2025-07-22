@@ -41,10 +41,10 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 MAX_LOGIN_ATTEMPTS = 5  # Lock account after 5 failed attempts
-LOGIN_LOCKOUT_DURATION = 3600 # 1 hour in seconds
+LOGIN_LOCKOUT_DURATION = 3600
 
 # Session settings
-SESSION_COOKIE_AGE = 3600  # 1 hour in seconds
+SESSION_COOKIE_AGE = 3600
 SESSION_COOKIE_AGE_REMEMBER = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
@@ -73,7 +73,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Security settings
-PASSWORD_EXPIRATION_DAYS = 90  # Require password change every 90 days
+PASSWORD_EXPIRATION_DAYS = 90
 
 # MFA settings
 MFA_TOKEN_EXPIRY = 300  # 5 minutes
@@ -109,9 +109,9 @@ LOGGING = {
 
 
 
-# JWT Settings (if using JWT)
+# JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

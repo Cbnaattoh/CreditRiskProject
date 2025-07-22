@@ -1,6 +1,6 @@
 from rest_framework import serializers, exceptions
 from django.contrib.auth import get_user_model, authenticate
-from .models import UserProfile, LoginHistory
+from .models import UserProfile, LoginHistory, Permission, Role, UserRole, PermissionLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
@@ -12,6 +12,322 @@ USER_TYPES = [choice[0] for choice in User.USER_TYPES]
 logger = logging.getLogger(__name__)
 
 
+class PermissionSerializer(serializers.ModelSerializer):
+    """Serializer for Permission model"""
+    
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'description', 'content_type', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    """Serializer for Role model with permission management"""
+    permissions = PermissionSerializer(many=True, read_only=True)
+    permission_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+    user_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Role
+        fields = [
+            'id', 'name', 'description', 'is_active', 'permissions', 
+            'permission_ids', 'user_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user_count']
+    
+    def get_user_count(self, obj):
+        """Get count of users with this role"""
+        return UserRole.objects.filter(
+            role=obj, 
+            is_active=True,
+            expires_at__isnull=True
+        ).count() + UserRole.objects.filter(
+            role=obj,
+            is_active=True,
+            expires_at__gt=timezone.now()
+        ).count()
+    
+    def create(self, validated_data):
+        """Create role with permissions"""
+        permission_ids = validated_data.pop('permission_ids', [])
+        role = Role.objects.create(**validated_data)
+        
+        if permission_ids:
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            role.permissions.set(permissions)
+        
+        return role
+    
+    def update(self, instance, validated_data):
+        """Update role and its permissions"""
+        permission_ids = validated_data.pop('permission_ids', None)
+        
+        # Update role fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update permissions if provided
+        if permission_ids is not None:
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            instance.permissions.set(permissions)
+        
+        return instance
+
+
+
+class UserRoleSerializer(serializers.ModelSerializer):
+    """Serializer for UserRole model"""
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    role_name = serializers.CharField(source='role.name', read_only=True)
+    assigned_by_email = serializers.CharField(source='assigned_by.email', read_only=True)
+    is_expired = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = UserRole
+        fields = [
+            'id', 'user', 'role', 'user_email', 'user_name', 'role_name',
+            'assigned_by', 'assigned_by_email', 'assigned_at', 'is_active',
+            'expires_at', 'is_expired'
+        ]
+        read_only_fields = ['id', 'assigned_at', 'is_expired']
+    
+    def validate(self, data):
+        """Validate role assignment"""
+        user = data.get('user')
+        role = data.get('role')
+        expires_at = data.get('expires_at')
+        
+        # Check if user already has this role
+        if self.instance is None:
+            existing = UserRole.objects.filter(
+                user=user, 
+                role=role, 
+                is_active=True
+            ).first()
+            
+            if existing and not existing.is_expired:
+                raise serializers.ValidationError(
+                    f"User already has the role '{role.name}'"
+                )
+        
+        # Validate expiration date
+        if expires_at and expires_at <= timezone.now():
+            raise serializers.ValidationError(
+                "Expiration date must be in the future"
+            )
+        
+        return data
+    
+
+class UserWithRolesSerializer(serializers.ModelSerializer):
+    """Extended User serializer with role information"""
+    roles = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+    active_role_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'is_active', 'date_joined', 'roles', 'permissions',
+            'active_role_count'
+        ]
+        read_only_fields = ['id', 'date_joined']
+    
+    def get_roles(self, obj):
+        """Get user's active roles"""
+        roles = obj.get_roles()
+        return [{'id': role.id, 'name': role.name} for role in roles]
+    
+    def get_permissions(self, obj):
+        """Get user's permissions from roles"""
+        permissions = obj.get_permissions()
+        return [{'id': perm.id, 'codename': perm.codename, 'name': perm.name} 
+                for perm in permissions]
+    
+    def get_active_role_count(self, obj):
+        """Get count of active roles"""
+        return obj.get_roles().count()
+    
+
+class RoleAssignmentSerializer(serializers.Serializer):
+    """Serializer for bulk role assignments"""
+    user_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1
+    )
+    role_id = serializers.IntegerField()
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)
+    
+    def validate_user_ids(self, value):
+        """Validate that all user IDs exist"""
+        existing_ids = User.objects.filter(id__in=value).values_list('id', flat=True)
+        missing_ids = set(value) - set(existing_ids)
+        
+        if missing_ids:
+            raise serializers.ValidationError(
+                f"Users with IDs {list(missing_ids)} do not exist"
+            )
+        
+        return value
+    
+    def validate_role_id(self, value):
+        """Validate that role exists and is active"""
+        try:
+            role = Role.objects.get(id=value)
+            if not role.is_active:
+                raise serializers.ValidationError("Cannot assign inactive role")
+            return value
+        except Role.DoesNotExist:
+            raise serializers.ValidationError("Role does not exist")
+    
+    def validate_expires_at(self, value):
+        """Validate expiration date"""
+        if value and value <= timezone.now():
+            raise serializers.ValidationError("Expiration date must be in the future")
+        return value
+
+
+class PermissionLogSerializer(serializers.ModelSerializer):
+    """Serializer for Permission audit logs"""
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    
+    class Meta:
+        model = PermissionLog
+        fields = [
+            'id', 'user', 'user_email', 'user_name', 'permission_codename',
+            'resource_type', 'resource_id', 'action', 'ip_address',
+            'user_agent', 'timestamp'
+        ]
+        read_only_fields = ['id', 'timestamp']
+
+
+class UserPermissionCheckSerializer(serializers.Serializer):
+    """Serializer for checking user permissions"""
+    permission_codename = serializers.CharField(max_length=100)
+    resource_type = serializers.CharField(max_length=100, required=False)
+    resource_id = serializers.CharField(max_length=100, required=False)
+    
+    def validate_permission_codename(self, value):
+        """Validate that permission exists"""
+        if not Permission.objects.filter(codename=value).exists():
+            raise serializers.ValidationError("Permission does not exist")
+        return value
+
+
+class RolePermissionUpdateSerializer(serializers.Serializer):
+    """Serializer for updating role permissions"""
+    permission_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True
+    )
+    action = serializers.ChoiceField(choices=['add', 'remove', 'set'])
+    
+    def validate_permission_ids(self, value):
+        """Validate that all permission IDs exist"""
+        if value:
+            existing_ids = Permission.objects.filter(id__in=value).values_list('id', flat=True)
+            missing_ids = set(value) - set(existing_ids)
+            
+            if missing_ids:
+                raise serializers.ValidationError(
+                    f"Permissions with IDs {list(missing_ids)} do not exist"
+                )
+        
+        return value
+
+
+
+class UserRoleHistorySerializer(serializers.Serializer):
+    """Serializer for user role history"""
+    user_id = serializers.IntegerField()
+    start_date = serializers.DateTimeField(required=False)
+    end_date = serializers.DateTimeField(required=False)
+    
+    def validate_user_id(self, value):
+        """Validate that user exists"""
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("User does not exist")
+        return value
+    
+    def validate(self, data):
+        """Validate date range"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError("Start date must be before end date")
+        
+        return data
+
+
+class DetailedRoleSerializer(RoleSerializer):
+    """Detailed role serializer with user assignments"""
+    user_assignments = serializers.SerializerMethodField()
+    
+    class Meta(RoleSerializer.Meta):
+        fields = RoleSerializer.Meta.fields + ['user_assignments']
+    
+    def get_user_assignments(self, obj):
+        """Get users assigned to this role"""
+        assignments = UserRole.objects.filter(
+            role=obj,
+            is_active=True
+        ).select_related('user', 'assigned_by')
+        
+        return [{
+            'user_id': assignment.user.id,
+            'user_email': assignment.user.email,
+            'user_name': assignment.user.get_full_name(),
+            'assigned_at': assignment.assigned_at,
+            'assigned_by': assignment.assigned_by.email if assignment.assigned_by else None,
+            'expires_at': assignment.expires_at,
+            'is_expired': assignment.is_expired
+        } for assignment in assignments]
+
+
+class UserRoleSummarySerializer(serializers.ModelSerializer):
+    """Summary serializer for user roles"""
+    total_users = serializers.SerializerMethodField()
+    active_users = serializers.SerializerMethodField()
+    expired_assignments = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'is_active', 'total_users', 'active_users', 'expired_assignments']
+    
+    def get_total_users(self, obj):
+        """Get total users ever assigned to this role"""
+        return UserRole.objects.filter(role=obj).count()
+    
+    def get_active_users(self, obj):
+        """Get currently active users"""
+        return UserRole.objects.filter(
+            role=obj,
+            is_active=True,
+            expires_at__isnull=True
+        ).count() + UserRole.objects.filter(
+            role=obj,
+            is_active=True,
+            expires_at__gt=timezone.now()
+        ).count()
+    
+    def get_expired_assignments(self, obj):
+        """Get count of expired assignments"""
+        return UserRole.objects.filter(
+            role=obj,
+            is_active=True,
+            expires_at__lte=timezone.now()
+        ).count()
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Improved token serializer with better security practices
@@ -19,11 +335,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     
     def validate(self, attrs):
         try:
-            # Use authenticate method for better security
             email = attrs.get('email', '').strip().lower()
             password = attrs.get('password', '')
             
-            # Additional validation
+            
             if not email or not password:
                 raise exceptions.ValidationError(
                     {"detail": "Email and password are required"}
@@ -31,7 +346,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             
             user = authenticate(username=email, password=password)
             if not user:
-                # Log failed attempt without exposing user existence
+               
                 logger.warning(
                     f"Failed login attempt for email: {email}",
                     extra={'email': email, 'timestamp': timezone.now()}
@@ -60,7 +375,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'access': str(refresh.access_token),
             }
             
-            # Add minimal user info
+           
             data.update({
                 'user': {
                     'id': user.id,
@@ -73,7 +388,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 }
             })
             
-            # Handle MFA separately in view
+           
             return data
             
         except exceptions.AuthenticationFailed:
@@ -83,9 +398,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise exceptions.ValidationError(
                 {"detail": "Authentication failed"}
             )
-
-
-
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -125,8 +437,6 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.is_mfa_fully_configured
     
 
-
-
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
@@ -165,7 +475,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         """Override to handle FormData boolean conversion and file handling"""
-        # Handle mutable data
+     
         if hasattr(data, '_mutable') and not data._mutable:
             data._mutable = True
         
@@ -175,15 +485,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             if field in data:
                 value = data[field]
                 if isinstance(value, str):
-                    # Handle various string representations of booleans
+                   
                     data[field] = value.lower() in ('true', '1', 'yes', 'on')
                 elif isinstance(value, bool):
                     data[field] = value
                 else:
-                    # Default to False for any other type
+                   
                     data[field] = False
         
-        # Handle empty strings for optional fields
+        
         optional_fields = ['phone_number']
         for field in optional_fields:
             if field in data and data[field] == '':
@@ -216,7 +526,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self, value):
         """Validate phone number format"""
-        if value and value.strip():  # Only validate if not empty
+        if value and value.strip():  
             if not value.startswith('+'):
                 raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
         return value
@@ -259,7 +569,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         if value not in [choice[0] for choice in User.USER_TYPES]:
             raise serializers.ValidationError("Invalid user type.")
         
-        # Restrict certain user types during registration
         if value == 'ADMIN':
             raise serializers.ValidationError("Admin accounts cannot be created through registration.")
         
@@ -282,7 +591,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 mfa_enabled=validated_data.get('mfa_enabled', False)
             )
             
-            # Create user profile with picture if provided
             UserProfile.objects.create(
                 user=user,
                 profile_picture=profile_picture
@@ -419,9 +727,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
     def validate_email(self, value):
-        # Normalize email consistently
         normalized_email = User.objects.normalize_email(value).lower()
-        # Don't reveal if email exists or not for security
         return normalized_email
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
@@ -461,10 +767,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         """Check if password needs changing after update"""
         validated_data = super().validate(data)
         
-        # If this is being called in a context where we have the user instance
         if hasattr(self, 'instance') and self.instance:
             if self.instance.is_password_expired():
-                # Might want to add a warning or handle this case
                 pass
         
         return validated_data

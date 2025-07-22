@@ -11,18 +11,14 @@ def get_client_ip(request):
     """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        # X-Forwarded-For can contain a comma-separated list of IPs.
-        # The client's IP is typically the first one.
         ip = x_forwarded_for.split(',')[0].strip()
     else:
-        # Fall back to REMOTE_ADDR if X-Forwarded-For isn't available
         ip = request.META.get('REMOTE_ADDR')
     
-    # Additional safety checks
     if not ip:
         ip = '0.0.0.0'  # Default value if no IP could be determined
     elif ip == '::1':
-        ip = '127.0.0.1'  # Convert IPv6 localhost to IPv4
+        ip = '127.0.0.1'
     
     return ip
 
@@ -37,7 +33,6 @@ def log_user_login(sender, request, user, **kwargs):
             was_successful=True
         )
     except Exception as e:
-        # Log the error but don't break the login flow
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to log user login: {str(e)}")
