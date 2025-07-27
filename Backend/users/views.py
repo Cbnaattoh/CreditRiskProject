@@ -25,14 +25,9 @@ from django.db.models import Q, Count, Prefetch, Max, Case, When, Value, CharFie
 from django.core.cache import cache
 from .models import Permission, Role, UserRole, PermissionLog, User, LoginHistory
 from .permissions import (
-    HasPermission, 
-    HasRole, 
-    HasAnyRole, 
-    require_permission, 
-    require_role, 
-    admin_required, 
-    staff_required, 
-    IsOwnerOrHasPermission
+    RequirePermission,
+    RequireOwnerOrPermission,
+    CanViewAuditLogs,
 )
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -100,22 +95,18 @@ class PermissionViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """Apply RBAC permissions based on action"""
-        permission_classes = [IsAuthenticated]
-        
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes.append(HasPermission('system_settings'))
+            return [permissions.IsAuthenticated(), RequirePermission('manage_permissions')()]
         else:
-            permission_classes.append(HasPermission('role_view'))
-        
-        return [permission() for permission in permission_classes]
+            return [permissions.IsAuthenticated(), RequirePermission('view_permissions')()]
 
     @action(detail=False, methods=['get'])
     def by_content_type(self, request):
         """Get permissions grouped by content type"""
-        permissions = self.get_queryset().select_related('content_type')
+        permissions_qs = self.get_queryset().select_related('content_type')
         grouped = {}
         
-        for perm in permissions:
+        for perm in permissions_qs:
             ct_name = perm.content_type.name if perm.content_type else 'General'
             if ct_name not in grouped:
                 grouped[ct_name] = []
@@ -137,14 +128,10 @@ class RoleViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """Apply RBAC permissions based on action"""
-        permission_classes = [IsAuthenticated]
-        
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes.append(HasPermission('role_edit'))
+            return [permissions.IsAuthenticated(), RequirePermission('role_edit')()]
         else:
-            permission_classes.append(HasPermission('role_view'))
-        
-        return [permission() for permission in permission_classes]
+            return [permissions.IsAuthenticated(), RequirePermission('role_view')()]
 
     def get_serializer_class(self):
         """Return detailed serializer for retrieve action"""
@@ -242,6 +229,8 @@ class RoleViewSet(viewsets.ModelViewSet):
 
 class UserRoleViewSet(viewsets.ModelViewSet):
     """ViewSet for managing user-role assignments"""
+    required_permission = 'user_manage_roles'
+
     queryset = UserRole.objects.select_related('user', 'role', 'assigned_by')
     serializer_class = UserRoleSerializer
     filterset_fields = ['is_active', 'role', 'user']
@@ -250,15 +239,11 @@ class UserRoleViewSet(viewsets.ModelViewSet):
     ordering = ['-assigned_at']
 
     def get_permissions(self):
-        """Apply RBAC permissions based on action"""
-        permission_classes = [IsAuthenticated]
-        
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes.append(HasPermission('user_manage_roles'))
+        """Apply different permissions for read vs write operations"""
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated(), RequirePermission('role_view')()]
         else:
-            permission_classes.append(HasPermission('role_view'))
-        
-        return [permission() for permission in permission_classes]
+            return [permissions.IsAuthenticated(), RequirePermission('user_manage_roles')()]
 
     def perform_create(self, serializer):
         """Set assigned_by when creating user role"""
@@ -378,14 +363,10 @@ class UserManagementViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """Apply RBAC permissions based on action"""
-        permission_classes = [IsAuthenticated]
-        
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes.append(HasPermission('user_edit_all'))
+            return [permissions.IsAuthenticated(), RequirePermission('user_edit_all')()]
         else:
-            permission_classes.append(HasPermission('user_view_all'))
-        
-        return [permission() for permission in permission_classes]
+            return [permissions.IsAuthenticated(), RequirePermission('user_view_all')()]
     
     def get_serializer_class(self):
         """Use AdminUserCreateSerializer for user creation"""
@@ -548,7 +529,7 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     
 class RBACDashboardView(generics.GenericAPIView):
     """Dashboard view with RBAC statistics"""
-    permission_classes = [IsAuthenticated, HasPermission('role_view')]
+    required_permissions = 'view_dashboard'
     
     def get(self, request):
         """Get dashboard statistics"""
@@ -617,7 +598,7 @@ class PermissionLogViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for permission audit logs"""
     queryset = PermissionLog.objects.select_related('user')
     serializer_class = PermissionLogSerializer
-    permission_classes = [IsAuthenticated, HasPermission('system_logs')]
+    permission_classes = [permissions.IsAuthenticated, CanViewAuditLogs]
     filterset_fields = ['user', 'permission_codename', 'action']
     search_fields = ['user__email', 'permission_codename', 'resource_type']
     ordering_fields = ['timestamp']
@@ -981,12 +962,12 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         if self.request.method in ['PUT', 'PATCH']:
             # Users can edit their own profile, or admins can edit any profile
             permission_classes.append(
-                IsOwnerOrHasPermission('user_edit_all', owner_field='user')
+                RequireOwnerOrPermission('user_edit_all', owner_field='user')
             )
         else:
             # Users can view their own profile, or staff can view any profile
             permission_classes.append(
-                IsOwnerOrHasPermission('user_view_all', owner_field='user')
+                RequireOwnerOrPermission('user_view_all', owner_field='user')
             )
         
         return [permission() for permission in permission_classes]
@@ -1074,7 +1055,7 @@ class UserUpdateView(generics.UpdateAPIView):
         """Users can edit their own account, admins can edit any account"""
         return [
             permissions.IsAuthenticated(),
-            IsOwnerOrHasPermission('user_edit_all')()
+            RequireOwnerOrPermission('user_edit_all')()
         ]
 
     def get_object(self):
@@ -1143,7 +1124,7 @@ class LoginHistoryView(generics.ListAPIView):
         return [
             permissions.IsAuthenticated(),
             # Allow if user is viewing own history OR has permission to view all
-            HasPermission('user_view_all')() if self.kwargs.get('user_id') else permissions.AllowAny()
+            RequirePermission('user_view_all')() if self.kwargs.get('user_id') else permissions.AllowAny()
         ]
 
     def get(self, request, *args, **kwargs):
@@ -1557,7 +1538,7 @@ class PasswordChangeView(generics.GenericAPIView):
             # Admin changing another user's password
             return [
                 permissions.IsAuthenticated(),
-                HasPermission('user_edit_all')()
+                RequirePermission('user_edit_all')()
             ]
         else:
             # User changing their own password
@@ -1696,7 +1677,7 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
 # Admin-only views for user management
 class AdminPasswordResetView(generics.GenericAPIView):
     """Admin can reset any user's password"""
-    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    permission_classes = [permissions.IsAuthenticated, RequirePermission('user_edit_all')]
     
     def post(self, request, user_id):
         """Admin reset user password"""
@@ -1738,7 +1719,7 @@ class AdminPasswordResetView(generics.GenericAPIView):
 
 class UserAccountStatusView(generics.GenericAPIView):
     """Admin can activate/deactivate user accounts"""
-    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    permission_classes = [permissions.IsAuthenticated, RequirePermission('user_edit_all')]
     
     def post(self, request, user_id):
         """Toggle user account status"""
@@ -1788,7 +1769,7 @@ class UserAccountStatusView(generics.GenericAPIView):
 
 class BulkUserActionsView(generics.GenericAPIView):
     """Bulk actions for user management (admin only)"""
-    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    permission_classes = [permissions.IsAuthenticated, RequirePermission('user_edit_all')]
     
     def post(self, request):
         """Perform bulk actions on users"""
@@ -1899,7 +1880,7 @@ class UserPermissionSummaryView(generics.GenericAPIView):
         if user_id and str(user_id) != str(self.request.user.id):
             return [
                 permissions.IsAuthenticated(),
-                HasPermission('user_view_all')()
+                RequirePermission('user_view_all')()
             ]
         return [permissions.IsAuthenticated()]
     
@@ -2053,7 +2034,7 @@ class MyPermissionsView(generics.GenericAPIView):
 
 class SecurityAuditView(generics.GenericAPIView):
     """Security audit and monitoring (admin only)"""
-    permission_classes = [permissions.IsAuthenticated, HasPermission('view_audit_logs')]
+    permission_classes = [permissions.IsAuthenticated, RequirePermission('view_audit_logs')]
     
     def get(self, request):
         """Get security audit information"""
@@ -2154,7 +2135,7 @@ class AdminUsersListView(generics.ListAPIView):
     Admin endpoint to view all users with comprehensive information
     including roles, status, login activity, and statistics
     """
-    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    required_permissions = 'user_view_all'
     
     def get_queryset(self):
         """Optimized queryset with all necessary data"""
@@ -2541,7 +2522,7 @@ class AdminUserDetailView(generics.RetrieveAPIView):
     """
     Detailed view of a single user for admin
     """
-    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    required_permissions = 'user_view_all'
     queryset = User.objects.all()
     
     def retrieve(self, request, *args, **kwargs):
@@ -2653,7 +2634,7 @@ class AdminUsersFiltersView(generics.GenericAPIView):
     """
     Get available filter options for the admin users list
     """
-    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    required_permissions = 'user_view_all'
     
     def get(self, request):
         """Get filter options"""
@@ -2709,16 +2690,16 @@ def get_view_permissions_summary():
     """Helper function to document all view permissions"""
     return {
         "UserProfileView": {
-            "GET": ["IsAuthenticated", "IsOwnerOrHasPermission('user_view_all')"],
-            "PUT/PATCH": ["IsAuthenticated", "IsOwnerOrHasPermission('user_edit_all')"],
+            "GET": ["IsAuthenticated", "RequireOwnerPermission('user_view_all')"],
+            "PUT/PATCH": ["IsAuthenticated", "RequireOwnerPermission('user_edit_all')"],
             "description": "Users can view/edit own profile, admins can view/edit any profile"
         },
         "UserUpdateView": {
-            "PUT/PATCH": ["IsAuthenticated", "IsOwnerOrHasPermission('user_edit_all')"],
+            "PUT/PATCH": ["IsAuthenticated", "RequireOwnerOrPermission('user_edit_all')"],
             "description": "Users can update own account, admins can update any account"
         },
         "LoginHistoryView": {
-            "GET": ["IsAuthenticated", "HasPermission('user_view_all') for other users"],
+            "GET": ["IsAuthenticated", "RequireOwnerOrPermission('user_view_all') for other users"],
             "description": "Users can view own history, admins can view any user's history"
         },
         "MFASetupView": {
@@ -2742,7 +2723,7 @@ def get_view_permissions_summary():
             "description": "No auth needed - password reset confirmation"
         },
         "PasswordChangeView": {
-            "POST": ["IsAuthenticated", "HasPermission('user_edit_all') for other users"],
+            "POST": ["IsAuthenticated", "RequirePermission('user_edit_all') for other users"],
             "description": "Users can change own password, admins can change any password"
         },
         "PasswordChangeRequiredView": {
@@ -2750,19 +2731,19 @@ def get_view_permissions_summary():
             "description": "Handles forced password changes for expired passwords"
         },
         "AdminPasswordResetView": {
-            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "POST": ["IsAuthenticated", "RequirePermission('user_edit_all')"],
             "description": "Admin-only password reset for any user"
         },
         "UserAccountStatusView": {
-            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "POST": ["IsAuthenticated", "RequirePermission('user_edit_all')"],
             "description": "Admin-only account activation/deactivation"
         },
         "BulkUserActionsView": {
-            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "POST": ["IsAuthenticated", "RequirePermission('user_edit_all')"],
             "description": "Admin-only bulk user management actions"
         },
         "UserPermissionSummaryView": {
-            "GET": ["IsAuthenticated", "HasPermission('user_view_all') for other users"],
+            "GET": ["IsAuthenticated", "RequirePermission('user_view_all') for other users"],
             "description": "Users can view own permissions, admins can view any user's permissions"
         },
         "MyPermissionsView": {
@@ -2770,7 +2751,7 @@ def get_view_permissions_summary():
             "description": "Current user's permissions for frontend use"
         },
         "SecurityAuditView": {
-            "GET": ["IsAuthenticated", "HasPermission('view_audit_logs')"],
+            "GET": ["IsAuthenticated", "RequirePermission('view_audit_logs')"],
             "description": "Security audit information for admins/auditors"
         }
     }

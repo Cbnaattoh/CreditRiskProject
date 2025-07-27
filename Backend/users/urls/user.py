@@ -8,7 +8,10 @@ from ..views import (
     BulkUserActionsView,
     MyPermissionsView,
     UserPermissionSummaryView,
-    SecurityAuditView
+    SecurityAuditView,
+    AdminUsersListView,
+    AdminUserDetailView,
+    AdminUsersFiltersView
 )
 
 app_name = 'users'
@@ -28,6 +31,9 @@ urlpatterns = [
     path('admin/password-reset/<int:user_id>/', AdminPasswordResetView.as_view(), name='admin-password-reset'),
     path('admin/account-status/<int:user_id>/', UserAccountStatusView.as_view(), name='admin-account-status'),
     path('admin/bulk-actions/', BulkUserActionsView.as_view(), name='admin-bulk-actions'),
+    path('admin/users/list/', AdminUsersListView.as_view(), name='admin-users-list'),
+    path('admin/users/<int:user_id>/detail/', AdminUserDetailView.as_view(), name='admin-user-detail'),
+    path('admin/users/filters/', AdminUsersFiltersView.as_view(), name='admin-users-filters'),
 
     # Utility Endpoints
     path('me/permissions/', MyPermissionsView.as_view(), name='my-permissions'),
