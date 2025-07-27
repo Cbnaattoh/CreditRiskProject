@@ -74,7 +74,7 @@ class Role(models.Model):
     
 class UserRole(models.Model):
     """Many-to-many relationship between User and Role with additional context"""
-    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user_role')
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user_roles')
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     assigned_by = models.ForeignKey(
         'User',

@@ -28,6 +28,8 @@ from .permissions import (
     RequirePermission,
     RequireOwnerOrPermission,
     CanViewAuditLogs,
+    RBACMixin,
+    IsAdminUser
 )
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -1955,7 +1957,7 @@ class UserPermissionSummaryView(generics.GenericAPIView):
 
 
 class MyPermissionsView(generics.GenericAPIView):
-    """Quick view for current user's permissions (for frontend)"""
+    """Quick view for current user's permissions"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -2135,7 +2137,8 @@ class AdminUsersListView(generics.ListAPIView):
     Admin endpoint to view all users with comprehensive information
     including roles, status, login activity, and statistics
     """
-    required_permissions = 'user_view_all'
+    # required_permissions = 'user_view_all'
+    permission_classes = [IsAdminUser]
     
     def get_queryset(self):
         """Optimized queryset with all necessary data"""
@@ -2522,7 +2525,8 @@ class AdminUserDetailView(generics.RetrieveAPIView):
     """
     Detailed view of a single user for admin
     """
-    required_permissions = 'user_view_all'
+    # required_permissions = 'user_view_all'
+    permissions_classes = [IsAdminUser]
     queryset = User.objects.all()
     
     def retrieve(self, request, *args, **kwargs):
@@ -2634,7 +2638,8 @@ class AdminUsersFiltersView(generics.GenericAPIView):
     """
     Get available filter options for the admin users list
     """
-    required_permissions = 'user_view_all'
+    # required_permissions = 'user_view_all'
+    permissions_classes = [IsAdminUser]
     
     def get(self, request):
         """Get filter options"""
