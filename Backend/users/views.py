@@ -1,4 +1,7 @@
-from rest_framework import generics, permissions, status, serializers
+from rest_framework import generics, permissions, status, serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.exceptions import APIException, ValidationError
 from django.core.exceptions import ValidationError
@@ -17,7 +20,13 @@ from django.utils import timezone
 from rest_framework.throttling import AnonRateThrottle,UserRateThrottle
 from django.conf import settings
 from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count, Prefetch
 from django.core.cache import cache
+from .models import Permission, Role, UserRole, PermissionLog
+from .permissions import (
+    HasPermission, HasRole, HasAnyRole, require_permission, require_role, admin_required, staff_required
+)
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UserProfileSerializer,
@@ -27,9 +36,21 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserRegisterSerializer,
+    AdminUserCreateSerializer,
     PasswordChangeSerializer,
     UserUpdateSerializer,
     MFASetupVerifySerializer,
+    PermissionSerializer,
+    RoleSerializer,
+    UserRoleSerializer,
+    UserWithRolesSerializer,
+    RoleAssignmentSerializer,
+    PermissionLogSerializer,
+    UserPermissionCheckSerializer,
+    RolePermissionUpdateSerializer,
+    UserRoleHistorySerializer,
+    DetailedRoleSerializer,
+    UserRoleSummarySerializer
 )
 from api.docs.views.password import (
     password_reset_confirm_docs,
@@ -45,7 +66,7 @@ from .utils.email import send_password_reset_email, send_welcome_email
 import pyotp
 import logging
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -58,6 +79,580 @@ class LoginThrottle(AnonRateThrottle):
 class StrictLoginThrottle(AnonRateThrottle):
     """Strict rate limiting for repeated failures"""
     rate = '3/min'
+
+
+
+class PermissionViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing permissions"""
+    queryset = Permission.objects.all()
+    serializer_class = PermissionSerializer
+    filterset_fields = ['content_type', 'codename']
+    search_fields = ['name', 'codename', 'description']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_permissions(self):
+        """Apply RBAC permissions based on action"""
+        permission_classes = [IsAuthenticated]
+        
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes.append(HasPermission('system_settings'))
+        else:
+            permission_classes.append(HasPermission('role_view'))
+        
+        return [permission() for permission in permission_classes]
+
+    @action(detail=False, methods=['get'])
+    def by_content_type(self, request):
+        """Get permissions grouped by content type"""
+        permissions = self.get_queryset().select_related('content_type')
+        grouped = {}
+        
+        for perm in permissions:
+            ct_name = perm.content_type.name if perm.content_type else 'General'
+            if ct_name not in grouped:
+                grouped[ct_name] = []
+            grouped[ct_name].append(PermissionSerializer(perm).data)
+        
+        return Response(grouped)
+    
+
+class RoleViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing roles"""
+    queryset = Role.objects.prefetch_related('permissions').annotate(
+        user_count=Count('userrole', filter=Q(userrole__is_active=True))
+    )
+    serializer_class = RoleSerializer
+    filterset_fields = ['is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at', 'user_count']
+    ordering = ['name']
+
+    def get_permissions(self):
+        """Apply RBAC permissions based on action"""
+        permission_classes = [IsAuthenticated]
+        
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes.append(HasPermission('role_edit'))
+        else:
+            permission_classes.append(HasPermission('role_view'))
+        
+        return [permission() for permission in permission_classes]
+
+    def get_serializer_class(self):
+        """Return detailed serializer for retrieve action"""
+        if self.action == 'retrieve':
+            return DetailedRoleSerializer
+        return super().get_serializer_class()
+
+    @action(detail=True, methods=['post'])
+    def update_permissions(self, request, pk=None):
+        """Update role permissions (add, remove, or set)"""
+        role = self.get_object()
+        serializer = RolePermissionUpdateSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            permission_ids = serializer.validated_data['permission_ids']
+            action_type = serializer.validated_data['action']
+            
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            
+            with transaction.atomic():
+                if action_type == 'add':
+                    role.permissions.add(*permissions)
+                elif action_type == 'remove':
+                    role.permissions.remove(*permissions)
+                elif action_type == 'set':
+                    role.permissions.set(permissions)
+                
+                role.updated_at = timezone.now()
+                role.save()
+            
+            return Response({
+                'message': f'Permissions {action_type}ed successfully',
+                'role': DetailedRoleSerializer(role).data
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def users(self, request, pk=None):
+        """Get users assigned to this role"""
+        role = self.get_object()
+        user_roles = UserRole.objects.filter(
+            role=role,
+            is_active=True
+        ).select_related('user', 'assigned_by')
+        
+        # Filter by expiration status if requested
+        expired_filter = request.query_params.get('expired')
+        if expired_filter == 'true':
+            user_roles = user_roles.filter(expires_at__lte=timezone.now())
+        elif expired_filter == 'false':
+            user_roles = user_roles.filter(
+                Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+            )
+        
+        serializer = UserRoleSerializer(user_roles, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Get role statistics summary"""
+        roles = Role.objects.all()
+        serializer = UserRoleSummarySerializer(roles, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def clone(self, request, pk=None):
+        """Clone a role with all its permissions"""
+        source_role = self.get_object()
+        new_name = request.data.get('name')
+        
+        if not new_name:
+            return Response(
+                {'error': 'Name is required for cloning'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if Role.objects.filter(name=new_name).exists():
+            return Response(
+                {'error': 'Role with this name already exists'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        with transaction.atomic():
+            new_role = Role.objects.create(
+                name=new_name,
+                description=f"Cloned from {source_role.name}",
+                is_active=True
+            )
+            new_role.permissions.set(source_role.permissions.all())
+        
+        serializer = RoleSerializer(new_role)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+
+class UserRoleViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing user-role assignments"""
+    queryset = UserRole.objects.select_related('user', 'role', 'assigned_by')
+    serializer_class = UserRoleSerializer
+    filterset_fields = ['is_active', 'role', 'user']
+    search_fields = ['user__email', 'user__first_name', 'user__last_name', 'role__name']
+    ordering_fields = ['assigned_at', 'expires_at']
+    ordering = ['-assigned_at']
+
+    def get_permissions(self):
+        """Apply RBAC permissions based on action"""
+        permission_classes = [IsAuthenticated]
+        
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes.append(HasPermission('user_manage_roles'))
+        else:
+            permission_classes.append(HasPermission('role_view'))
+        
+        return [permission() for permission in permission_classes]
+
+    def perform_create(self, serializer):
+        """Set assigned_by when creating user role"""
+        serializer.save(assigned_by=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def bulk_assign(self, request):
+        """Bulk assign role to multiple users"""
+        serializer = RoleAssignmentSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            user_ids = serializer.validated_data['user_ids']
+            role_id = serializer.validated_data['role_id']
+            expires_at = serializer.validated_data.get('expires_at')
+            
+            users = User.objects.filter(id__in=user_ids)
+            role = Role.objects.get(id=role_id)
+            
+            assignments_created = []
+            assignments_updated = []
+            errors = []
+            
+            with transaction.atomic():
+                for user in users:
+                    try:
+                        user_role = user.assign_role(
+                            role=role,
+                            assigned_by=request.user,
+                            expires_at=expires_at
+                        )
+                        
+                        if user_role:
+                            assignments_created.append({
+                                'user_id': user.id,
+                                'user_email': user.email,
+                                'role_name': role.name
+                            })
+                    except Exception as e:
+                        errors.append({
+                            'user_id': user.id,
+                            'error': str(e)
+                        })
+            
+            return Response({
+                'assignments_created': assignments_created,
+                'assignments_updated': assignments_updated,
+                'errors': errors,
+                'total_processed': len(users)
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'])
+    def bulk_remove(self, request):
+        """Bulk remove role from multiple users"""
+        user_ids = request.data.get('user_ids', [])
+        role_id = request.data.get('role_id')
+        
+        if not user_ids or not role_id:
+            return Response(
+                {'error': 'user_ids and role_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        users = User.objects.filter(id__in=user_ids)
+        role = get_object_or_404(Role, id=role_id)
+        
+        removed_count = 0
+        for user in users:
+            user.remove_role(role)
+            removed_count += 1
+        
+        return Response({
+            'message': f'Role removed from {removed_count} users',
+            'role_name': role.name,
+            'users_processed': removed_count
+        })
+
+    @action(detail=False, methods=['get'])
+    def expiring_soon(self, request):
+        """Get role assignments expiring within specified days"""
+        days = int(request.query_params.get('days', 7))
+        cutoff_date = timezone.now() + timedelta(days=days)
+        
+        expiring_assignments = self.get_queryset().filter(
+            is_active=True,
+            expires_at__lte=cutoff_date,
+            expires_at__gt=timezone.now()
+        )
+        
+        serializer = self.get_serializer(expiring_assignments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def expired(self, request):
+        """Get expired role assignments"""
+        expired_assignments = self.get_queryset().filter(
+            is_active=True,
+            expires_at__lte=timezone.now()
+        )
+        
+        serializer = self.get_serializer(expired_assignments, many=True)
+        return Response(serializer.data)
+
+
+class UserManagementViewSet(viewsets.ModelViewSet):
+    """User management with RBAC functionality"""
+    queryset = User.objects.prefetch_related(
+        Prefetch('user_roles', queryset=UserRole.objects.filter(is_active=True))
+    )
+    serializer_class = UserWithRolesSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['is_active', 'is_staff']
+    search_fields = ['email', 'first_name', 'last_name']
+    ordering_fields = ['email', 'date_joined']
+    ordering = ['email']
+
+    def get_permissions(self):
+        """Apply RBAC permissions based on action"""
+        permission_classes = [IsAuthenticated]
+        
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes.append(HasPermission('user_edit_all'))
+        else:
+            permission_classes.append(HasPermission('user_view_all'))
+        
+        return [permission() for permission in permission_classes]
+    
+    def get_serializer_class(self):
+        """Use AdminUserCreateSerializer for user creation"""
+        if self.action == 'create':
+            return AdminUserCreateSerializer
+        return super().get_serializer_class()
+    
+    def get_serializer_context(self):
+        """Add request to serializer context"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    @action(detail=True, methods=['post'])
+    def assign_role(self, request, pk=None):
+        """Assign role to specific user"""
+        user = self.get_object()
+        role_id = request.data.get('role_id')
+        expires_at = request.data.get('expires_at')
+        
+        if not role_id:
+            return Response(
+                {'error': 'role_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        role = get_object_or_404(Role, id=role_id)
+        
+        # Check if requesting user can assign this role
+        if not request.user.can_assign_role(role.name):
+            if role.name in ['Administrator', 'Risk Analyst', 'Compliance Auditor']:
+                if not (request.user.is_superuser or request.user.has_role('Administrator')):
+                    return Response(
+                        {'error': f'You don\'t have permission to assign the role "{role.name}"'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+        
+        # Parse expires_at if provided
+        if expires_at:
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid expires_at format'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        user_role = user.assign_role(
+            role=role,
+            assigned_by=request.user,
+            expires_at=expires_at
+        )
+        
+        serializer = UserRoleSerializer(user_role)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def remove_role(self, request, pk=None):
+        """Remove role from specific user"""
+        user = self.get_object()
+        role_id = request.data.get('role_id')
+        
+        if not role_id:
+            return Response(
+                {'error': 'role_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        role = get_object_or_404(Role, id=role_id)
+
+        # Check if requesting user can remove this role
+        if not request.user.can_assign_role(role.name):
+            if role.name in ['Administrator', 'Risk Analyst', 'Compliance Auditor']:
+                if not (request.user.is_superuser or request.user.has_role('Administrator')):
+                    return Response(
+                        {'error': f'You don\'t have permission to remove the role "{role.name}"'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+        user.remove_role(role)
+        
+        return Response({
+            'message': f'Role "{role.name}" removed from user "{user.email}"'
+        })
+
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """Get all permissions for a user"""
+        user = self.get_object()
+        permissions = user.get_permissions()
+        
+        serializer = PermissionSerializer(permissions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def check_permission(self, request, pk=None):
+        """Check if user has specific permission"""
+        user = self.get_object()
+        serializer = UserPermissionCheckSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            permission_codename = serializer.validated_data['permission_codename']
+            resource_type = serializer.validated_data.get('resource_type', '')
+            resource_id = serializer.validated_data.get('resource_id', '')
+            
+            has_permission = user.has_permission(permission_codename)
+            
+            # Log permission check
+            PermissionLog.objects.create(
+                user=user,
+                permission_codename=permission_codename,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                action='granted' if has_permission else 'denied',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:255]
+            )
+            
+            return Response({
+                'has_permission': has_permission,
+                'permission_codename': permission_codename,
+                'user_email': user.email
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def role_history(self, request, pk=None):
+        """Get role assignment history for user"""
+        user = self.get_object()
+        
+        # Get query parameters for date filtering
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        user_roles = UserRole.objects.filter(user=user).select_related('role', 'assigned_by')
+        
+        if start_date:
+            try:
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                user_roles = user_roles.filter(assigned_at__gte=start_date)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid start_date format'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if end_date:
+            try:
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                user_roles = user_roles.filter(assigned_at__lte=end_date)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid end_date format'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        serializer = UserRoleSerializer(user_roles, many=True)
+        return Response(serializer.data)
+    
+    
+class RBACDashboardView(generics.GenericAPIView):
+    """Dashboard view with RBAC statistics"""
+    permission_classes = [IsAuthenticated, HasPermission('role_view')]
+    
+    def get(self, request):
+        """Get dashboard statistics"""
+        now = timezone.now()
+        
+        # Basic counts
+        total_users = User.objects.count()
+        total_roles = Role.objects.count()
+        total_permissions = Permission.objects.count()
+        active_assignments = UserRole.objects.filter(is_active=True).count()
+        
+        # Expiring assignments (next 7 days)
+        expiring_soon = UserRole.objects.filter(
+            is_active=True,
+            expires_at__lte=now + timedelta(days=7),
+            expires_at__gt=now
+        ).count()
+        
+        # Expired assignments
+        expired = UserRole.objects.filter(
+            is_active=True,
+            expires_at__lte=now
+        ).count()
+        
+        # Most assigned roles
+        popular_roles = Role.objects.annotate(
+            assignment_count=Count('userrole', filter=Q(userrole__is_active=True))
+        ).order_by('-assignment_count')[:5]
+        
+        # Recent activity (last 24 hours)
+        recent_assignments = UserRole.objects.filter(
+            assigned_at__gte=now - timedelta(days=1)
+        ).count()
+        
+        # Permission check activity (last 24 hours)
+        recent_permission_checks = PermissionLog.objects.filter(
+            timestamp__gte=now - timedelta(days=1)
+        ).count()
+        
+        return Response({
+            'summary': {
+                'total_users': total_users,
+                'total_roles': total_roles,
+                'total_permissions': total_permissions,
+                'active_assignments': active_assignments,
+                'expiring_soon': expiring_soon,
+                'expired': expired
+            },
+            'popular_roles': [
+                {
+                    'id': role.id,
+                    'name': role.name,
+                    'assignment_count': role.assignment_count
+                }
+                for role in popular_roles
+            ],
+            'recent_activity': {
+                'assignments_24h': recent_assignments,
+                'permission_checks_24h': recent_permission_checks
+            }
+        })
+
+    
+
+class PermissionLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for permission audit logs"""
+    queryset = PermissionLog.objects.select_related('user')
+    serializer_class = PermissionLogSerializer
+    permission_classes = [IsAuthenticated, HasPermission('system_logs')]
+    filterset_fields = ['user', 'permission_codename', 'action']
+    search_fields = ['user__email', 'permission_codename', 'resource_type']
+    ordering_fields = ['timestamp']
+    ordering = ['-timestamp']
+
+    @action(detail=False, methods=['get'])
+    def user_activity(self, request):
+        """Get permission activity for specific user"""
+        user_id = request.query_params.get('user_id')
+        days = int(request.query_params.get('days', 30))
+        
+        if not user_id:
+            return Response(
+                {'error': 'user_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        start_date = timezone.now() - timedelta(days=days)
+        logs = self.get_queryset().filter(
+            user_id=user_id,
+            timestamp__gte=start_date
+        )
+        
+        serializer = self.get_serializer(logs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def permission_usage(self, request):
+        """Get usage statistics for permissions"""
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        usage_stats = self.get_queryset().filter(
+            timestamp__gte=start_date
+        ).values('permission_codename').annotate(
+            total_checks=Count('id'),
+            granted=Count('id', filter=Q(action='granted')),
+            denied=Count('id', filter=Q(action='denied'))
+        ).order_by('-total_checks')
+        
+        return Response(list(usage_stats))
+
 
 
 class LoginView(TokenObtainPairView):
@@ -87,7 +682,6 @@ class LoginView(TokenObtainPairView):
             )
 
         try:
-            # Get serializer and validate
             serializer = self.get_serializer(data=request.data)
             
             if not serializer.is_valid():
@@ -97,34 +691,21 @@ class LoginView(TokenObtainPairView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
-            # Get validated data
             validated_data = serializer.validated_data
             user = serializer.user
             
-            # Handle successful authentication
             self._handle_successful_login(user, request)
             
-            # Check for password expiration (after successful auth)
+            # Check for password expiration
             if user.is_password_expired():
                 validated_data.update({
                     'requires_password_change': True,
                     'password_expired': True
                 })
             
-            # Ensure MFA is only triggered if fully configured
             if user.mfa_enabled and user.mfa_secret:
-                # Ensure the user is included in response data
-                validated_data['user'] = {
-                    'id': user.id,
-                    'email': user.email,
-                    'name': f"{user.first_name} {user.last_name}",
-                    'role': user.user_type,
-                    'mfa_enabled': user.mfa_enabled,
-                    'is_verified': user.is_verified
-                }
                 return self._handle_mfa_required(user, validated_data)
             
-            # Clear failed attempts on successful login
             self._clear_failed_attempts(email)
             
             return Response(validated_data, status=status.HTTP_200_OK)
@@ -155,7 +736,6 @@ class LoginView(TokenObtainPairView):
                     login_timestamp = timezone.now()
                 )
                 
-                # Update last login
                 user.last_login = timezone.now()
                 user.save(update_fields=['last_login'])
                 
@@ -173,7 +753,6 @@ class LoginView(TokenObtainPairView):
     def _handle_mfa_required(self, user, response_data):
         """Handle MFA requirement for login"""
         try:
-            # Generate temporary token for MFA verification
             temp_token = default_token_generator.make_token(user)
             uid_encoded = urlsafe_base64_encode(force_bytes(user.pk))
             
@@ -183,7 +762,7 @@ class LoginView(TokenObtainPairView):
                 'user_id': user.id,
                 'email': user.email,
                 'created_at': timezone.now().isoformat()
-            }, timeout=300)  # 5 minutes
+            }, timeout=300)
 
             # Ensure user data is present
             user_data = response_data.get('user') or {
@@ -195,7 +774,6 @@ class LoginView(TokenObtainPairView):
                 'is_verified': user.is_verified,
             }
             
-            # Return MFA challenge response
             mfa_response = {
                 'requires_mfa': True,
                 'temp_token': temp_token,
@@ -230,10 +808,8 @@ class LoginView(TokenObtainPairView):
         
         if attempts >= max_attempts:
             if last_attempt:
-                # Check if lockout period has expired
                 lockout_expiry = last_attempt + lockout_duration
                 if timezone.now().timestamp() > lockout_expiry:
-                    # Lockout expired, clear attempts
                     self._clear_failed_attempts(email)
                     return False
             return True
@@ -245,7 +821,6 @@ class LoginView(TokenObtainPairView):
         cache_key = f"failed_attempts:{email}"
         current_time = timezone.now()
         
-        # Get existing attempt data
         attempt_data = cache.get(cache_key, {
             'count': 0,
             'first_attempt': current_time.timestamp(),
@@ -261,7 +836,7 @@ class LoginView(TokenObtainPairView):
             'reason': reason
         })
         
-        # Keep only recent attempts (last 24 hours)
+        # Keep only recent attempts
         cutoff_time = current_time.timestamp() - 86400  # 24 hours
         attempt_data['attempts'] = [
             att for att in attempt_data['attempts'] 
@@ -283,7 +858,6 @@ class LoginView(TokenObtainPairView):
                 login_timestamp=current_time
             )
         except User.DoesNotExist:
-            # Don't create history for non-existent users
             pass
             
         logger.warning(
@@ -303,18 +877,16 @@ class LoginView(TokenObtainPairView):
 
     def _get_client_ip(self, request):
         """Get client IP address with improved detection"""
-        # Check for forwarded IPs (common in load balancer setups)
         forwarded_ips = [
             'HTTP_X_FORWARDED_FOR',
             'HTTP_X_REAL_IP',
-            'HTTP_CF_CONNECTING_IP',  # Cloudflare
+            'HTTP_CF_CONNECTING_IP',
             'HTTP_X_CLUSTER_CLIENT_IP',
         ]
         
         for header in forwarded_ips:
             ip_list = request.META.get(header)
             if ip_list:
-                # Take the first IP if there are multiple
                 ip = ip_list.split(',')[0].strip()
                 if ip:
                     return ip
@@ -329,17 +901,14 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegisterSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AnonRateThrottle]
-
     parser_classes = [MultiPartParser, FormParser]
 
     @register_docs
     def create(self, request, *args, **kwargs):
-        
         try:
-            serializer = self.get_serializer(data=request.data)
-            
+            serializer = self.get_serializer(data=request.data) 
             if not serializer.is_valid():
-                print(f"Serializer validation errors: {serializer.errors}")
+                print(f"Registration validation errors: {serializer.errors}")
                 return Response(
                     {"detail": "Validation failed", "errors": serializer.errors},
                     status=status.HTTP_400_BAD_REQUEST
@@ -364,6 +933,9 @@ class RegisterView(generics.CreateAPIView):
                     logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
                 
                 logger.info(f"New user registered: {user.email}")
+
+                # Get user's roles and permissions for response
+                user_roles = [{'id': role.id, 'name': role.name} for role in user.get_roles()]
                 
                 return Response({
                     'id': user.id,
@@ -372,7 +944,8 @@ class RegisterView(generics.CreateAPIView):
                     'last_name': user.last_name,
                     'user_type': user.user_type,
                     'is_verified': user.is_verified,
-                    'message': 'Registration successful'
+                    'roles': user_roles,
+                    'message': 'Registration successful. Client account created.'
                 }, status=status.HTTP_201_CREATED)
                 
         except serializers.ValidationError as e:

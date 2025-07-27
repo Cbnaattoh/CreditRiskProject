@@ -34,7 +34,7 @@ class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
         fields = [
-            'id', 'name', 'description', 'is_active', 'permissions', 
+            'id', 'name', 'description', 'is_active','is_default', 'permissions', 
             'permission_ids', 'user_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'user_count']
@@ -50,6 +50,15 @@ class RoleSerializer(serializers.ModelSerializer):
             is_active=True,
             expires_at__gt=timezone.now()
         ).count()
+    
+    def validate_name(self, value):
+        """Validate role name"""
+        if self.instance and self.instance.name == value:
+            return value
+            
+        if Role.objects.filter(name=value).exists():
+            raise serializers.ValidationError("Role with this name already exists")
+        return value
     
     def create(self, validated_data):
         """Create role with permissions"""
@@ -98,10 +107,21 @@ class UserRoleSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'assigned_at', 'is_expired']
     
     def validate(self, data):
-        """Validate role assignment"""
+        """Validate role assignment with RBAC checks"""
         user = data.get('user')
         role = data.get('role')
         expires_at = data.get('expires_at')
+        
+        # Get the requesting user from context
+        request_user = self.context.get('request').user if self.context.get('request') else None
+        
+        # Check if requesting user can assign this role
+        if request_user and not request_user.can_assign_role(role.name):
+            if role.name in ['Administrator', 'Risk Analyst', 'Compliance Auditor']:
+                if not (request_user.is_superuser or request_user.has_role('Administrator')):
+                    raise serializers.ValidationError(
+                        f"You don't have permission to assign the role '{role.name}'"
+                    )
         
         # Check if user already has this role
         if self.instance is None:
@@ -134,8 +154,8 @@ class UserWithRolesSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'is_active', 'date_joined', 'roles', 'permissions',
+            'id', 'email', 'first_name', 'last_name', 'user_type',
+            'is_active','is_verified,' 'date_joined', 'roles', 'permissions',
             'active_role_count'
         ]
         read_only_fields = ['id', 'date_joined']
@@ -157,7 +177,7 @@ class UserWithRolesSerializer(serializers.ModelSerializer):
     
 
 class RoleAssignmentSerializer(serializers.Serializer):
-    """Serializer for bulk role assignments"""
+    """Serializer for bulk role assignments with RBAC validation"""
     user_ids = serializers.ListField(
         child=serializers.IntegerField(),
         min_length=1
@@ -178,11 +198,21 @@ class RoleAssignmentSerializer(serializers.Serializer):
         return value
     
     def validate_role_id(self, value):
-        """Validate that role exists and is active"""
+        """Validate that role exists and can be assigned"""
         try:
             role = Role.objects.get(id=value)
             if not role.is_active:
                 raise serializers.ValidationError("Cannot assign inactive role")
+                
+            # Check if requesting user can assign this role
+            request_user = self.context.get('request').user if self.context.get('request') else None
+            if request_user and not request_user.can_assign_role(role.name):
+                if role.name in ['Administrator', 'Risk Analyst', 'Compliance Auditor']:
+                    if not (request_user.is_superuser or request_user.has_role('Administrator')):
+                        raise serializers.ValidationError(
+                            f"You don't have permission to assign the role '{role.name}'"
+                        )
+            
             return value
         except Role.DoesNotExist:
             raise serializers.ValidationError("Role does not exist")
@@ -346,7 +376,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             
             user = authenticate(username=email, password=password)
             if not user:
-               
                 logger.warning(
                     f"Failed login attempt for email: {email}",
                     extra={'email': email, 'timestamp': timezone.now()}
@@ -374,6 +403,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
             }
+
+            user_roles = [{'id': role.id, 'name': role.name} for role in user.get_roles()]
+            user_permissions = [perm.codename for perm in user.get_permissions()]
             
            
             data.update({
@@ -385,10 +417,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     'is_verified': user.is_verified,
                     'mfa_enabled': user.mfa_enabled,
                     'mfa_fully_configured': user.is_mfa_fully_configured,
+                    'roles': user_roles,
+                    'permissions': user_permissions,
                 }
             })
-            
-           
             return data
             
         except exceptions.AuthenticationFailed:
@@ -456,7 +488,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         write_only=True
     )
 
-    user_type = serializers.ChoiceField(choices=User.USER_TYPES, required=True)
+    user_type = serializers.ChoiceField(
+        choices=[('CLIENT', 'Client User')],
+        default='CLIENT',
+        read_only=True,
+        help_text='User type must be CLIENT. Admin accounts cannot be created through registration.'
+    )
     mfa_enabled = serializers.BooleanField(required=False, default=False)
     terms_accepted = serializers.BooleanField(required=True, write_only=True)
 
@@ -485,13 +522,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             if field in data:
                 value = data[field]
                 if isinstance(value, str):
-                   
                     data[field] = value.lower() in ('true', '1', 'yes', 'on')
                 elif isinstance(value, bool):
                     data[field] = value
                 else:
-                   
                     data[field] = False
+        
+        # Force user_type to CLIENT if not provided for security
+        data['user_type'] = 'CLIENT'
         
         
         optional_fields = ['phone_number']
@@ -502,9 +540,18 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         try:
             return super().to_internal_value(data)
         except Exception as e:
-            print(f"Error in to_internal_value: {e}")
-            print(f"Data received: {data}")
+            logger.error(f"Error in to_internal_value: {e}")
             raise
+    
+    def validate_user_type(self, value):
+        """FIXED: Force CLIENT role for registration security"""
+        if value != 'CLIENT':
+            raise serializers.ValidationError(
+                "Only Client accounts can be created through registration. "
+                "Contact an administrator for other account types."
+            )
+        return value
+    
 
     def validate_email(self, value):
         """Custom email validation with consistent normalization"""
@@ -518,25 +565,24 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         
         normalized_email = User.objects.normalize_email(value).lower()
         
-        # Check if email already exists
         if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         
         return normalized_email
-
+    
     def validate_phone_number(self, value):
         """Validate phone number format"""
         if value and value.strip():  
             if not value.startswith('+'):
                 raise serializers.ValidationError("Phone number must include country code (e.g., +1234567890)")
         return value
-
+    
     def validate_terms_accepted(self, value):
         """Ensure terms are accepted"""
         if not value:
             raise serializers.ValidationError("You must accept the terms and conditions.")
         return value
-
+    
     def validate_profile_picture(self, value):
         """Validate profile picture"""
         if value:
@@ -550,7 +596,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Only JPEG, PNG, GIF, and WebP images are allowed.")
         
         return value
-
+    
     def validate(self, data):
         """Cross-field validation"""
         if data['password'] != data['confirm_password']:
@@ -563,45 +609,110 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": list(e.messages)})
         
         return data
-
-    def validate_user_type(self, value):
-        """Validate user type"""
-        if value not in [choice[0] for choice in User.USER_TYPES]:
-            raise serializers.ValidationError("Invalid user type.")
-        
-        if value == 'ADMIN':
-            raise serializers.ValidationError("Admin accounts cannot be created through registration.")
-        
-        return value
-
+    
     def create(self, validated_data):
-        """Create user with profile"""
+        """Create user with profile and proper role assignment"""
         profile_picture = validated_data.pop('profile_picture', None)
         validated_data.pop('confirm_password', None)
         validated_data.pop('terms_accepted', None)
         
         try:
+            # Force CLIENT user type for security
+            validated_data['user_type'] = 'CLIENT'
+            
             user = User.objects.create_user(
                 email=validated_data['email'],
                 password=validated_data['password'],
                 first_name=validated_data['first_name'],
                 last_name=validated_data['last_name'],
                 phone_number=validated_data.get('phone_number', ''),
-                user_type=validated_data['user_type'],
+                user_type='CLIENT',
                 mfa_enabled=validated_data.get('mfa_enabled', False)
             )
             
+            # Create user profile
             UserProfile.objects.create(
                 user=user,
                 profile_picture=profile_picture
             )
             
-            logger.info(f"New user registered: {user.email}")
+            logger.info(f"New CLIENT user registered: {user.email}")
             return user
             
         except Exception as e:
             logger.error(f"User registration failed: {str(e)}")
             raise serializers.ValidationError("Registration failed. Please try again.")
+        
+
+
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    """Separate serializer for admin-created users with elevated privileges"""
+    password = serializers.CharField(write_only=True, required=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, required=True)
+    user_type = serializers.ChoiceField(choices=User.USER_TYPES, required=True)
+    roles = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        help_text="List of role IDs to assign to the user"
+    )
+    
+    class Meta:
+        model = User
+        fields = [
+            'email', 'password', 'confirm_password', 'first_name', 'last_name',
+            'phone_number', 'user_type', 'roles', 'is_verified'
+        ]
+        extra_kwargs = {
+            'first_name': {'required': True, 'min_length': 2},
+            'last_name': {'required': True, 'min_length': 2},
+            'is_verified': {'default': True}
+        }
+
+    def validate(self, data):
+        """Cross-field validation"""
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords don't match"})
+        
+        try:
+            validate_password(data['password'])
+        except Exception as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+        
+        return data
+
+    def validate_roles(self, value):
+        """Validate that all role IDs exist"""
+        if value:
+            existing_roles = Role.objects.filter(id__in=value, is_active=True)
+            if len(existing_roles) != len(value):
+                raise serializers.ValidationError("One or more roles do not exist or are inactive")
+        return value
+
+    def create(self, validated_data):
+        """Create user with admin privileges and role assignment"""
+        role_ids = validated_data.pop('roles', [])
+        validated_data.pop('confirm_password', None)
+        
+        try:
+            user = User.objects.create_user(**validated_data)
+            
+            # Assign roles if provided
+            if role_ids:
+                roles = Role.objects.filter(id__in=role_ids, is_active=True)
+                for role in roles:
+                    user.assign_role(role, assigned_by=self.context['request'].user)
+            
+            # Create user profile
+            UserProfile.objects.create(user=user)
+            
+            logger.info(f"Admin created user: {user.email} with type: {user.user_type}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Admin user creation failed: {str(e)}")
+            raise serializers.ValidationError("User creation failed. Please try again.")
+
         
 
 class UserProfileSerializer(serializers.ModelSerializer):

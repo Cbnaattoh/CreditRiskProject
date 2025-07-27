@@ -75,6 +75,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Security settings
 PASSWORD_EXPIRATION_DAYS = 90
 
+# Default role
+# DEFAULT_USER_ROLE = 'basic_user'
+
 # MFA settings
 MFA_TOKEN_EXPIRY = 300  # 5 minutes
 

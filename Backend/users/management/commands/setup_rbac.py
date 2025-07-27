@@ -11,6 +11,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Reset all permissions and roles (WARNING: This will delete existing data)',
         )
+        parser.add_argument(
+            '--update-existing-users',
+            action='store_true',
+            help='Update existing users with appropriate roles based on their user_type',
+        )
 
     def handle(self, *args, **options):
         if options['reset']:
@@ -20,7 +25,9 @@ class Command(BaseCommand):
 
         self.create_permissions()
         self.create_roles()
-        self.assign_roles_to_users()
+        
+        if options['update_existing_users']:
+            self.assign_roles_to_existing_users()
         
         self.stdout.write(self.style.SUCCESS('RBAC setup completed successfully!'))
 
@@ -41,10 +48,16 @@ class Command(BaseCommand):
             ('role_delete', 'Delete Roles', 'Can delete roles'),
             ('role_assign', 'Assign Roles', 'Can assign roles to users'),
             
+            # Permission Management
+            ('manage_permissions', 'Manage Permissions', 'Can create and modify permissions'),
+            ('view_permissions', 'View Permissions', 'Can view permissions'),
+            
             # System Administration
             ('system_settings', 'System Settings', 'Can modify system settings'),
             ('system_logs', 'View System Logs', 'Can view system logs and audit trails'),
             ('system_backup', 'System Backup', 'Can create and manage system backups'),
+            ('view_audit_logs', 'View Audit Logs', 'Can view permission audit logs'),
+            ('view_dashboard', 'View Dashboard', 'Can view admin dashboard'),
             
             # Data Management
             ('data_export', 'Export Data', 'Can export data from the system'),
@@ -56,7 +69,7 @@ class Command(BaseCommand):
             ('report_create', 'Create Reports', 'Can create custom reports'),
             ('report_admin', 'Manage Reports', 'Can manage all reports and analytics'),
             
-            # Risk Management (based on your user types)
+            # Risk Management
             ('risk_view', 'View Risk Data', 'Can view risk assessment data'),
             ('risk_edit', 'Edit Risk Data', 'Can modify risk assessments'),
             ('risk_approve', 'Approve Risk Assessments', 'Can approve risk assessments'),
@@ -71,6 +84,10 @@ class Command(BaseCommand):
             ('client_view', 'View Client Data', 'Can view client information'),
             ('client_edit', 'Edit Client Data', 'Can modify client information'),
             ('client_delete', 'Delete Client Data', 'Can delete client records'),
+            
+            # Self-management permissions (for regular users)
+            ('view_own_profile', 'View Own Profile', 'Can view own profile'),
+            ('edit_own_profile', 'Edit Own Profile', 'Can edit own profile'),
         ]
 
         created_count = 0
@@ -91,60 +108,103 @@ class Command(BaseCommand):
         """Create roles and assign permissions"""
         
         roles_permissions = {
-            'Administrator': [
-                # Full system access
-                'user_view_all', 'user_edit_all', 'user_delete', 'user_manage_roles',
-                'role_view', 'role_create', 'role_edit', 'role_delete', 'role_assign',
-                'system_settings', 'system_logs', 'system_backup',
-                'data_export', 'data_import', 'data_delete',
-                'report_view', 'report_create', 'report_admin',
-                'risk_view', 'risk_edit', 'risk_approve', 'risk_delete',
-                'compliance_view', 'compliance_edit', 'compliance_audit',
-                'client_view', 'client_edit', 'client_delete',
-            ],
-            'Risk Analyst': [
-                # Risk-focused permissions
-                'user_view_all',
-                'risk_view', 'risk_edit', 'risk_approve',
-                'compliance_view', 'compliance_edit',
-                'report_view', 'report_create',
-                'data_export', 'client_view',
-            ],
-            'Compliance Auditor': [
-                # Audit-focused permissions
-                'user_view_all',
-                'risk_view',
-                'compliance_view', 'compliance_edit', 'compliance_audit',
-                'report_view', 'report_create',
-                'system_logs', 'data_export',
-                'client_view',
-            ],
-            'Client User': [
-                # Limited client permissions
-                'risk_view',
-                'compliance_view',
-                'report_view',
-            ],
-            'Manager': [
-                # Management permissions
-                'user_view_all', 'user_edit_all',
-                'role_view', 'role_assign',
-                'risk_view', 'risk_edit', 'risk_approve',
-                'compliance_view', 'compliance_edit',
-                'report_view', 'report_create', 'report_admin',
-                'data_export', 'client_view', 'client_edit',
-            ]
+            'Administrator': {
+                'permissions': [
+                    # Full system access
+                    'user_view_all', 'user_edit_all', 'user_delete', 'user_manage_roles',
+                    'role_view', 'role_create', 'role_edit', 'role_delete', 'role_assign',
+                    'manage_permissions', 'view_permissions',
+                    'system_settings', 'system_logs', 'system_backup', 'view_audit_logs', 'view_dashboard',
+                    'data_export', 'data_import', 'data_delete',
+                    'report_view', 'report_create', 'report_admin',
+                    'risk_view', 'risk_edit', 'risk_approve', 'risk_delete',
+                    'compliance_view', 'compliance_edit', 'compliance_audit',
+                    'client_view', 'client_edit', 'client_delete',
+                    'view_own_profile', 'edit_own_profile',
+                ],
+                'is_default': False,
+                'description': 'Full system administrator with all permissions'
+            },
+            'Risk Analyst': {
+                'permissions': [
+                    # Risk-focused permissions
+                    'user_view_all',
+                    'role_view',
+                    'view_permissions',
+                    'risk_view', 'risk_edit', 'risk_approve',
+                    'compliance_view', 'compliance_edit',
+                    'report_view', 'report_create',
+                    'data_export', 'client_view',
+                    'view_own_profile', 'edit_own_profile',
+                ],
+                'is_default': False,
+                'description': 'Risk analysis specialist with risk management permissions'
+            },
+            'Compliance Auditor': {
+                'permissions': [
+                    # Audit-focused permissions
+                    'user_view_all',
+                    'role_view',
+                    'view_permissions',
+                    'risk_view',
+                    'compliance_view', 'compliance_edit', 'compliance_audit',
+                    'report_view', 'report_create',
+                    'system_logs', 'view_audit_logs', 'data_export',
+                    'client_view',
+                    'view_own_profile', 'edit_own_profile',
+                ],
+                'is_default': False,
+                'description': 'Compliance auditor with audit and compliance permissions'
+            },
+            'Client User': {
+                'permissions': [
+                    # Limited client permissions
+                    'risk_view',
+                    'compliance_view',
+                    'report_view',
+                    'view_own_profile', 'edit_own_profile',
+                ],
+                'is_default': True,
+                'description': 'Standard client user with limited view permissions'
+            },
+            'Manager': {
+                'permissions': [
+                    # Management permissions
+                    'user_view_all', 'user_edit_all',
+                    'role_view', 'role_assign',
+                    'view_permissions',
+                    'risk_view', 'risk_edit', 'risk_approve',
+                    'compliance_view', 'compliance_edit',
+                    'report_view', 'report_create', 'report_admin',
+                    'data_export', 'client_view', 'client_edit',
+                    'view_own_profile', 'edit_own_profile',
+                ],
+                'is_default': False,
+                'description': 'Management role with elevated permissions'
+            }
         }
 
         created_count = 0
-        for role_name, permission_codenames in roles_permissions.items():
+        for role_name, role_data in roles_permissions.items():
+            permission_codenames = role_data['permissions']
+            is_default = role_data.get('is_default', False)
+            description = role_data.get('description', f'Default {role_name} role')
+            
             role, created = Role.objects.get_or_create(
                 name=role_name,
-                defaults={'description': f'Default {role_name} role with predefined permissions'}
+                defaults={
+                    'description': description,
+                    'is_default': is_default
+                }
             )
             
             if created:
                 created_count += 1
+            else:
+                # Update existing role
+                role.description = description
+                role.is_default = is_default
+                role.save()
             
             # Clear existing permissions and add new ones
             role.permissions.clear()
@@ -159,8 +219,8 @@ class Command(BaseCommand):
 
         self.stdout.write(f'Created/Updated {len(roles_permissions)} roles')
 
-    def assign_roles_to_users(self):
-        """Assign roles to users based on their user_type"""
+    def assign_roles_to_existing_users(self):
+        """Assign roles to existing users based on their user_type"""
         
         user_type_role_mapping = {
             'ADMIN': 'Administrator',
@@ -170,19 +230,131 @@ class Command(BaseCommand):
         }
 
         assigned_count = 0
+        updated_count = 0
+        
         for user_type, role_name in user_type_role_mapping.items():
             try:
                 role = Role.objects.get(name=role_name)
                 users = User.objects.filter(user_type=user_type)
                 
                 for user in users:
-                    user_role = user.assign_role(role)
-                    if user_role:
-                        assigned_count += 1
+                    # Check if user already has this role
+                    existing_role = user.get_roles().filter(name=role_name).first()
+                    
+                    if not existing_role:
+                        user_role = user.assign_role(role)
+                        if user_role:
+                            assigned_count += 1
+                            self.stdout.write(
+                                f'Assigned {role_name} to {user.email}'
+                            )
+                    else:
+                        updated_count += 1
                         
             except Role.DoesNotExist:
                 self.stdout.write(
                     self.style.WARNING(f'Role {role_name} not found for user type {user_type}')
                 )
 
-        self.stdout.write(f'Assigned roles to {assigned_count} users')
+        self.stdout.write(f'Assigned roles to {assigned_count} users, {updated_count} already had roles')
+
+    def create_default_admin(self):
+        """Create a default admin user if none exists"""
+        admin_users = User.objects.filter(user_type='ADMIN')
+        
+        if not admin_users.exists():
+            self.stdout.write(self.style.WARNING('No admin users found. Creating default admin...'))
+            
+            try:
+                admin_user = User.objects.create_superuser(
+                    email='admin@riskguard.com',
+                    password='ChangeMe123!',
+                    first_name='System',
+                    last_name='Administrator',
+                    user_type='ADMIN',
+                    is_verified=True
+                )
+                
+                # Assign Administrator role
+                try:
+                    admin_role = Role.objects.get(name='Administrator')
+                    admin_user.assign_role(admin_role)
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'Created default admin user: {admin_user.email}\n'
+                            f'Password: ChangeMe123! (CHANGE THIS IMMEDIATELY!)'
+                        )
+                    )
+                except Role.DoesNotExist:
+                    self.stdout.write(
+                        self.style.WARNING('Administrator role not found')
+                    )
+                    
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'Failed to create default admin: {str(e)}')
+                )
+
+    def display_summary(self):
+        """Display a summary of the RBAC setup"""
+        self.stdout.write('\n' + '='*50)
+        self.stdout.write(self.style.SUCCESS('RBAC SETUP SUMMARY'))
+        self.stdout.write('='*50)
+        
+        # Permissions summary
+        total_permissions = Permission.objects.count()
+        self.stdout.write(f'Total Permissions: {total_permissions}')
+        
+        # Roles summary
+        roles = Role.objects.all()
+        self.stdout.write(f'Total Roles: {roles.count()}')
+        
+        for role in roles:
+            permission_count = role.permissions.count()
+            user_count = role.userrole_set.filter(is_active=True).count()
+            default_marker = ' (DEFAULT)' if role.is_default else ''
+            
+            self.stdout.write(
+                f'  - {role.name}{default_marker}: {permission_count} permissions, {user_count} users'
+            )
+        
+        # Users summary
+        user_types = User.objects.values('user_type').distinct()
+        self.stdout.write('\nUser Distribution:')
+        
+        for user_type in user_types:
+            count = User.objects.filter(user_type=user_type['user_type']).count()
+            self.stdout.write(f'  - {user_type["user_type"]}: {count} users')
+        
+        self.stdout.write('\n' + '='*50)
+
+    def handle(self, *args, **options):
+        """Main handler with enhanced flow"""
+        if options['reset']:
+            self.stdout.write(self.style.WARNING('Resetting all RBAC data...'))
+            Permission.objects.all().delete()
+            Role.objects.all().delete()
+
+        self.create_permissions()
+        self.create_roles()
+        
+        if options['update_existing_users']:
+            self.assign_roles_to_existing_users()
+        
+        # Check for admin users and offer to create one
+        admin_count = User.objects.filter(user_type='ADMIN').count()
+        if admin_count == 0:
+            create_admin = input('\nNo admin users found. Create default admin? (y/N): ')
+            if create_admin.lower() in ['y', 'yes']:
+                self.create_default_admin()
+        
+        self.display_summary()
+        self.stdout.write(self.style.SUCCESS('\nRBAC setup completed successfully!'))
+        
+        # Display next steps
+        self.stdout.write('\n' + self.style.WARNING('NEXT STEPS:'))
+        self.stdout.write('1. If you created a default admin, CHANGE THE PASSWORD immediately')
+        self.stdout.write('2. Review and adjust role permissions as needed')
+        self.stdout.write('3. Test the permission system with different user types')
+        self.stdout.write('4. Run migrations if you made model changes')
+        self.stdout.write('5. Restart your application server')

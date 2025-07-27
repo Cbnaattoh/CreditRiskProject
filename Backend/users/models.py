@@ -29,6 +29,10 @@ class Permission(models.Model):
     
     class Meta:
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['codename']),
+
+        ]
 
     def __str__(self):
         return f"{self.name}"
@@ -38,14 +42,18 @@ class Permission(models.Model):
 class Role(models.Model):
     """Role model that groups permissions"""
     name = models.CharField(max_length=50,unique=True)
-    decsription = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     permissions = models.ManyToManyField(Permission, blank=True)
     is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False, help_text="Is this the default role for new users?")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['name', 'is_active']),
+        ]
 
     def __str__(self):
         return self.name
@@ -82,6 +90,11 @@ class UserRole(models.Model):
     class Meta:
         unique_together = ['user', 'role']
         ordering = ['-assigned_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['role', 'is_active']),
+            models.Index(fields=['expires_at']),
+        ]
     
     def __str__(self):
         return f"{self.user.email} - {self.role.name}"
@@ -90,7 +103,6 @@ class UserRole(models.Model):
     def is_expired(self):
         """Check if role assignment has expired"""
         if self.expires_at:
-            from django.utils import timezone
             return timezone.now() > self.expires_at
         return False
     
@@ -104,6 +116,12 @@ class User(AbstractUser):
         ('AUDITOR', 'Compliance Auditor'),
         ('CLIENT', 'Client User'),
     )
+
+    # Roles that can be selected during registration
+    REGISTRATION_ALLOWED_ROLES = ['CLIENT']
+
+    # Role that require admin assignment
+    ADMIN_ONLY_ROLES = ['ADMIN', 'ANALYST', 'AUDITOR']
 
     username = None
     email = models.EmailField(_('email address'), unique=True)
@@ -135,9 +153,34 @@ class User(AbstractUser):
 
     
     def save(self, *args, **kwargs):
-        """Override save to ensure email validation"""
+        """Override save to ensure email validation and default role assignment"""
         self.clean()
+        is_new = self.pk is None
         super().save(*args, **kwargs)
+
+        if is_new:
+            self.assign_default_role()
+    
+    def assign_default_role(self):
+        """"Assign default role based on user type"""
+        if not self.user_roles.filter(is_active=True).exists():
+            try:
+                role_mapping ={
+                    'CLIENT': 'Client User',
+                    'ANALYST': 'Risk Analyst',
+                    'ADMIN': 'Administrator',
+                    'AUDITOR': 'Compliance Auditor'
+                }
+                role_name = role_mapping.get(self.user_type)
+                if role_name:
+                    role = Role.objects.get(name=role_name, is_active=True)
+                    self.assign_role(role)
+                else:
+                    default_role = Role.objects.filter(is_default=True, is_active=True).first()
+                    if default_role:
+                        self.assign_role(default_role)
+            except Role.DoesNotExist:
+                raise ValidationError(f"Default role for user type '{self.user_type}' does not exist")
 
     def set_password(self, raw_password):
         """Override to prevent saving with invalid data"""
@@ -154,30 +197,35 @@ class User(AbstractUser):
         return (timezone.now() - self.last_password_change).days > expiration_days
     
     def get_roles(self):
-        """Get all active roles for user"""
-        from django.utils import timezone
+        """Get all active, non-expired roles for user"""
+        from django.db.models import Q
+
         return Role.objects.filter(
             userrole__user=self,
-            userrole__is_active=True,
-            userrole__expires_at__isnull=True    
-        ).union(
-            Role.objects.filter(
-                userrole__user=self,
-                userrole__is_active=True,
-                userrole__expires_at__gt=timezone.now()
-            )
-        )
+            userrole__is_active=True,   
+        ).filter(
+            Q(userrole__expires_at__isnull=True) | 
+            Q(userrole__expires_at__gt=timezone.now())
+        ).distinct()
     
     def get_permissions(self):
-        """Get all permissions from user's roles"""
+        """Get all permissions from user's active roles"""
         roles = self.get_roles()
-        permissions = Permission.objects.none()
+        if not roles.exists():
+            return Permission.objects.none()
+        
+        # Get all permissions from all active roles
+        permission_ids = set()
         for role in roles:
-            permissions = permissions.union(role.permissions.all())
-        return permissions
+            permission_ids.update(role.permissions.values_list('id', flat=True))
+        
+        return Permission.objects.filter(id__in=permission_ids)
     
     def has_permission(self, permission_codename):
         """Check if user has specific permission"""
+        if self.is_superuser:
+            return True
+            
         return self.get_permissions().filter(codename=permission_codename).exists()
     
     def has_role(self, role_name):
@@ -191,26 +239,38 @@ class User(AbstractUser):
             role=role,
             defaults={
                 'assigned_by': assigned_by,
-                'expires_at': expires_at
+                'expires_at': expires_at,
+                'is_active': True
             }
         )
-        if not created:
+        if not created and not user_role.is_active:
             user_role.is_active = True
+            user_role.assigned_by = assigned_by
             user_role.expires_at = expires_at
+            user_role.assigned_at = timezone.now()
             user_role.save()
         return user_role
     
     def remove_role(self, role):
         """Remove role from user"""
-        UserRole.objects.filter(user=self, role=role).update(is_active=False)
+        UserRole.objects.filter(user=self, role=role, is_active=True).update(is_active=False)
+    
+    def can_assign_role(self, role_name):
+        """Check if this user can assign a specific role to others"""
+        # Only admins or users with specific permissions can assign roles
+        return (
+            self.is_superuser or 
+            self.has_permission('manage_user_roles') or
+            self.has_permission('role_assign')
+        )
     
     @property
     def is_mfa_fully_configured(self):
+        """Check if MFA is fully configured"""
         return self.mfa_enabled and bool(self.mfa_secret)
-
-    def __str__(self):
-        return self.email 
     
+    def __str__(self):
+        return self.email
 
 
 # Permission audit trail
@@ -230,6 +290,7 @@ class PermissionLog(models.Model):
         indexes = [
             models.Index(fields=['user', 'timestamp']),
             models.Index(fields=['permission_codename', 'timestamp']),
+            models.Index(fields=['timestamp']),
         ]
     
     def __str__(self):

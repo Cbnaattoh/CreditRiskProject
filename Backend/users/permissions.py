@@ -36,8 +36,8 @@ def log_permission_check(user, permission, action, request=None, resource_type=N
         logger.error(f"Failed to log permission check: {e}")
 
 
-class BasePermission(permissions.BasePermission):
-    """Base permission class with logging"""
+class BaseRBACPermission(permissions.BasePermission):
+    """Base permission class with RBAC logging"""
     
     def log_access(self, request, permission_code, granted, view=None):
         """Log permission check"""
@@ -55,8 +55,8 @@ class BasePermission(permissions.BasePermission):
             )
 
 
-class HasPermission(BasePermission):
-    """Check if user has specific permission"""
+class HasPermission(BaseRBACPermission):
+    """DRF Permission to check if user has specific permission"""
     
     def __init__(self, permission_codename):
         self.permission_codename = permission_codename
@@ -71,8 +71,8 @@ class HasPermission(BasePermission):
         return has_perm
 
 
-class HasRole(BasePermission):
-    """Check if user has specific role"""
+class HasRole(BaseRBACPermission):
+    """DRF Permission to check if user has specific role"""
     
     def __init__(self, role_name):
         self.role_name = role_name
@@ -87,8 +87,8 @@ class HasRole(BasePermission):
         return has_role
 
 
-class HasAnyRole(BasePermission):
-    """Check if user has any of the specified roles"""
+class HasAnyRole(BaseRBACPermission):
+    """DRF Permission to check if user has any of the specified roles"""
     
     def __init__(self, role_names):
         self.role_names = role_names if isinstance(role_names, list) else [role_names]
@@ -106,8 +106,8 @@ class HasAnyRole(BasePermission):
         return False
 
 
-class HasAnyPermission(BasePermission):
-    """Check if user has any of the specified permissions"""
+class HasAnyPermission(BaseRBACPermission):
+    """DRF Permission to check if user has any of the specified permissions"""
     
     def __init__(self, permission_codenames):
         self.permission_codenames = permission_codenames if isinstance(permission_codenames, list) else [permission_codenames]
@@ -125,8 +125,8 @@ class HasAnyPermission(BasePermission):
         return False
 
 
-class IsOwnerOrHasPermission(BasePermission):
-    """Check if user owns resource or has permission"""
+class IsOwnerOrHasPermission(BaseRBACPermission):
+    """DRF Permission to check if user is the owner of the object or has specific permission"""
     
     def __init__(self, permission_codename, owner_field='user'):
         self.permission_codename = permission_codename
@@ -146,91 +146,118 @@ class IsOwnerOrHasPermission(BasePermission):
         return has_perm
 
 
-# Function decorators for view functions
+# Factory functions to create permission instances
 def require_permission(permission_codename):
-    """Decorator to require specific permission"""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return JsonResponse({'error': 'Authentication required'}, status=401)
-            
-            if not request.user.has_permission(permission_codename):
+    """Factory function to create permission class for DRF views"""
+    class PermissionClass(HasPermission):
+        def __init__(self):
+            super().__init__(permission_codename)
+    
+    def decorator(func_or_class):
+        if hasattr(func_or_class, 'permission_classes'):
+            func_or_class.permission_classes = [permissions.IsAuthenticated, PermissionClass]
+            return func_or_class
+        else:
+            @wraps(func_or_class)
+            def wrapper(request, *args, **kwargs):
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
+                
+                if not request.user.has_permission(permission_codename):
+                    log_permission_check(
+                        user=request.user,
+                        permission=permission_codename,
+                        action='denied',
+                        request=request
+                    )
+                    return JsonResponse({'error': 'Permission denied'}, status=403)
+                
                 log_permission_check(
                     user=request.user,
                     permission=permission_codename,
-                    action='denied',
+                    action='granted',
                     request=request
                 )
-                return JsonResponse({'error': 'Permission denied'}, status=403)
-            
-            log_permission_check(
-                user=request.user,
-                permission=permission_codename,
-                action='granted',
-                request=request
-            )
-            
-            return func(request, *args, **kwargs)
-        return wrapper
+                
+                return func_or_class(request, *args, **kwargs)
+            return wrapper
+    
     return decorator
 
 
 def require_role(role_name):
-    """Decorator to require specific role"""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return JsonResponse({'error': 'Authentication required'}, status=401)
-            
-            if not request.user.has_role(role_name):
+    """Factory function to create role permission class for DRF views"""
+    class RolePermissionClass(HasRole):
+        def __init__(self):
+            super().__init__(role_name)
+    
+    def decorator(func_or_class):
+        if hasattr(func_or_class, 'permission_classes'):
+            func_or_class.permission_classes = [permissions.IsAuthenticated, RolePermissionClass]
+            return func_or_class
+        else:
+            @wraps(func_or_class)
+            def wrapper(request, *args, **kwargs):
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
+                
+                if not request.user.has_role(role_name):
+                    log_permission_check(
+                        user=request.user,
+                        permission=f"role:{role_name}",
+                        action='denied',
+                        request=request
+                    )
+                    return JsonResponse({'error': 'Role required'}, status=403)
+                
                 log_permission_check(
                     user=request.user,
                     permission=f"role:{role_name}",
-                    action='denied',
+                    action='granted',
                     request=request
                 )
-                return JsonResponse({'error': 'Role required'}, status=403)
-            
-            log_permission_check(
-                user=request.user,
-                permission=f"role:{role_name}",
-                action='granted',
-                request=request
-            )
-            
-            return func(request, *args, **kwargs)
-        return wrapper
+                
+                return func_or_class(request, *args, **kwargs)
+            return wrapper
+    
     return decorator
 
 
 def require_any_role(role_names):
-    """Decorator to require any of the specified roles"""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return JsonResponse({'error': 'Authentication required'}, status=401)
-            
-            for role_name in role_names:
-                if request.user.has_role(role_name):
-                    log_permission_check(
-                        user=request.user,
-                        permission=f"any_role:{','.join(role_names)}",
-                        action='granted',
-                        request=request
-                    )
-                    return func(request, *args, **kwargs)
-            
-            log_permission_check(
-                user=request.user,
-                permission=f"any_role:{','.join(role_names)}",
-                action='denied',
-                request=request
-            )
-            return JsonResponse({'error': 'Insufficient role'}, status=403)
-        return wrapper
+    """Factory function for requiring any of the specified roles"""
+    class AnyRolePermissionClass(HasAnyRole):
+        def __init__(self):
+            super().__init__(role_names)
+    
+    def decorator(func_or_class):
+        if hasattr(func_or_class, 'permission_classes'):
+            func_or_class.permission_classes = [permissions.IsAuthenticated, AnyRolePermissionClass]
+            return func_or_class
+        else:
+            @wraps(func_or_class)
+            def wrapper(request, *args, **kwargs):
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
+                
+                for role_name in role_names:
+                    if request.user.has_role(role_name):
+                        log_permission_check(
+                            user=request.user,
+                            permission=f"any_role:{','.join(role_names)}",
+                            action='granted',
+                            request=request
+                        )
+                        return func_or_class(request, *args, **kwargs)
+                
+                log_permission_check(
+                    user=request.user,
+                    permission=f"any_role:{','.join(role_names)}",
+                    action='denied',
+                    request=request
+                )
+                return JsonResponse({'error': 'Insufficient role'}, status=403)
+            return wrapper
+    
     return decorator
 
 
@@ -239,32 +266,37 @@ class PermissionMixin:
     required_permissions = []
     required_roles = []
     
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({'error': 'Authentication required'}, status=401)
+    def get_permissions(self):
+        """Override to add RBAC permissions"""
+        permission_classes = super().get_permissions() if hasattr(super(), 'get_permissions') else []
         
-        # Check permissions
-        for permission in self.required_permissions:
-            if not request.user.has_permission(permission):
-                log_permission_check(
-                    user=request.user,
-                    permission=permission,
-                    action='denied',
-                    request=request,
-                    resource_type=self.__class__.__name__
-                )
-                return JsonResponse({'error': f'Permission {permission} required'}, status=403)
+        # Add permission checks
+        for permission_code in self.required_permissions:
+            permission_classes.append(HasPermission(permission_code)())
         
-        # Check roles
-        for role in self.required_roles:
-            if not request.user.has_role(role):
-                log_permission_check(
-                    user=request.user,
-                    permission=f"role:{role}",
-                    action='denied',
-                    request=request,
-                    resource_type=self.__class__.__name__
-                )
-                return JsonResponse({'error': f'Role {role} required'}, status=403)
+        # Add role checks
+        for role_name in self.required_roles:
+            permission_classes.append(HasRole(role_name)())
         
-        return super().dispatch(request, *args, **kwargs)
+        return permission_classes
+
+
+# Role-based decorators for common roles
+def admin_required(func_or_class):
+    """Decorator requiring Administrator role"""
+    return require_role('Administrator')(func_or_class)
+
+
+def analyst_required(func_or_class):
+    """Decorator requiring Risk Analyst role"""
+    return require_role('Risk Analyst')(func_or_class)
+
+
+def auditor_required(func_or_class):
+    """Decorator requiring Compliance Auditor role"""
+    return require_role('Compliance Auditor')(func_or_class)
+
+
+def staff_required(func_or_class):
+    """Decorator requiring any staff role (non-client)"""
+    return require_any_role(['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'])(func_or_class)
