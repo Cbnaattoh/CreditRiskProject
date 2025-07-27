@@ -21,11 +21,18 @@ from rest_framework.throttling import AnonRateThrottle,UserRateThrottle
 from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Q, Count, Prefetch, Max, Case, When, Value, CharField
 from django.core.cache import cache
-from .models import Permission, Role, UserRole, PermissionLog
+from .models import Permission, Role, UserRole, PermissionLog, User, LoginHistory
 from .permissions import (
-    HasPermission, HasRole, HasAnyRole, require_permission, require_role, admin_required, staff_required
+    HasPermission, 
+    HasRole, 
+    HasAnyRole, 
+    require_permission, 
+    require_role, 
+    admin_required, 
+    staff_required, 
+    IsOwnerOrHasPermission
 )
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -964,11 +971,41 @@ class RegisterView(generics.CreateAPIView):
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
+    """User profile management with RBAC Permissions"""
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        """Apply RBAC based on action and ownership"""
+        permission_classes = [permissions.IsAuthenticated]
+        
+        if self.request.method in ['PUT', 'PATCH']:
+            # Users can edit their own profile, or admins can edit any profile
+            permission_classes.append(
+                IsOwnerOrHasPermission('user_edit_all', owner_field='user')
+            )
+        else:
+            # Users can view their own profile, or staff can view any profile
+            permission_classes.append(
+                IsOwnerOrHasPermission('user_view_all', owner_field='user')
+            )
+        
+        return [permission() for permission in permission_classes]
 
     @get_user_profile_docs
     def get(self, request, *args, **kwargs):
+        """Get user profile with permission logging"""
+        profile = self.get_object()
+        # Log profile view if not the owner
+        if profile.user != request.user:
+            logger.info(
+                f"User {request.user.email} viewed profile of {profile.user.email}",
+                extra={
+                    'viewer_id': request.user.id,
+                    'profile_owner_id': profile.user.id,
+                    'action': 'profile_view'
+                }
+            )
+        
         return super().get(request, *args, **kwargs)
 
     @update_user_profile_docs
@@ -980,54 +1017,164 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         return super().patch(request, *args, **kwargs)
 
     def get_object(self):
-        """Get or create user profile"""
-        profile, created = UserProfile.objects.get_or_create(
-            user=self.request.user,
-            defaults={}
-        )
-        return profile
+        """Get profile based on URL parameter or current user"""
+        # Check if profile_id is in URL (for admin access)
+        profile_id = self.kwargs.get('pk')
+        
+        if profile_id:
+            # Admin accessing specific user's profile
+            profile = get_object_or_404(UserProfile, id=profile_id)
+            
+            # Check if user can access this profile
+            if (profile.user != self.request.user and 
+                not self.request.user.has_permission('user_view_all')):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You don't have permission to access this profile")
+                
+            return profile
+        else:
+            # User accessing their own profile
+            profile, created = UserProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={}
+            )
+            return profile
     
     def update(self, request, *args, **kwargs):
-        """Override update to handle profile creation"""
+        """Override update with proper logging"""
         try:
+            profile = self.get_object()
+            
+            if profile.user != request.user:
+                logger.info(
+                    f"Admin {request.user.email} updated profile of {profile.user.email}",
+                    extra={
+                        'admin_id': request.user.id,
+                        'profile_owner_id': profile.user.id,
+                        'action': 'profile_update',
+                        'changes': list(request.data.keys())
+                    }
+                )
+            
             return super().update(request, *args, **kwargs)
         except Exception as e:
-            logger.error(f"Profile update failed for user {request.user.email}: {str(e)}")
+            logger.error(f"Profile update failed: {str(e)}")
             return Response(
                 {"detail": "Profile update failed"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
+
 class UserUpdateView(generics.UpdateAPIView):
-    """Separate view for updating user account information"""
+    """User account information update with RBAC Permissions"""
     serializer_class = UserUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        """Users can edit their own account, admins can edit any account"""
+        return [
+            permissions.IsAuthenticated(),
+            IsOwnerOrHasPermission('user_edit_all')()
+        ]
 
     def get_object(self):
-        return self.request.user
+        """Get user based on URL parameter or current user"""
+        user_id = self.kwargs.get('pk')
+        
+        if user_id:
+            # Admin accessing specific user
+            user = get_object_or_404(User, id=user_id)
+            
+            # Check permissions
+            if (user != self.request.user and 
+                not self.request.user.has_permission('user_edit_all')):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You don't have permission to update this user")
+                
+            return user
+        else:
+            # User updating themselves
+            return self.request.user
 
     def update(self, request, *args, **kwargs):
+        """Override update with logging and validation"""
         try:
+            user = self.get_object()
+            old_data = {
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'phone_number': user.phone_number
+            }
+            
             response = super().update(request, *args, **kwargs)
-            logger.info(f"User account updated: {request.user.email}")
+            
+            # Log account update
+            if user != request.user:
+                logger.info(
+                    f"Admin {request.user.email} updated account of {user.email}",
+                    extra={
+                        'admin_id': request.user.id,
+                        'target_user_id': user.id,
+                        'action': 'account_update',
+                        'old_data': old_data,
+                        'new_data': request.data
+                    }
+                )
+            else:
+                logger.info(f"User {user.email} updated their account")
+            
             return response
         except Exception as e:
-            logger.error(f"User update failed for {request.user.email}: {str(e)}")
+            logger.error(f"User update failed for {self.get_object().email}: {str(e)}")
             return Response(
                 {"detail": "Account update failed"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
+
 @login_history_docs
 class LoginHistoryView(generics.ListAPIView):
     serializer_class = LoginHistorySerializer
-    permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [UserRateThrottle]
 
+    def get_permissions(self):
+        """Users can view their own history, admins/auditors can view any history"""
+        return [
+            permissions.IsAuthenticated(),
+            # Allow if user is viewing own history OR has permission to view all
+            HasPermission('user_view_all')() if self.kwargs.get('user_id') else permissions.AllowAny()
+        ]
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
-        return self.request.user.login_history.select_related('user').order_by('-login_time')[:50]
+        """Get login history based on permissions"""
+        user_id = self.kwargs.get('user_id')
+        
+        if user_id:
+            # Admin/auditor viewing specific user's history
+            if not self.request.user.has_permission('user_view_all'):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You don't have permission to view other users' login history")
+            
+            target_user = get_object_or_404(User, id=user_id)
+            
+            # Log admin access to user's login history
+            logger.info(
+                f"Admin {self.request.user.email} accessed login history of {target_user.email}",
+                extra={
+                    'admin_id': self.request.user.id,
+                    'target_user_id': target_user.id,
+                    'action': 'login_history_view'
+                }
+            )
+            
+            return target_user.login_history.select_related('user').order_by('-login_timestamp')[:50]
+        else:
+            # User viewing their own history
+            return self.request.user.login_history.select_related('user').order_by('-login_timestamp')[:50]
 
 
 @mfa_setup_docs
@@ -1037,6 +1184,7 @@ class MFASetupView(generics.GenericAPIView):
     throttle_classes = [UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
+        """Setup MFA for authenticated user only"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1095,13 +1243,13 @@ class MFASetupView(generics.GenericAPIView):
         })
 
     def _acknowledge_backup_codes(self, user):
+        """Acknowledge backup codes after MFA setup"""
         if not user.mfa_enabled:
             return Response(
                 {'detail': 'MFA must be enabled before acknowledging backup codes'},
                 status=status.HTTP_400_BAD_REQUEST
         )
 
-        # Log or flag acknowledgment — optional
         logger.info(f"User {user.email} acknowledged backup codes.")
         return Response({
             'status': 'success',
@@ -1136,6 +1284,7 @@ class MFASetupVerifyView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, *args, **kwargs):
+        """Verify MFA setup for current user only"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1150,7 +1299,6 @@ class MFASetupVerifyView(generics.GenericAPIView):
                 )
             
             if self._verify_mfa_code(user, mfa_code):
-                # MFA setup verification successful
                 logger.info(f"MFA setup verified for user: {user.email}")
                 return Response({
                     'status': 'success',
@@ -1177,6 +1325,8 @@ class MFASetupVerifyView(generics.GenericAPIView):
         totp = pyotp.TOTP(user.mfa_secret)
         return totp.verify(code, valid_window=1)
 
+
+
 class MFAVerifyView(generics.GenericAPIView):
     serializer_class = MFAVerifySerializer
     permission_classes = [permissions.AllowAny]
@@ -1184,6 +1334,7 @@ class MFAVerifyView(generics.GenericAPIView):
 
     @mfa_verify_docs
     def post(self, request, *args, **kwargs):
+        """Verify MFA during login process"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1195,7 +1346,6 @@ class MFAVerifyView(generics.GenericAPIView):
         try:
             user = self._get_user_from_token(uid, temp_token)
             
-            # Verify MFA code or backup code
             if mfa_code and self._verify_mfa_code(user, mfa_code):
                 return self._generate_final_tokens(user)
             elif backup_code and verify_backup_code(user, backup_code):
@@ -1226,11 +1376,10 @@ class MFAVerifyView(generics.GenericAPIView):
             uid = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=uid)
             
-            # Check cache for temp token
             cache_key = f"mfa_temp_token:{user.id}:{temp_token}"
             cached_token = cache.get(cache_key)
             
-            if not cached_token or cached_token != temp_token:
+            if not cached_token:
                 raise ValidationError("Invalid or expired token")
                 
             if not default_token_generator.check_token(user, temp_token):
@@ -1254,11 +1403,14 @@ class MFAVerifyView(generics.GenericAPIView):
         """Generate final JWT tokens after successful MFA"""
         refresh = RefreshToken.for_user(user)
         
-        # Clear temp token from cache
-        cache_key = f"mfa_temp_token:{user.id}"
-        cache.delete(cache_key)
+        cache_key_pattern = f"mfa_temp_token:{user.id}:*"
+        cache.delete(cache_key_pattern)
         
         logger.info(f"MFA verification successful for: {user.email}")
+
+        # Include roles and permissions in response
+        user_roles = [{'id': role.id, 'name': role.name} for role in user.get_roles()]
+        user_permissions = [perm.codename for perm in user.get_permissions()]
         
         return Response({
             'access': str(refresh.access_token),
@@ -1269,7 +1421,9 @@ class MFAVerifyView(generics.GenericAPIView):
                 'name': f"{user.first_name} {user.last_name}",
                 'role': user.user_type,
                 'mfa_enabled': user.mfa_enabled,
-                'is_verified': user.is_verified
+                'is_verified': user.is_verified,
+                'roles': user_roles,
+                'permissions': user_permissions
             },
             'mfa_verified': True
         })
@@ -1281,7 +1435,8 @@ class MFAVerifyView(generics.GenericAPIView):
                 user=user,
                 ip_address=self._get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
-                was_successful=False
+                was_successful=False,
+                failure_reason='MFA verification failed',
             )
         except Exception as e:
             logger.error(f"Failed to log MFA failure: {str(e)}")
@@ -1303,11 +1458,13 @@ class PasswordResetThrottle(AnonRateThrottle):
 
 @password_reset_request_docs
 class PasswordResetRequestView(generics.GenericAPIView):
+    """Request password reset with email verification"""
     throttle_classes = [PasswordResetThrottle]
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
+        """Handle password reset request"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1316,15 +1473,12 @@ class PasswordResetRequestView(generics.GenericAPIView):
         
         if user:
             try:
-                # Generate password reset token
                 token = default_token_generator.make_token(user)
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
                 
-                # Store reset token in cache with expiration
                 cache_key = f"password_reset:{user.id}"
                 cache.set(cache_key, token, timeout=3600)  # 1 hour
                 
-                # Send password reset email
                 send_password_reset_email(user, uid, token, request)
                 
                 logger.info(f"Password reset requested for: {user.email}")
@@ -1332,7 +1486,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
             except Exception as e:
                 logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
         
-        # Always return success to prevent email enumeration
         return Response(
             {'detail': 'If an account exists with this email, a password reset link has been sent.'},
             status=status.HTTP_200_OK
@@ -1341,11 +1494,13 @@ class PasswordResetRequestView(generics.GenericAPIView):
 
 @password_reset_confirm_docs
 class PasswordResetConfirmView(generics.GenericAPIView):
+    """Confirm password reset with token validation"""
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AnonRateThrottle]
 
     def post(self, request, *args, **kwargs):
+        """Handle password reset confirmation"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1354,7 +1509,6 @@ class PasswordResetConfirmView(generics.GenericAPIView):
             user = User.objects.get(pk=uid, is_active=True)
             token = serializer.validated_data['token']
             
-            # Check cached token
             cache_key = f"password_reset:{user.id}"
             cached_token = cache.get(cache_key)
             
@@ -1364,16 +1518,13 @@ class PasswordResetConfirmView(generics.GenericAPIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Reset password
             with transaction.atomic():
                 user.set_password(serializer.validated_data['new_password'])
                 user.last_password_change = timezone.now()
                 user.save()
                 
-                # Clear the reset token
                 cache.delete(cache_key)
                 
-                # Log password reset
                 logger.info(f"Password reset completed for: {user.email}")
                 
             return Response(
@@ -1395,30 +1546,82 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
 
 class PasswordChangeView(generics.GenericAPIView):
+    """Password change for authenticated users"""
     serializer_class = PasswordChangeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Users can change their own password, admins can change any password"""
+        user_id = self.kwargs.get('user_id')
+        
+        if user_id:
+            # Admin changing another user's password
+            return [
+                permissions.IsAuthenticated(),
+                HasPermission('user_edit_all')()
+            ]
+        else:
+            # User changing their own password
+            return [permissions.IsAuthenticated()]
+    
     throttle_classes = [UserRateThrottle]
 
+    def get_target_user(self):
+        """Get the user whose password is being changed"""
+        user_id = self.kwargs.get('user_id')
+        
+        if user_id:
+            # Admin changing another user's password
+            if not self.request.user.has_permission('user_edit_all'):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You don't have permission to change other users' passwords")
+            
+            return get_object_or_404(User, id=user_id)
+        else:
+            # User changing their own password
+            return self.request.user
+
     def post(self, request, *args, **kwargs):
+        """Change password with proper validation"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        user = request.user
+        target_user = self.get_target_user()
         
-        # Verify old password
-        if not user.check_password(serializer.validated_data['old_password']):
-            return Response(
-                {'detail': 'Current password is incorrect'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if target_user != request.user:
+            # Admin changing another user's password
+            if 'old_password' in serializer.validated_data:
+                # Verify old password if provided
+                if not target_user.check_password(serializer.validated_data['old_password']):
+                    return Response(
+                        {'detail': 'Current password is incorrect'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        else:
+            # User changing their own password - old password required
+            if not target_user.check_password(serializer.validated_data['old_password']):
+                return Response(
+                    {'detail': 'Current password is incorrect'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         try:
             with transaction.atomic():
-                user.set_password(serializer.validated_data['new_password'])
-                user.last_password_change = timezone.now()
-                user.save()
+                target_user.set_password(serializer.validated_data['new_password'])
+                target_user.last_password_change = timezone.now()
+                target_user.save()
                 
-                logger.info(f"Password changed for user: {user.email}")
+                # Log password change
+                if target_user != request.user:
+                    logger.info(
+                        f"Admin {request.user.email} changed password for user: {target_user.email}",
+                        extra={
+                            'admin_id': request.user.id,
+                            'target_user_id': target_user.id,
+                            'action': 'admin_password_change'
+                        }
+                    )
+                else:
+                    logger.info(f"Password changed for user: {target_user.email}")
                 
             return Response(
                 {'detail': 'Password changed successfully'},
@@ -1426,7 +1629,7 @@ class PasswordChangeView(generics.GenericAPIView):
             )
             
         except Exception as e:
-            logger.error(f"Password change failed for {user.email}: {str(e)}")
+            logger.error(f"Password change failed for {target_user.email}: {str(e)}")
             return Response(
                 {'detail': 'Password change failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1440,12 +1643,12 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
     
     @password_change_required_get_docs
     def get(self, request):
+        """Check if password change is required"""
         return Response({
             'detail': 'Your password has expired and must be changed',
             'password_expired': True,
             'last_change': request.user.last_password_change
         }, status=status.HTTP_403_FORBIDDEN)
-    
 
     @password_change_required_post_docs
     def post(self, request):
@@ -1487,3 +1690,1087 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
                 {'detail': 'Password change failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+
+# Admin-only views for user management
+class AdminPasswordResetView(generics.GenericAPIView):
+    """Admin can reset any user's password"""
+    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    
+    def post(self, request, user_id):
+        """Admin reset user password"""
+        target_user = get_object_or_404(User, id=user_id)
+        
+        # Generate temporary password
+        import secrets
+        import string
+        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        
+        try:
+            with transaction.atomic():
+                target_user.set_password(temp_password)
+                target_user.last_password_change = timezone.now()
+                target_user.save()
+                
+                logger.info(
+                    f"Admin {request.user.email} reset password for user: {target_user.email}",
+                    extra={
+                        'admin_id': request.user.id,
+                        'target_user_id': target_user.id,
+                        'action': 'admin_password_reset'
+                    }
+                )
+                
+            return Response({
+                'detail': 'Password reset successfully',
+                'temporary_password': temp_password,
+                'message': 'User should change this password immediately'
+            })
+            
+        except Exception as e:
+            logger.error(f"Admin password reset failed: {str(e)}")
+            return Response(
+                {'detail': 'Password reset failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class UserAccountStatusView(generics.GenericAPIView):
+    """Admin can activate/deactivate user accounts"""
+    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    
+    def post(self, request, user_id):
+        """Toggle user account status"""
+        target_user = get_object_or_404(User, id=user_id)
+        action = request.data.get('action')  # 'activate' or 'deactivate'
+        
+        if action not in ['activate', 'deactivate']:
+            return Response(
+                {'detail': 'Action must be either "activate" or "deactivate"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Prevent self-deactivation
+        if target_user == request.user and action == 'deactivate':
+            return Response(
+                {'detail': 'You cannot deactivate your own account'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            with transaction.atomic():
+                target_user.is_active = (action == 'activate')
+                target_user.save()
+                
+                logger.info(
+                    f"Admin {request.user.email} {action}d user: {target_user.email}",
+                    extra={
+                        'admin_id': request.user.id,
+                        'target_user_id': target_user.id,
+                        'action': f'user_{action}'
+                    }
+                )
+                
+            return Response({
+                'detail': f'User account {action}d successfully',
+                'user_id': target_user.id,
+                'is_active': target_user.is_active
+            })
+            
+        except Exception as e:
+            logger.error(f"Account status change failed: {str(e)}")
+            return Response(
+                {'detail': 'Account status change failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class BulkUserActionsView(generics.GenericAPIView):
+    """Bulk actions for user management (admin only)"""
+    permission_classes = [permissions.IsAuthenticated, HasPermission('user_edit_all')]
+    
+    def post(self, request):
+        """Perform bulk actions on users"""
+        user_ids = request.data.get('user_ids', [])
+        action = request.data.get('action')
+        
+        if not user_ids:
+            return Response(
+                {'detail': 'user_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if action not in ['activate', 'deactivate', 'delete', 'reset_password']:
+            return Response(
+                {'detail': 'Invalid action'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        users = User.objects.filter(id__in=user_ids)
+        
+        if request.user.id in user_ids and action in ['deactivate', 'delete']:
+            return Response(
+                {'detail': f'You cannot {action} your own account'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        results = {
+            'success': [],
+            'failed': [],
+            'total_requested': len(user_ids)
+        }
+        
+        try:
+            with transaction.atomic():
+                for user in users:
+                    try:
+                        if action == 'activate':
+                            user.is_active = True
+                            user.save()
+                        elif action == 'deactivate':
+                            user.is_active = False
+                            user.save()
+                        elif action == 'delete':
+                            if user.is_superuser:
+                                results['failed'].append({
+                                    'user_id': user.id,
+                                    'email': user.email,
+                                    'reason': 'Cannot delete superuser'
+                                })
+                                continue
+                            user.delete()
+                        elif action == 'reset_password':
+                            import secrets
+                            import string
+                            temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+                            user.set_password(temp_password)
+                            user.save()
+                            results['success'].append({
+                                'user_id': user.id,
+                                'email': user.email,
+                                'temp_password': temp_password
+                            })
+                            continue
+                        
+                        results['success'].append({
+                            'user_id': user.id,
+                            'email': user.email
+                        })
+                        
+                    except Exception as e:
+                        results['failed'].append({
+                            'user_id': user.id,
+                            'email': user.email,
+                            'reason': str(e)
+                        })
+                
+                logger.info(
+                    f"Admin {request.user.email} performed bulk {action} on {len(results['success'])} users",
+                    extra={
+                        'admin_id': request.user.id,
+                        'action': f'bulk_{action}',
+                        'success_count': len(results['success']),
+                        'failed_count': len(results['failed'])
+                    }
+                )
+            
+            return Response({
+                'detail': f'Bulk {action} completed',
+                'results': results
+            })
+            
+        except Exception as e:
+            logger.error(f"Bulk user action failed: {str(e)}")
+            return Response(
+                {'detail': 'Bulk action failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class UserPermissionSummaryView(generics.GenericAPIView):
+    """Get comprehensive permission summary for a user"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Users can view their own summary, admins can view any user's summary"""
+        user_id = self.kwargs.get('user_id')
+        
+        if user_id and str(user_id) != str(self.request.user.id):
+            return [
+                permissions.IsAuthenticated(),
+                HasPermission('user_view_all')()
+            ]
+        return [permissions.IsAuthenticated()]
+    
+    def get(self, request, user_id=None):
+        """Get detailed permission summary"""
+        if user_id:
+            # Admin viewing another user's permissions
+            target_user = get_object_or_404(User, id=user_id)
+            if (target_user != request.user and 
+                not request.user.has_permission('user_view_all')):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You don't have permission to view this user's permissions")
+        else:
+            # User viewing their own permissions
+            target_user = request.user
+        
+        # Get roles and permissions
+        roles = target_user.get_roles()
+        permissions = target_user.get_permissions()
+        
+        # Organize permissions by category
+        permission_categories = {}
+        for perm in permissions:
+            category = perm.codename.split('_')[0]
+            if category not in permission_categories:
+                permission_categories[category] = []
+            permission_categories[category].append({
+                'id': perm.id,
+                'codename': perm.codename,
+                'name': perm.name,
+                'description': perm.description
+            })
+        
+        if target_user != request.user:
+            logger.info(
+                f"Admin {request.user.email} viewed permission summary for {target_user.email}",
+                extra={
+                    'admin_id': request.user.id,
+                    'target_user_id': target_user.id,
+                    'action': 'permission_summary_view'
+                }
+            )
+        
+        return Response({
+            'user': {
+                'id': target_user.id,
+                'email': target_user.email,
+                'name': f"{target_user.first_name} {target_user.last_name}",
+                'user_type': target_user.user_type
+            },
+            'roles': [
+                {
+                    'id': role.id,
+                    'name': role.name,
+                    'description': role.description,
+                    'permission_count': role.permissions.count()
+                }
+                for role in roles
+            ],
+            'permissions_by_category': permission_categories,
+            'total_permissions': permissions.count(),
+            'summary': {
+                'can_view_users': target_user.has_permission('user_view_all'),
+                'can_edit_users': target_user.has_permission('user_edit_all'),
+                'can_manage_roles': target_user.has_permission('user_manage_roles'),
+                'can_view_reports': target_user.has_permission('report_view'),
+                'can_access_admin': target_user.has_permission('system_settings'),
+                'is_admin': target_user.has_role('Administrator'),
+                'is_staff': target_user.has_role('Risk Analyst') or target_user.has_role('Compliance Auditor'),
+            }
+        })
+
+
+class MyPermissionsView(generics.GenericAPIView):
+    """Quick view for current user's permissions (for frontend)"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Get current user's permissions for frontend use"""
+        user = request.user
+        
+        permissions = {
+            'user_management': {
+                'can_view_all_users': user.has_permission('user_view_all'),
+                'can_edit_all_users': user.has_permission('user_edit_all'),
+                'can_delete_users': user.has_permission('user_delete'),
+                'can_manage_roles': user.has_permission('user_manage_roles'),
+            },
+            'role_management': {
+                'can_view_roles': user.has_permission('role_view'),
+                'can_create_roles': user.has_permission('role_create'),
+                'can_edit_roles': user.has_permission('role_edit'),
+                'can_delete_roles': user.has_permission('role_delete'),
+                'can_assign_roles': user.has_permission('role_assign'),
+            },
+            'system': {
+                'can_access_settings': user.has_permission('system_settings'),
+                'can_view_logs': user.has_permission('system_logs'),
+                'can_view_audit_logs': user.has_permission('view_audit_logs'),
+                'can_view_dashboard': user.has_permission('view_dashboard'),
+            },
+            'data': {
+                'can_export_data': user.has_permission('data_export'),
+                'can_import_data': user.has_permission('data_import'),
+                'can_delete_data': user.has_permission('data_delete'),
+            },
+            'reporting': {
+                'can_view_reports': user.has_permission('report_view'),
+                'can_create_reports': user.has_permission('report_create'),
+                'can_manage_reports': user.has_permission('report_admin'),
+            },
+            'risk_management': {
+                'can_view_risk': user.has_permission('risk_view'),
+                'can_edit_risk': user.has_permission('risk_edit'),
+                'can_approve_risk': user.has_permission('risk_approve'),
+                'can_delete_risk': user.has_permission('risk_delete'),
+            },
+            'compliance': {
+                'can_view_compliance': user.has_permission('compliance_view'),
+                'can_edit_compliance': user.has_permission('compliance_edit'),
+                'can_audit_compliance': user.has_permission('compliance_audit'),
+            },
+            'client_management': {
+                'can_view_clients': user.has_permission('client_view'),
+                'can_edit_clients': user.has_permission('client_edit'),
+                'can_delete_clients': user.has_permission('client_delete'),
+            }
+        }
+        
+        # Get roles
+        roles = [
+            {
+                'id': role.id,
+                'name': role.name
+            }
+            for role in user.get_roles()
+        ]
+        
+        # Get permission codes
+        permission_codes = [perm.codename for perm in user.get_permissions()]
+        
+        return Response({
+            'user_id': user.id,
+            'user_type': user.user_type,
+            'roles': roles,
+            'permissions': permissions,
+            'permission_codes': permission_codes,
+            'is_superuser': user.is_superuser
+        })
+
+
+class SecurityAuditView(generics.GenericAPIView):
+    """Security audit and monitoring (admin only)"""
+    permission_classes = [permissions.IsAuthenticated, HasPermission('view_audit_logs')]
+    
+    def get(self, request):
+        """Get security audit information"""
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Failed login attempts
+        failed_logins = LoginHistory.objects.filter(
+            was_successful=False,
+            login_timestamp__gte=start_date
+        ).count()
+        
+        # Successful logins
+        successful_logins = LoginHistory.objects.filter(
+            was_successful=True,
+            login_timestamp__gte=start_date
+        ).count()
+        
+        # Permission denials
+        permission_denials = PermissionLog.objects.filter(
+            action='denied',
+            timestamp__gte=start_date
+        ).count()
+        
+        # Most denied permissions
+        top_denied_permissions = PermissionLog.objects.filter(
+            action='denied',
+            timestamp__gte=start_date
+        ).values('permission_codename').annotate(
+            count=Count('id')
+        ).order_by('-count')[:10]
+        
+        # Users with most permission denials
+        top_denied_users = PermissionLog.objects.filter(
+            action='denied',
+            timestamp__gte=start_date
+        ).values('user__email').annotate(
+            count=Count('id')
+        ).order_by('-count')[:10]
+        
+        # Recent suspicious activity
+        suspicious_ips = LoginHistory.objects.filter(
+            was_successful=False,
+            login_timestamp__gte=start_date
+        ).values('ip_address').annotate(
+            count=Count('id')
+        ).filter(count__gte=5).order_by('-count')[:10]
+        
+        return Response({
+            'period_days': days,
+            'summary': {
+                'failed_logins': failed_logins,
+                'successful_logins': successful_logins,
+                'permission_denials': permission_denials,
+                'login_success_rate': (successful_logins / (successful_logins + failed_logins) * 100) if (successful_logins + failed_logins) > 0 else 0
+            },
+            'top_denied_permissions': list(top_denied_permissions),
+            'top_denied_users': list(top_denied_users),
+            'suspicious_ips': list(suspicious_ips),
+            'recommendations': self._get_security_recommendations(
+                failed_logins, permission_denials, len(suspicious_ips)
+            )
+        })
+    
+    def _get_security_recommendations(self, failed_logins, permission_denials, suspicious_ip_count):
+        """Generate security recommendations"""
+        recommendations = []
+        
+        if failed_logins > 100:
+            recommendations.append({
+                'type': 'warning',
+                'message': 'High number of failed login attempts detected. Consider implementing stricter rate limiting.'
+            })
+        
+        if permission_denials > 50:
+            recommendations.append({
+                'type': 'info',
+                'message': 'High number of permission denials. Review user roles and permissions.'
+            })
+        
+        if suspicious_ip_count > 5:
+            recommendations.append({
+                'type': 'critical',
+                'message': 'Multiple IPs with suspicious activity. Consider implementing IP blocking.'
+            })
+        
+        if not recommendations:
+            recommendations.append({
+                'type': 'success',
+                'message': 'No immediate security concerns detected.'
+            })
+        
+        return recommendations
+
+
+class AdminUsersListView(generics.ListAPIView):
+    """
+    Admin endpoint to view all users with comprehensive information
+    including roles, status, login activity, and statistics
+    """
+    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    
+    def get_queryset(self):
+        """Optimized queryset with all necessary data"""
+        return User.objects.select_related(
+            'profile'
+        ).prefetch_related(
+            'user_roles__role',
+            'login_history'
+        ).annotate(
+            last_login_time=Max('login_history__login_timestamp'),
+            
+            # Login stats
+            total_logins=Count('login_history', filter=Q(login_history__was_successful=True)),
+            failed_logins=Count('login_history', filter=Q(login_history__was_successful=False)),
+            
+            # Recent activity (last 30 days)
+            recent_logins=Count(
+                'login_history', 
+                filter=Q(
+                    login_history__was_successful=True,
+                    login_history__login_timestamp__gte=timezone.now() - timedelta(days=30)
+                )
+            ),
+            
+            user_status=Case(
+                When(is_active=False, then=Value('Inactive')),
+                When(
+                    Q(last_login__isnull=True) | 
+                    Q(last_login__lt=timezone.now() - timedelta(days=90)),
+                    then=Value('Dormant')
+                ),
+                When(
+                    last_login__gte=timezone.now() - timedelta(days=7),
+                    then=Value('Active')
+                ),
+                When(
+                    last_login__gte=timezone.now() - timedelta(days=30),
+                    then=Value('Recently Active')
+                ),
+                default=Value('Inactive'),
+                output_field=CharField()
+            )
+        ).order_by('-date_joined')
+
+    def list(self, request, *args, **kwargs):
+        """Enhanced list with filtering, search, and pagination"""
+        search = request.query_params.get('search', '')
+        user_type = request.query_params.get('user_type', '')
+        status_filter = request.query_params.get('status', '')
+        role_filter = request.query_params.get('role', '')
+        is_active = request.query_params.get('is_active', '')
+        has_mfa = request.query_params.get('has_mfa', '')
+        sort_by = request.query_params.get('sort_by', '-date_joined')
+        
+        queryset = self.get_queryset()
+        
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+        
+        if user_type:
+            queryset = queryset.filter(user_type=user_type)
+        
+        if is_active:
+            is_active_bool = is_active.lower() == 'true'
+            queryset = queryset.filter(is_active=is_active_bool)
+        
+        if has_mfa:
+            has_mfa_bool = has_mfa.lower() == 'true'
+            queryset = queryset.filter(mfa_enabled=has_mfa_bool)
+        
+        if role_filter:
+            queryset = queryset.filter(
+                user_roles__role__name=role_filter,
+                user_roles__is_active=True
+            )
+        
+        if status_filter:
+            if status_filter == 'Active':
+                queryset = queryset.filter(
+                    is_active=True,
+                    last_login__gte=timezone.now() - timedelta(days=7)
+                )
+            elif status_filter == 'Recently Active':
+                queryset = queryset.filter(
+                    is_active=True,
+                    last_login__gte=timezone.now() - timedelta(days=30),
+                    last_login__lt=timezone.now() - timedelta(days=7)
+                )
+            elif status_filter == 'Dormant':
+                queryset = queryset.filter(
+                    Q(last_login__isnull=True) | 
+                    Q(last_login__lt=timezone.now() - timedelta(days=90))
+                )
+            elif status_filter == 'Inactive':
+                queryset = queryset.filter(is_active=False)
+        
+        if sort_by in ['email', '-email', 'first_name', '-first_name', 'last_name', '-last_name', 
+                       'date_joined', '-date_joined', 'last_login', '-last_login', 'user_type', '-user_type']:
+            queryset = queryset.order_by(sort_by)
+        
+        queryset = queryset.distinct()
+        
+        # Paginate results
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer_data = self._serialize_users(page)
+            return self.get_paginated_response(serializer_data)
+        
+        # If no pagination
+        serializer_data = self._serialize_users(queryset)
+        
+        summary = self._get_summary_stats(User.objects.all())
+        
+        logger.info(
+            f"Admin {request.user.email} accessed users list",
+            extra={
+                'admin_id': request.user.id,
+                'action': 'users_list_view',
+                'filters': {
+                    'search': search,
+                    'user_type': user_type,
+                    'status': status_filter,
+                    'role': role_filter
+                }
+            }
+        )
+        
+        return Response({
+            'results': serializer_data,
+            'summary': summary,
+            'filters_applied': {
+                'search': search,
+                'user_type': user_type,
+                'status': status_filter,
+                'role': role_filter,
+                'is_active': is_active,
+                'has_mfa': has_mfa,
+                'sort_by': sort_by
+            }
+        })
+
+    def _serialize_users(self, users):
+        """Custom serialization with all required fields"""
+        data = []
+        
+        for user in users:
+            active_roles = []
+            expired_roles = []
+            
+            for user_role in user.user_roles.filter(role__is_active=True):
+                role_data = {
+                    'id': user_role.role.id,
+                    'name': user_role.role.name,
+                    'assigned_at': user_role.assigned_at,
+                    'assigned_by': user_role.assigned_by.email if user_role.assigned_by else None,
+                    'expires_at': user_role.expires_at,
+                    'is_expired': user_role.is_expired
+                }
+                
+                if user_role.is_active and not user_role.is_expired:
+                    active_roles.append(role_data)
+                else:
+                    expired_roles.append(role_data)
+            
+            recent_login = user.login_history.filter(was_successful=True).first()
+            last_failed_login = user.login_history.filter(was_successful=False).first()
+            
+            now = timezone.now()
+            detailed_status = self._get_detailed_status(user, now)
+            
+            profile_data = {}
+            if hasattr(user, 'profile'):
+                profile_data = {
+                    'company': user.profile.company,
+                    'job_title': user.profile.job_title,
+                    'department': user.profile.department,
+                    'profile_picture_url': user.profile.profile_picture.url if user.profile.profile_picture else None
+                }
+            
+            user_data = {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'full_name': f"{user.first_name} {user.last_name}".strip(),
+                'user_type': user.user_type,
+                'user_type_display': user.get_user_type_display(),
+                
+                # Status Information
+                'is_active': user.is_active,
+                'is_verified': user.is_verified,
+                'is_superuser': user.is_superuser,
+                'status': detailed_status,
+                
+                # Dates
+                'date_joined': user.date_joined,
+                'last_login': user.last_login,
+                'last_login_time': getattr(user, 'last_login_time', None),
+                'last_password_change': user.last_password_change,
+                
+                # Security
+                'mfa_enabled': user.mfa_enabled,
+                'mfa_fully_configured': user.is_mfa_fully_configured,
+                'password_expired': user.is_password_expired(),
+                
+                # Roles
+                'active_roles': active_roles,
+                'expired_roles': expired_roles,
+                'role_count': len(active_roles),
+                'primary_role': active_roles[0]['name'] if active_roles else None,
+                
+                # Activity Stats
+                'total_logins': getattr(user, 'total_logins', 0),
+                'failed_logins': getattr(user, 'failed_logins', 0),
+                'recent_logins': getattr(user, 'recent_logins', 0),
+                
+                # Recent Activity
+                'last_successful_login': {
+                    'timestamp': recent_login.login_timestamp if recent_login else None,
+                    'ip_address': recent_login.ip_address if recent_login else None,
+                    'user_agent': recent_login.user_agent if recent_login else None
+                } if recent_login else None,
+                
+                'last_failed_login': {
+                    'timestamp': last_failed_login.login_timestamp if last_failed_login else None,
+                    'ip_address': last_failed_login.ip_address if last_failed_login else None,
+                    'failure_reason': last_failed_login.failure_reason if last_failed_login else None
+                } if last_failed_login else None,
+                
+                # Contact & Profile
+                'phone_number': user.phone_number,
+                'profile': profile_data,
+                
+                # Computed Fields
+                'days_since_joined': (now - user.date_joined).days,
+                'days_since_last_login': (now - user.last_login).days if user.last_login else None,
+                'risk_score': self._calculate_risk_score(user),
+            }
+            
+            data.append(user_data)
+        
+        return data
+
+    def _get_detailed_status(self, user, now):
+        """Get detailed status classification"""
+        if not user.is_active:
+            return 'Inactive'
+        
+        if not user.last_login:
+            return 'Never Logged In'
+        
+        days_since_login = (now - user.last_login).days
+        
+        if days_since_login <= 1:
+            return 'Active'
+        elif days_since_login <= 7:
+            return 'Recently Active'
+        elif days_since_login <= 30:
+            return 'Moderately Active'
+        elif days_since_login <= 90:
+            return 'Dormant'
+        else:
+            return 'Long Inactive'
+
+    def _calculate_risk_score(self, user):
+        """Calculate a simple risk score based on various factors"""
+        score = 0
+        
+        # No MFA
+        if not user.mfa_enabled:
+            score += 30
+        
+        # Password expired
+        if user.is_password_expired():
+            score += 25
+        
+        # Never logged in
+        if not user.last_login:
+            score += 20
+        
+        # High failed login attempts
+        failed_count = getattr(user, 'failed_logins', 0)
+        if failed_count > 10:
+            score += 15
+        elif failed_count > 5:
+            score += 10
+        
+        # Long time since last login
+        if user.last_login:
+            days_since_login = (timezone.now() - user.last_login).days
+            if days_since_login > 90:
+                score += 20
+            elif days_since_login > 30:
+                score += 10
+        
+        # No verified email
+        if not user.is_verified:
+            score += 15
+        
+        return min(score, 100)
+
+    def _get_summary_stats(self, all_users):
+        """Get summary statistics for the dashboard"""
+        now = timezone.now()
+        
+        total_users = all_users.count()
+        active_users = all_users.filter(is_active=True).count()
+        inactive_users = total_users - active_users
+        
+        # Users by type
+        user_types = {}
+        for choice in User.USER_TYPES:
+            user_types[choice[0]] = {
+                'code': choice[0],
+                'display': choice[1],
+                'count': all_users.filter(user_type=choice[0]).count()
+            }
+        
+        # Activity stats
+        never_logged_in = all_users.filter(last_login__isnull=True).count()
+        logged_in_today = all_users.filter(
+            last_login__gte=now - timedelta(days=1)
+        ).count()
+        logged_in_week = all_users.filter(
+            last_login__gte=now - timedelta(days=7)
+        ).count()
+        logged_in_month = all_users.filter(
+            last_login__gte=now - timedelta(days=30)
+        ).count()
+        
+        # Security stats
+        mfa_enabled = all_users.filter(mfa_enabled=True).count()
+        password_expired = sum(1 for user in all_users if user.is_password_expired())
+        unverified = all_users.filter(is_verified=False).count()
+        
+        # Recent registrations
+        new_today = all_users.filter(
+            date_joined__gte=now - timedelta(days=1)
+        ).count()
+        new_week = all_users.filter(
+            date_joined__gte=now - timedelta(days=7)
+        ).count()
+        new_month = all_users.filter(
+            date_joined__gte=now - timedelta(days=30)
+        ).count()
+        
+        return {
+            'total_users': total_users,
+            'active_users': active_users,
+            'inactive_users': inactive_users,
+            'activity_rate': round((active_users / total_users * 100), 1) if total_users > 0 else 0,
+            
+            'user_types': user_types,
+            
+            'login_activity': {
+                'never_logged_in': never_logged_in,
+                'logged_in_today': logged_in_today,
+                'logged_in_week': logged_in_week,
+                'logged_in_month': logged_in_month,
+                'activity_rate_week': round((logged_in_week / total_users * 100), 1) if total_users > 0 else 0
+            },
+            
+            'security': {
+                'mfa_enabled': mfa_enabled,
+                'mfa_adoption_rate': round((mfa_enabled / total_users * 100), 1) if total_users > 0 else 0,
+                'password_expired': password_expired,
+                'unverified_users': unverified
+            },
+            
+            'registrations': {
+                'new_today': new_today,
+                'new_week': new_week,
+                'new_month': new_month,
+                'growth_rate_month': round((new_month / total_users * 100), 1) if total_users > 0 else 0
+            }
+        }
+
+
+class AdminUserDetailView(generics.RetrieveAPIView):
+    """
+    Detailed view of a single user for admin
+    """
+    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    queryset = User.objects.all()
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get comprehensive user details"""
+        user = self.get_object()
+        
+        # Get detailed login history
+        login_history = user.login_history.order_by('-login_timestamp')[:50]
+        login_data = []
+        
+        for login in login_history:
+            login_data.append({
+                'id': login.id,
+                'timestamp': login.login_timestamp,
+                'was_successful': login.was_successful,
+                'failure_reason': login.failure_reason,
+                'ip_address': login.ip_address,
+                'user_agent': login.user_agent,
+                'session_duration': login.session_duration
+            })
+        
+        # Get role history (all assignments)
+        role_history = UserRole.objects.filter(user=user).select_related(
+            'role', 'assigned_by'
+        ).order_by('-assigned_at')
+        
+        role_data = []
+        for user_role in role_history:
+            role_data.append({
+                'id': user_role.id,
+                'role': {
+                    'id': user_role.role.id,
+                    'name': user_role.role.name,
+                    'description': user_role.role.description
+                },
+                'assigned_at': user_role.assigned_at,
+                'assigned_by': {
+                    'id': user_role.assigned_by.id if user_role.assigned_by else None,
+                    'email': user_role.assigned_by.email if user_role.assigned_by else None,
+                    'name': f"{user_role.assigned_by.first_name} {user_role.assigned_by.last_name}" if user_role.assigned_by else None
+                },
+                'is_active': user_role.is_active,
+                'expires_at': user_role.expires_at,
+                'is_expired': user_role.is_expired
+            })
+        
+        # Get permission logs for this user (last 100)
+        from .models import PermissionLog
+        permission_logs = PermissionLog.objects.filter(
+            user=user
+        ).order_by('-timestamp')[:100]
+        
+        permission_data = []
+        for log in permission_logs:
+            permission_data.append({
+                'id': log.id,
+                'permission_codename': log.permission_codename,
+                'action': log.action,
+                'timestamp': log.timestamp,
+                'ip_address': log.ip_address,
+                'resource_type': log.resource_type,
+                'resource_id': log.resource_id
+            })
+        
+        # Calculate comprehensive stats
+        now = timezone.now()
+        stats = {
+            'login_stats': {
+                'total_logins': user.login_history.filter(was_successful=True).count(),
+                'failed_logins': user.login_history.filter(was_successful=False).count(),
+                'unique_ips': user.login_history.values('ip_address').distinct().count(),
+                'last_30_days_logins': user.login_history.filter(
+                    was_successful=True,
+                    login_timestamp__gte=now - timedelta(days=30)
+                ).count()
+            },
+            'account_age_days': (now - user.date_joined).days,
+            'days_since_last_login': (now - user.last_login).days if user.last_login else None,
+            'total_roles_ever': role_history.count(),
+            'active_roles_count': role_history.filter(is_active=True).count(),
+            'permission_checks_30_days': permission_logs.filter(
+                timestamp__gte=now - timedelta(days=30)
+            ).count()
+        }
+        
+        # Log admin access
+        logger.info(
+            f"Admin {request.user.email} viewed detailed info for user {user.email}",
+            extra={
+                'admin_id': request.user.id,
+                'target_user_id': user.id,
+                'action': 'user_detail_view'
+            }
+        )
+        
+        list_view = AdminUsersListView()
+        user_data = list_view._serialize_users([user])[0]
+        
+        return Response({
+            'user': user_data,
+            'login_history': login_data,
+            'role_history': role_data,
+            'permission_logs': permission_data,
+            'detailed_stats': stats
+        })
+
+
+class AdminUsersFiltersView(generics.GenericAPIView):
+    """
+    Get available filter options for the admin users list
+    """
+    permission_classes = [IsAuthenticated, HasPermission('user_view_all')]
+    
+    def get(self, request):
+        """Get filter options"""
+        from .models import Role
+        
+        # Get available roles
+        roles = Role.objects.filter(is_active=True).values('id', 'name')
+        
+        # Get user types
+        user_types = [{'code': choice[0], 'display': choice[1]} for choice in User.USER_TYPES]
+        
+        # Get status options
+        status_options = [
+            {'code': 'Active', 'display': 'Active (last 7 days)'},
+            {'code': 'Recently Active', 'display': 'Recently Active (7-30 days)'},
+            {'code': 'Dormant', 'display': 'Dormant (90+ days)'},
+            {'code': 'Inactive', 'display': 'Inactive/Disabled'},
+            {'code': 'Never Logged In', 'display': 'Never Logged In'}
+        ]
+        
+        # Get sort options
+        sort_options = [
+            {'code': '-date_joined', 'display': 'Newest First'},
+            {'code': 'date_joined', 'display': 'Oldest First'},
+            {'code': 'email', 'display': 'Email A-Z'},
+            {'code': '-email', 'display': 'Email Z-A'},
+            {'code': 'first_name', 'display': 'First Name A-Z'},
+            {'code': '-first_name', 'display': 'First Name Z-A'},
+            {'code': '-last_login', 'display': 'Recently Active'},
+            {'code': 'last_login', 'display': 'Least Active'}
+        ]
+        
+        return Response({
+            'roles': list(roles),
+            'user_types': user_types,
+            'status_options': status_options,
+            'sort_options': sort_options,
+            'boolean_filters': [
+                {'code': 'is_active', 'display': 'Account Status', 'options': [
+                    {'value': 'true', 'display': 'Active'},
+                    {'value': 'false', 'display': 'Inactive'}
+                ]},
+                {'code': 'has_mfa', 'display': 'MFA Status', 'options': [
+                    {'value': 'true', 'display': 'MFA Enabled'},
+                    {'value': 'false', 'display': 'MFA Disabled'}
+                ]}
+            ]
+        })
+
+
+# Export current view
+def get_view_permissions_summary():
+    """Helper function to document all view permissions"""
+    return {
+        "UserProfileView": {
+            "GET": ["IsAuthenticated", "IsOwnerOrHasPermission('user_view_all')"],
+            "PUT/PATCH": ["IsAuthenticated", "IsOwnerOrHasPermission('user_edit_all')"],
+            "description": "Users can view/edit own profile, admins can view/edit any profile"
+        },
+        "UserUpdateView": {
+            "PUT/PATCH": ["IsAuthenticated", "IsOwnerOrHasPermission('user_edit_all')"],
+            "description": "Users can update own account, admins can update any account"
+        },
+        "LoginHistoryView": {
+            "GET": ["IsAuthenticated", "HasPermission('user_view_all') for other users"],
+            "description": "Users can view own history, admins can view any user's history"
+        },
+        "MFASetupView": {
+            "POST": ["IsAuthenticated"],
+            "description": "Users can only setup MFA for themselves"
+        },
+        "MFASetupVerifyView": {
+            "POST": ["IsAuthenticated"],
+            "description": "Users can only verify their own MFA setup"
+        },
+        "MFAVerifyView": {
+            "POST": ["AllowAny"],
+            "description": "No auth needed - part of login flow"
+        },
+        "PasswordResetRequestView": {
+            "POST": ["AllowAny"],
+            "description": "No auth needed - password reset request"
+        },
+        "PasswordResetConfirmView": {
+            "POST": ["AllowAny"],
+            "description": "No auth needed - password reset confirmation"
+        },
+        "PasswordChangeView": {
+            "POST": ["IsAuthenticated", "HasPermission('user_edit_all') for other users"],
+            "description": "Users can change own password, admins can change any password"
+        },
+        "PasswordChangeRequiredView": {
+            "GET/POST": ["IsAuthenticated"],
+            "description": "Handles forced password changes for expired passwords"
+        },
+        "AdminPasswordResetView": {
+            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "description": "Admin-only password reset for any user"
+        },
+        "UserAccountStatusView": {
+            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "description": "Admin-only account activation/deactivation"
+        },
+        "BulkUserActionsView": {
+            "POST": ["IsAuthenticated", "HasPermission('user_edit_all')"],
+            "description": "Admin-only bulk user management actions"
+        },
+        "UserPermissionSummaryView": {
+            "GET": ["IsAuthenticated", "HasPermission('user_view_all') for other users"],
+            "description": "Users can view own permissions, admins can view any user's permissions"
+        },
+        "MyPermissionsView": {
+            "GET": ["IsAuthenticated"],
+            "description": "Current user's permissions for frontend use"
+        },
+        "SecurityAuditView": {
+            "GET": ["IsAuthenticated", "HasPermission('view_audit_logs')"],
+            "description": "Security audit information for admins/auditors"
+        }
+    }
