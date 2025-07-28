@@ -7,9 +7,9 @@ import type {
 
 import type { RootState } from "../../../store";
 import {
-  logout,
-  setAuthTokenString,
-  setAuthToken,
+  // logout,
+  // setAuthTokenString,
+  // setAuthToken,
   refreshTokenSuccess,
   refreshTokenFailure,
   selectIsTokenValid,
@@ -18,40 +18,16 @@ import {
   isTokenExpired,
 } from "../../../features/auth/authSlice";
 
-// ✅ Environment-based API root
+// Environment-based API root
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: BASE_URL,
   credentials: "include",
-  // prepareHeaders: (headers, { getState, endpoint }) => {
-  //   const state = getState() as RootState;
-  //   const token = selectAuthToken(state);
-  //   const isTokenValid = selectIsTokenValid(state);
-
-  //   if (token && isTokenValid) {
-  //     headers.set("Authorization", `Bearer ${token}`);
-  //   } else if (token && isTokenExpired(token)) {
-  //     console.warn("🟡 Token is expired, not setting Authorization header");
-  //   }
-
-  //   headers.set("Accept", "application/json");
-
-  //   const formDataEndpoints = ["register"];
-
-  //   if (!formDataEndpoints.includes(endpoint as string)) {
-  //     if (!headers.has("Content-Type")) {
-  //       headers.set("Content-Type", "application/json");
-  //     }
-  //   }
-
-  //   return headers;
-  // },
   prepareHeaders: (headers, { getState, endpoint }) => {
     const state = getState() as RootState;
     const token = selectAuthToken(state);
 
-    // Send token regardless of expiration status - let server handle validation
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
