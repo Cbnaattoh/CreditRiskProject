@@ -1,15 +1,15 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
-import {
-  FiEdit,
-  FiX,
-  FiChevronRight,
-} from "react-icons/fi";
+import { FiEdit, FiX, FiChevronRight } from "react-icons/fi";
 import { SettingCard } from "./SettingCard";
+import { useAuth } from "../../Authentication/Login-SignUp/components/hooks/useAuth";
 
 export const PreviewTab = () => {
   const [gender, setGender] = useState("male");
   const [maritalStatus, setMaritalStatus] = useState("married");
+
+  const { user } = useAuth()
+
 
   return (
     <motion.div
@@ -41,15 +41,15 @@ export const PreviewTab = () => {
               First Name
             </label>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 font-medium">
-              Afriyle
+              {user.first_name}
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Other Names
+              Last Name
             </label>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 font-medium">
-              Kelvin
+              {user.last_name}
             </div>
           </div>
         </div>
@@ -109,7 +109,7 @@ export const PreviewTab = () => {
               Email Address
             </label>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 font-medium flex items-center justify-between">
-              <span>jon@gmail.com</span>
+              <span>{user.email}</span>
               <div className="flex space-x-2">
                 <motion.button className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg">
                   <FiEdit />
@@ -126,7 +126,7 @@ export const PreviewTab = () => {
               Phone Number
             </label>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 font-medium flex items-center justify-between">
-              <span>+1 (555) 123-4567</span>
+              <span>{user.phone_number}</span>
               <div className="flex space-x-2">
                 <motion.button className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg">
                   <FiEdit />

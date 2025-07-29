@@ -29,6 +29,3 @@ export {
   performStateCleanup,
   checkStateSync,
 } from "./persistValidator";
-
-// // Backward compatibility
-// export { validateAndFixPersistedState as validateAndFixPersistedState } from "./persistValidator";
