@@ -308,9 +308,9 @@ const Header: React.FC = () => {
                           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                             {user.email}
                           </p>
-                          {user.role && (
+                          {user.user_type && (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 mt-2">
-                              {user.role}
+                              {user.user_type}
                             </span>
                           )}
                         </div>
