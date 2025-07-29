@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -27,6 +27,7 @@ import {
   useIsAdmin,
   useIsStaff,
   useCanAccessAdmin,
+  checkCanAccess,
 } from "../../../../components/utils/hooks/useRBAC";
 import type {
   PermissionCode,
@@ -44,20 +45,19 @@ interface NavItem {
   featureFlag?: string;
 }
 
-const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
+const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   const [isOpen, setIsOpen] = useState(!isMobile);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
   const { user, profileImage, userInitials, imageError, handleImageError } =
     useAuth();
-
   const { roles, permissions, isAuthenticated } = usePermissions();
   const isAdmin = useIsAdmin();
   const isStaff = useIsStaff();
   const canAccessAdmin = useCanAccessAdmin();
 
-  const navItems: NavItem[] = [
+  const navItems: NavItem[] = useMemo(() => [
     {
       path: "/home",
       icon: <FiHome />,
@@ -103,10 +103,10 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
       label: "Account Settings",
       description: "Personal Preferences",
     },
-  ];
+  ], []);
 
   // Admin-only navigation items
-  const adminNavItems: NavItem[] = [
+  const adminNavItems: NavItem[] = useMemo(() => [
     {
       path: "/home/admin/users",
       icon: <FiUsers />,
@@ -131,12 +131,12 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
       permissions: ["view_audit_logs"],
       featureFlag: "audit_logs",
     },
-  ];
+  ], []);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
-  const SidebarProfilePicture = () => {
+  const SidebarProfilePicture = memo(() => {
     const getRoleColor = () => {
       if (isAdmin) return "from-red-500 to-pink-600";
       if (isStaff) return "from-blue-500 to-indigo-600";
@@ -178,17 +178,34 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
         />
       </div>
     );
-  };
+  });
+
+  SidebarProfilePicture.displayName = 'SidebarProfilePicture';
 
   // Component to render a navigation item with RBAC protection
   const RBACNavItem: React.FC<{
     item: NavItem;
     index: number;
     isSubItem?: boolean;
-  }> = ({ item, index, isSubItem = false }) => {
+  }> = memo(({ item, index, isSubItem = false }) => {
     const isActive =
       location.pathname === item.path ||
       (item.path !== "/home" && location.pathname.startsWith(item.path));
+
+    const canAccess = useMemo(() => {
+      if (item.permissions || item.roles) {
+        return checkCanAccess(permissions, roles, isAuthenticated, {
+          permissions: item.permissions,
+          roles: item.roles,
+          requireAll: item.requireAll,
+        });
+      }
+      return isAuthenticated;
+    }, [item.permissions, item.roles, item.requireAll, permissions, roles, isAuthenticated]);
+
+    if (!canAccess) {
+      return null;
+    }
 
     const content = (
       <motion.li
@@ -268,27 +285,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
       </motion.li>
     );
 
-    if (item.permissions || item.roles) {
-      return (
-        <ProtectedComponent
-          permissions={item.permissions}
-          roles={item.roles}
-          requireAll={item.requireAll}
-          fallback={null}
-        >
-          {item.featureFlag ? (
-            <FeatureFlag feature={item.featureFlag} fallback={null}>
-              {content}
-            </FeatureFlag>
-          ) : (
-            content
-          )}
-        </ProtectedComponent>
-      );
-    }
-
-    if (!isAuthenticated) return null;
-
+    // Wrap with feature flag if specified
     return item.featureFlag ? (
       <FeatureFlag feature={item.featureFlag} fallback={null}>
         {content}
@@ -296,7 +293,17 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     ) : (
       content
     );
-  };
+  }, (prevProps, nextProps) => {
+    return (
+      prevProps.item.path === nextProps.item.path &&
+      prevProps.index === nextProps.index &&
+      prevProps.isSubItem === nextProps.isSubItem &&
+      JSON.stringify(prevProps.item.permissions) === JSON.stringify(nextProps.item.permissions) &&
+      JSON.stringify(prevProps.item.roles) === JSON.stringify(nextProps.item.roles)
+    );
+  });
+
+  RBACNavItem.displayName = 'RBACNavItem';
 
   if (!isAuthenticated) {
     return null;
@@ -455,6 +462,8 @@ const Sidebar: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
       </motion.div>
     </>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;

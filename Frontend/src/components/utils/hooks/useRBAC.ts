@@ -83,13 +83,18 @@ export const useIsStaff = (): boolean => {
   return useSelector(selectIsStaff);
 };
 
-// Enhanced useCanAccess with memoization for complex logic
-export const useCanAccess = (config: {
-  permissions?: PermissionCode[];
-  roles?: RoleName[];
-  requireAll?: boolean;
-  requireAuth?: boolean;
-}): boolean => {
+// Pure function for checking access
+export const checkCanAccess = (
+  userPermissions: string[],
+  userRoles: string[],
+  isAuthenticated: boolean,
+  config: {
+    permissions?: PermissionCode[];
+    roles?: RoleName[];
+    requireAll?: boolean;
+    requireAuth?: boolean;
+  }
+): boolean => {
   const {
     permissions = [],
     roles = [],
@@ -97,49 +102,47 @@ export const useCanAccess = (config: {
     requireAuth = true,
   } = config;
 
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const userPermissions = useSelector(selectUserPermissions);
-  const userRoles = useSelector(selectUserRoles);
+  // Check authentication first
+  if (requireAuth && !isAuthenticated) {
+    return false;
+  }
 
-  // Memoize the complex logic to prevent unnecessary recalculations
+  // If no permissions or roles specified, just check auth
+  if (permissions.length === 0 && roles.length === 0) {
+    return requireAuth ? isAuthenticated : true;
+  }
+
+  // Check permissions
+  const hasPermissions =
+    permissions.length === 0
+      ? true
+      : requireAll
+      ? permissions.every((p) => userPermissions.includes(p))
+      : permissions.some((p) => userPermissions.includes(p));
+
+  // Check roles
+  const hasRoles =
+    roles.length === 0
+      ? true
+      : requireAll
+      ? roles.every((r) => userRoles.includes(r))
+      : roles.some((r) => userRoles.includes(r));
+
+  // Combine results
+  return requireAll ? hasPermissions && hasRoles : hasPermissions || hasRoles;
+};
+
+export const useCanAccess = (config: {
+  permissions?: PermissionCode[];
+  roles?: RoleName[];
+  requireAll?: boolean;
+  requireAuth?: boolean;
+}): boolean => {
+  const { permissions, roles, isAuthenticated } = usePermissions();
+
   return useMemo(() => {
-    // Check authentication first
-    if (requireAuth && !isAuthenticated) {
-      return false;
-    }
-
-    // If no permissions or roles specified, just check auth
-    if (permissions.length === 0 && roles.length === 0) {
-      return requireAuth ? isAuthenticated : true;
-    }
-
-    // Check permissions
-    const hasPermissions =
-      permissions.length === 0
-        ? true
-        : requireAll
-        ? permissions.every((p) => userPermissions.includes(p))
-        : permissions.some((p) => userPermissions.includes(p));
-
-    // Check roles
-    const hasRoles =
-      roles.length === 0
-        ? true
-        : requireAll
-        ? roles.every((r) => userRoles.includes(r))
-        : roles.some((r) => userRoles.includes(r));
-
-    // Combine results
-    return requireAll ? hasPermissions && hasRoles : hasPermissions || hasRoles;
-  }, [
-    isAuthenticated,
-    userPermissions,
-    userRoles,
-    permissions,
-    roles,
-    requireAll,
-    requireAuth,
-  ]);
+    return checkCanAccess(permissions, roles, isAuthenticated, config);
+  }, [permissions, roles, isAuthenticated, config]);
 };
 
 export const useCanManageUsers = () => {
@@ -194,17 +197,14 @@ export const useCanResetPassword = () => {
   return useHasPermission("user_edit_all");
 };
 
-// Use the memoized auth status selector
 export const useAuthStatus = () => {
   return useSelector(selectAuthStatus);
 };
 
-// Use the memoized role level selector
 export const useRoleLevel = (): number => {
   return useSelector(selectRoleLevel);
 };
 
-// Use the memoized elevated access selector
 export const useHasElevatedAccess = (): boolean => {
   return useSelector(selectHasElevatedAccess);
 };
