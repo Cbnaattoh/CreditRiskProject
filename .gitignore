@@ -23,7 +23,7 @@ db.sqlite3
 *.swo
 *~
 
-# Virtual Environment
+
 
 
 # Jupyter Notebook
