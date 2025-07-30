@@ -240,25 +240,43 @@ const Login: React.FC = () => {
   const handleMFASubmit = useCallback(
     async (data: any) => {
       try {
+        const { code, useBackupCode } = data;
+        const token = typeof code === 'string' ? code.trim() : 
+          Object.values(code || {}).join("").trim();
 
-        const token = Object.values(data.code || {})
-          .join("")
-          .trim();
-
-        if (token.length !== 6 || !/^[0-9]{6}$/.test(token)) {
-          mfaFormMethods.setError("root", {
-            type: "manual",
-            message: "Please enter all 6 digits of the code correctly.",
-          });
-          return;
+        // Validate input based on whether it's a backup code or TOTP
+        if (useBackupCode) {
+          if (token.length !== 8 || !/^[A-Fa-f0-9]{8}$/i.test(token)) {
+            mfaFormMethods.setError("root", {
+              type: "manual",
+              message: "Please enter a valid 8-character backup code.",
+            });
+            return;
+          }
+        } else {
+          if (token.length !== 6 || !/^[0-9]{6}$/.test(token)) {
+            mfaFormMethods.setError("root", {
+              type: "manual",
+              message: "Please enter all 6 digits of the code correctly.",
+            });
+            return;
+          }
         }
 
         if (mfaStep === "verify") {
-          await verifyMFA({
-            token,
+          const verificationData: any = {
             uid: uid || "",
             temp_token: tempToken || "",
-          }).unwrap();
+          };
+          
+          // Use appropriate field based on input type
+          if (useBackupCode) {
+            verificationData.backup_code = token.toUpperCase();
+          } else {
+            verificationData.token = token;
+          }
+
+          await verifyMFA(verificationData).unwrap();
 
           success("Verification successful! Redirecting...");
           setTimeout(() => navigate("/home"), 1500);
@@ -271,7 +289,16 @@ const Login: React.FC = () => {
         }
       } catch (err: any) {
         console.error("❌ MFA verification error:", err);
-        handleApiError(err, "mfa");
+        
+        // Handle specific backup code errors
+        if (err?.data?.detail?.includes('backup code')) {
+          mfaFormMethods.setError("root", {
+            type: "manual",
+            message: "Invalid or already used backup code. Please try another one.",
+          });
+        } else {
+          handleApiError(err, "mfa");
+        }
       }
     },
     [
@@ -287,6 +314,27 @@ const Login: React.FC = () => {
       handleApiError,
     ]
   );
+
+  const handleContactSupport = useCallback((method: 'email' | 'phone', message: string) => {
+    const supportRequest = {
+      method,
+      message,
+      userEmail: loginMethods.getValues('email'),
+      timestamp: new Date().toISOString(),
+      issue: 'MFA Access Recovery'
+    };
+    
+    console.log('Support request:', supportRequest);
+    
+    // In a real application, you would send this to your support system
+    // For now, we'll just show a success message
+    success(`${method === 'email' ? 'Email' : 'Phone'} support request submitted successfully!`);
+    
+    // You could also store this in localStorage for tracking
+    const existingRequests = JSON.parse(localStorage.getItem('supportRequests') || '[]');
+    existingRequests.push(supportRequest);
+    localStorage.setItem('supportRequests', JSON.stringify(existingRequests));
+  }, [loginMethods, success]);
 
   const handleForgotPassword = useCallback(() => {
     info("Redirecting to password recovery");
@@ -377,6 +425,8 @@ const Login: React.FC = () => {
                     handleBackupCodesAcknowledged={
                       handleBackupCodesAcknowledged
                     }
+                    userEmail={loginMethods.getValues('email')}
+                    onContactSupport={handleContactSupport}
                     showSuccessToast={success}
                     showErrorToast={error}
                   />

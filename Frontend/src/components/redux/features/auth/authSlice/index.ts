@@ -500,7 +500,7 @@ export const selectRoleLevel = createSelector(
     if (roles.includes("Manager")) return 3;
     if (roles.includes("Risk Analyst") || roles.includes("Compliance Auditor")) return 2;
     if (roles.includes("Client User")) return 1;
-    return 0; // No recognized role
+    return 0;
   }
 );
 

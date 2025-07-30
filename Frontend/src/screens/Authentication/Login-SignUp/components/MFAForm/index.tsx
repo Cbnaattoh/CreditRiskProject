@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FiAlertCircle, FiShield, FiKey, FiSave } from "react-icons/fi";
+import { FiAlertCircle, FiShield, FiKey, FiSave, FiHelpCircle, FiCopy, FiDownload, FiPrinter } from "react-icons/fi";
 import { FormProvider } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
 import { QRCodeCanvas as QRCode } from "qrcode.react";
+import { MFARecoveryModal } from '../MFARecoveryModal';
+import { MFAProgress } from '../MFAProgress';
 
 interface MFASetupData {
   uri: string;
@@ -14,13 +16,17 @@ interface MFASetupData {
 type MFAStep = "login" | "setup" | "verify" | "backup";
 
 interface MFAFormProps {
-  mfaFormMethods: UseFormReturn<{ code: string }>;
+  mfaFormMethods: UseFormReturn<{ code: string; useBackupCode?: boolean }>;
   mfaStep: MFAStep;
   mfaSetupData: MFASetupData | null;
-  handleMFASubmit: (data: { code: string }) => Promise<void>;
+  handleMFASubmit: (data: { code: string; useBackupCode?: boolean }) => Promise<void>;
   handleBackToLogin: () => void;
   isLoading: boolean;
   handleBackupCodesAcknowledged: () => void;
+  onUseBackupCode?: () => void;
+  showBackupCodeOption?: boolean;
+  userEmail?: string;
+  onContactSupport?: (method: 'email' | 'phone', message: string) => void;
 }
 
 const MFAForm: React.FC<MFAFormProps> = ({
@@ -31,9 +37,18 @@ const MFAForm: React.FC<MFAFormProps> = ({
   handleBackToLogin,
   isLoading,
   handleBackupCodesAcknowledged,
+  onUseBackupCode,
+  showBackupCodeOption = true,
+  userEmail,
+  onContactSupport,
 }) => {
   const [codes, setCodes] = useState<string[]>(["", "", "", "", "", ""]);
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [backupCode, setBackupCode] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const backupInputRef = useRef<HTMLInputElement | null>(null);
 
   // Handle individual code input changes
   const handleCodeChange = (index: number, value: string) => {
@@ -98,9 +113,38 @@ const MFAForm: React.FC<MFAFormProps> = ({
     }
   };
 
-  // Check if all codes are filled
-  const isCodeComplete = codes.every((code) => code.length === 1);
-  const codeString = codes.join("");
+  // Check if all codes are filled or backup code is provided
+  const isCodeComplete = useBackupCode ? backupCode.length >= 8 : codes.every((code) => code.length === 1);
+  const codeString = useBackupCode ? backupCode : codes.join("");
+  
+  // Handle backup code toggle
+  const handleBackupCodeToggle = () => {
+    setUseBackupCode(!useBackupCode);
+    setBackupCode('');
+    setCodes(["", "", "", "", "", ""]);
+    mfaFormMethods.setValue("code", "");
+    mfaFormMethods.setValue("useBackupCode", !useBackupCode);
+    
+    // Focus appropriate input
+    setTimeout(() => {
+      if (!useBackupCode) {
+        backupInputRef.current?.focus();
+      } else {
+        inputRefs.current[0]?.focus();
+      }
+    }, 100);
+  };
+  
+  // Handle backup code input
+  const handleBackupCodeChange = (value: string) => {
+    // Allow alphanumeric characters and convert to uppercase
+    const sanitizedValue = value.replace(/[^A-Fa-f0-9]/g, '').toUpperCase();
+    if (sanitizedValue.length <= 8) {
+      setBackupCode(sanitizedValue);
+      mfaFormMethods.setValue("code", sanitizedValue);
+      mfaFormMethods.trigger("code");
+    }
+  };
 
   return (
     <FormProvider {...mfaFormMethods}>
@@ -110,6 +154,10 @@ const MFAForm: React.FC<MFAFormProps> = ({
         animate={{ opacity: 1 }}
         className="space-y-6"
       >
+        {/* Progress Indicator - Only show during setup flow */}
+        {(mfaStep === "setup" || mfaStep === "verify" || mfaStep === "backup") && (
+          <MFAProgress currentStep={mfaStep} className="mb-8" />
+        )}
         {/* Backup Codes Step */}
         {mfaStep === "backup" && mfaSetupData?.backup_codes && (
           <div className="backup-codes-section">
@@ -129,35 +177,121 @@ const MFAForm: React.FC<MFAFormProps> = ({
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <p className="font-medium mb-4 text-yellow-800">
-                Please save these codes in a secure location:
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-medium text-yellow-800">
+                  Please save these codes in a secure location:
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = mfaSetupData.backup_codes.join('\n');
+                      navigator.clipboard.writeText(text);
+                    }}
+                    className="p-2 text-yellow-700 hover:text-yellow-900 hover:bg-yellow-100 rounded transition-colors"
+                    title="Copy all codes"
+                  >
+                    <FiCopy className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = `RiskGuard Pro - MFA Backup Codes\n\nGenerated: ${new Date().toLocaleDateString()}\n\n${mfaSetupData.backup_codes.map((code, i) => `${i + 1}. ${code}`).join('\n')}\n\nIMPORTANT: Keep these codes safe and secure. Each can only be used once.`;
+                      const blob = new Blob([text], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'mfa-backup-codes.txt';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="p-2 text-yellow-700 hover:text-yellow-900 hover:bg-yellow-100 rounded transition-colors"
+                    title="Download as text file"
+                  >
+                    <FiDownload className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const printContent = `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                          <h1>RiskGuard Pro - MFA Backup Codes</h1>
+                          <p>Generated: ${new Date().toLocaleDateString()}</p>
+                          <div style="margin: 20px 0;">
+                            ${mfaSetupData.backup_codes.map((code, i) => `<p style="font-family: monospace; font-size: 14px;">${i + 1}. ${code}</p>`).join('')}
+                          </div>
+                          <p style="color: red; font-weight: bold;">IMPORTANT: Keep these codes safe and secure. Each can only be used once.</p>
+                        </div>
+                      `;
+                      const printWindow = window.open('', '_blank');
+                      printWindow?.document.write(printContent);
+                      printWindow?.document.close();
+                      printWindow?.print();
+                    }}
+                    className="p-2 text-yellow-700 hover:text-yellow-900 hover:bg-yellow-100 rounded transition-colors"
+                    title="Print codes"
+                  >
+                    <FiPrinter className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 {mfaSetupData.backup_codes.map((code, index) => (
-                  <div
+                  <motion.div
                     key={index}
-                    className="p-3 bg-white rounded-lg font-mono text-center border border-yellow-100 shadow-sm"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="group relative p-3 bg-white rounded-lg font-mono text-center border border-yellow-100 shadow-sm hover:shadow-md transition-shadow"
                   >
-                    {code}
-                  </div>
+                    <span className="select-all">{code}</span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(code)}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                      title="Copy this code"
+                    >
+                      <FiCopy className="w-3 h-3" />
+                    </button>
+                  </motion.div>
                 ))}
               </div>
-              <p className="text-sm text-yellow-700">
-                <strong>Important:</strong> These codes won't be shown again.
-                Each code can only be used once.
-              </p>
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-sm text-red-700 flex items-start">
+                  <FiAlertCircle className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" />
+                  <span>
+                    <strong>Important:</strong> These codes won't be shown again.
+                    Each code can only be used once. Store them in a secure password manager or print them out.
+                  </span>
+                </p>
+              </div>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-4 space-y-3">
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  id="confirmSaved"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  onChange={(e) => {
+                    const button = document.getElementById('confirmButton') as HTMLButtonElement;
+                    if (button) button.disabled = !e.target.checked || isLoading;
+                  }}
+                />
+                <label htmlFor="confirmSaved" className="cursor-pointer">
+                  I have saved these backup codes in a secure location
+                </label>
+              </div>
               <motion.button
+                id="confirmButton"
                 type="button"
                 onClick={handleBackupCodesAcknowledged}
-                disabled={isLoading}
+                disabled={true} // Initially disabled until checkbox is checked
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? "Processing..." : "I've Saved My Backup Codes"}
+                {isLoading ? "Processing..." : "Complete MFA Setup"}
               </motion.button>
             </div>
           </div>
@@ -216,8 +350,16 @@ const MFAForm: React.FC<MFAFormProps> = ({
                 Two-Factor Authentication
               </h2>
               <p className="text-gray-600">
-                Enter the 6-digit code from your authenticator app
+                {useBackupCode 
+                  ? "Enter your 8-character backup code" 
+                  : "Enter the 6-digit code from your authenticator app"
+                }
               </p>
+              {retryCount > 0 && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Attempt {retryCount + 1} of 5
+                </p>
+              )}
             </div>
             <div className="bg-blue-100 p-3 rounded-full">
               <FiShield className="text-blue-600 text-xl" />
@@ -251,33 +393,95 @@ const MFAForm: React.FC<MFAFormProps> = ({
         {/* Code Input (only shown for setup and verify steps) */}
         {(mfaStep === "setup" || mfaStep === "verify") && (
           <>
-            {/* Hidden input for form validation */}
+            {/* Hidden inputs for form validation */}
             <input
               type="hidden"
               {...mfaFormMethods.register("code")}
               value={codeString}
             />
+            <input
+              type="hidden"
+              {...mfaFormMethods.register("useBackupCode")}
+              value={useBackupCode}
+            />
 
-            <div className="grid grid-cols-6 gap-3">
-              {codes.map((code, i) => (
-                <input
-                  key={i}
-                  ref={(el) => (inputRefs.current[i] = el)}
-                  type="text"
-                  maxLength={1}
-                  value={code}
-                  onChange={(e) => handleCodeChange(i, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(i, e)}
-                  onPaste={handlePaste}
-                  className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
-                    mfaFormMethods.formState.errors.code
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors`}
-                  autoComplete="off"
-                />
-              ))}
-            </div>
+            {/* Backup Code Input */}
+            {useBackupCode ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Backup Code
+                  </label>
+                  <input
+                    ref={backupInputRef}
+                    type="text"
+                    placeholder="XXXXXXXX"
+                    value={backupCode}
+                    onChange={(e) => handleBackupCodeChange(e.target.value)}
+                    className={`w-full h-16 text-2xl text-center rounded-lg border-2 font-mono tracking-widest ${
+                      mfaFormMethods.formState.errors.code
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors uppercase`}
+                    autoComplete="off"
+                    maxLength={8}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Enter one of your saved backup codes. Each code can only be used once.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Regular TOTP Code Input */
+              <div className="grid grid-cols-6 gap-3">
+                {codes.map((code, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => (inputRefs.current[i] = el)}
+                    type="text"
+                    maxLength={1}
+                    value={code}
+                    onChange={(e) => handleCodeChange(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(i, e)}
+                    onPaste={handlePaste}
+                    className={`w-full h-16 text-3xl text-center rounded-lg border-2 ${
+                      mfaFormMethods.formState.errors.code
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors`}
+                    autoComplete="off"
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Backup Code Toggle and Recovery - Only show during verification */}
+            {mfaStep === "verify" && (
+              <div className="space-y-3 mt-4">
+                {showBackupCodeOption && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={handleBackupCodeToggle}
+                      className="text-sm text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
+                    >
+                      {useBackupCode ? "Use authenticator app instead" : "Use backup code instead"}
+                    </button>
+                  </div>
+                )}
+                
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowRecoveryModal(true)}
+                    className="text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors flex items-center space-x-1"
+                  >
+                    <FiHelpCircle className="w-4 h-4" />
+                    <span>Can't access your device?</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="pt-4 flex space-x-3">
               <motion.button
@@ -295,15 +499,17 @@ const MFAForm: React.FC<MFAFormProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 disabled={
-                  isLoading || !isCodeComplete || codeString.length !== 6
+                  isLoading || !isCodeComplete || 
+                  (useBackupCode ? backupCode.length !== 8 : codeString.length !== 6)
                 }
                 className={`flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors ${
-                  isLoading || !isCodeComplete || codeString.length !== 6
+                  isLoading || !isCodeComplete || 
+                  (useBackupCode ? backupCode.length !== 8 : codeString.length !== 6)
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}
               >
-                {isLoading ? "Verifying..." : "Verify"}
+                {isLoading ? "Verifying..." : `Verify ${useBackupCode ? 'Backup Code' : 'Code'}`}
               </motion.button>
             </div>
           </>
@@ -318,6 +524,14 @@ const MFAForm: React.FC<MFAFormProps> = ({
             </div>
           </div>
         )}
+
+        {/* MFA Recovery Modal */}
+        <MFARecoveryModal
+          isOpen={showRecoveryModal}
+          onClose={() => setShowRecoveryModal(false)}
+          userEmail={userEmail}
+          onContactSupport={onContactSupport || (() => {})}
+        />
 
         {/* Debug info - remove in production
         <div className="text-xs text-gray-400 mt-4">

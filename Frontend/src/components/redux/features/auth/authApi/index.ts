@@ -97,7 +97,7 @@ export const authApi = apiSlice.injectEndpoints({
             return;
           }
 
-          if (arg.enableMFA && mfaEnabled && !mfaFullyConfigured) {s
+          if (arg.enableMFA && mfaEnabled && !mfaFullyConfigured) {
             dispatch(
               setAuthToken({
                 token: data.access!,
