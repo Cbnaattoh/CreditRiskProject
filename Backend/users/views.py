@@ -692,9 +692,12 @@ class LoginView(TokenObtainPairView):
                     'requires_password_change': True,
                     'password_expired': True
                 })
-            
-            if user.mfa_enabled and user.mfa_secret:
-                return self._handle_mfa_required(user, validated_data)
+
+            if user.mfa_enabled:
+                if user.mfa_secret and user.is_mfa_fully_configured:
+                    return self._handle_mfa_required(user, validated_data)
+                else:
+                    return self._handle_mfa_setup_required(user, validated_data)
             
             self._clear_failed_attempts(email)
             
@@ -739,6 +742,37 @@ class LoginView(TokenObtainPairView):
                 )
         except Exception as e:
             logger.error(f"Error logging successful login: {str(e)}")
+        
+    def _handle_mfa_setup_required(self, user, response_data):
+        """"Handle MFA setup requirement for login"""
+        try:
+            # Ensure user data is present
+            user_data = response_data.get('user') or {
+                'id': user.id,
+                'email': user.email,
+                'name': f"{user.first_name} {user.last_name}",
+                'role': user.user_type,
+                'mfa_enabled': user.mfa_enabled,
+                'mfa_fully_configured': user.is_mfa_fully_configured,
+                'is_verified': user.is_verified,
+            }
+
+            setup_response = {
+                'requires_mfa_setup': True,
+                'requires_mfa': False,
+                'user': user_data,
+                'message': 'MFA setup completion required',
+            }
+
+            logger.info(f"MFA setup required for user: {user.email}")
+            return Response(setup_response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error handling MFA setup requirement: {str(e)}")
+            return Response(
+                {"detail": "MFA setup error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
     def _handle_mfa_required(self, user, response_data):
         """Handle MFA requirement for login"""
@@ -1194,9 +1228,9 @@ class MFASetupView(generics.GenericAPIView):
 
     def _enable_mfa(self, user):
         """Enable MFA for user"""
-        if user.mfa_enabled:
+        if user.mfa_enabled and user.mfa_secret and user.is_mfa_fully_configured:
             return Response(
-                {'detail': 'MFA is already enabled'},
+                {'detail': 'MFA is already fully configured'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1215,7 +1249,7 @@ class MFASetupView(generics.GenericAPIView):
             issuer_name=getattr(settings, 'MFA_ISSUER_NAME', 'RiskGuard Pro')
         )
         
-        logger.info(f"MFA enabled for user: {user.email}")
+        logger.info(f"MFA enabled/re-configured for user: {user.email}")
         
         return Response({
             'status': 'success',
