@@ -746,7 +746,10 @@ class LoginView(TokenObtainPairView):
     def _handle_mfa_setup_required(self, user, response_data):
         """"Handle MFA setup requirement for login"""
         try:
-            # Ensure user data is present
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
             user_data = response_data.get('user') or {
                 'id': user.id,
                 'email': user.email,
@@ -755,12 +758,16 @@ class LoginView(TokenObtainPairView):
                 'mfa_enabled': user.mfa_enabled,
                 'mfa_fully_configured': user.is_mfa_fully_configured,
                 'is_verified': user.is_verified,
+                'roles': [{'id': role.id, 'name': role.name} for role in user.get_roles()],
+                'permissions': [perm.codename for perm in user.get_permissions()],
             }
 
             setup_response = {
                 'requires_mfa_setup': True,
                 'requires_mfa': False,
                 'user': user_data,
+                'access': access_token,
+                'refresh': refresh_token,
                 'message': 'MFA setup completion required',
             }
 
