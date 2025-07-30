@@ -47,6 +47,7 @@ export interface LoginResponse {
   user: AuthUser;
 
   requires_mfa?: boolean;
+  requires_mfa_setup?: boolean;
   temp_token?: string;
   uid?: string;
 

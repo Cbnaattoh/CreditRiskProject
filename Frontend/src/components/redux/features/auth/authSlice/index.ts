@@ -381,7 +381,6 @@ export const selectIsLoading = (state: RootState) => state.auth.isLoading;
 export const selectTokenExpired = (state: RootState) => state.auth.tokenExpired;
 export const selectPermissionSummary = (state: RootState) => state.auth.permissionSummary;
 
-// Memoized authentication selectors
 export const selectIsAuthenticated = createSelector(
   [selectAuthState],
   (auth) => 
@@ -395,7 +394,6 @@ export const selectIsTokenValid = createSelector(
   (token) => token && !isTokenExpired(token)
 );
 
-// Memoized array selectors to prevent unnecessary re-renders
 export const selectUserPermissions = createSelector(
   [selectAuthState],
   (auth) => auth.permissions ?? EMPTY_PERMISSIONS
@@ -411,7 +409,7 @@ export const selectMFAMethods = createSelector(
   (auth) => auth.mfaMethods ?? EMPTY_MFA_METHODS
 );
 
-// Memoized permission checker selectors
+
 export const selectHasPermission = createSelector(
   [selectUserPermissions, (state: RootState, permission: PermissionCode) => permission],
   (permissions, permission) => permissions.includes(permission)
@@ -429,7 +427,6 @@ export const selectHasAllPermissions = createSelector(
     permissions.every((permission) => userPermissions.includes(permission))
 );
 
-// Memoized role checker selectors
 export const selectHasRole = createSelector(
   [selectUserRoles, (state: RootState, role: RoleName) => role],
   (roles, role) => roles.includes(role)

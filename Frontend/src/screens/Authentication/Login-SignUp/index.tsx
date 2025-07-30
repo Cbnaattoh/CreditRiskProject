@@ -15,17 +15,14 @@ import {
   useAppDispatch,
   useAppSelector,
 } from "../../../components/utils/hooks";
+import { store } from "../../../components/redux/store";
 import { useToast, ToastContainer } from "../../../components/utils/Toast";
 import MFAForm from "./components/MFAForm";
-
-// Modular components
 import TabNavigation from "./components/TabNavigation";
 import LoginForm from "./components/LoginForm";
 import RegisterForm from "./components/RegisterForm";
 import SidePanel from "./components/SidePanel";
 import BackgroundElements from "./components/BackgroundElements";
-
-// Types and constants
 import type {
   MFASetupData,
   MFAStep,
@@ -33,8 +30,6 @@ import type {
   ActiveTab,
 } from "./components/types";
 import { ANIMATION_VARIANTS } from "./components/constants";
-
-// Hooks
 import { useAuthRedirect } from "./components/hooks/useAuthRedirect";
 import { useFormManagement } from "./components/hooks/useFormManagement";
 
@@ -50,6 +45,7 @@ const Login: React.FC = () => {
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const authState = useAppSelector((state) => state.auth);
   const { toasts, removeToast, success, error, info } = useToast();
   const { loginMethods, mfaFormMethods, registerMethods, resetForms } =
     useFormManagement();
@@ -103,74 +99,122 @@ const Login: React.FC = () => {
     async (mfaEnabled: boolean, mfaFullyConfigured: boolean) => {
       try {
         setIsSettingUpMFA(true);
-        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const freshAuthState = store.getState().auth;
+
+        if (!freshAuthState?.isAuthenticated) {
+          throw new Error("User not authenticated");
+        }
+
+        if (!freshAuthState?.token) {
+          throw new Error("No authentication token available");
+        }
+
+        if (freshAuthState?.tokenExpired) {
+          throw new Error("Authentication token has expired");
+        }
 
         let setupResult;
-
-        if (!mfaEnabled) {
+        try {
           setupResult = await setupMFA({ enable: true }).unwrap();
-        } else {
-          info("MFA already enabled. Please verify setup.");
-          setMfaStep("setup");
-          setFormStep(2);
-          return;
+        } catch (apiError) {
+          console.error("❌ MFA Setup API call failed:", apiError);
+          throw apiError;
+        }
+
+        // Validate response structure
+        if (!setupResult) {
+          throw new Error("No response from setup API");
+        }
+
+        if (!setupResult.uri || !setupResult.secret) {
+          console.error("❌ Invalid response structure:", setupResult);
+          throw new Error("Invalid setup response - missing QR code or secret");
         }
 
         setMfaSetupData({
-          uri: setupResult.uri!,
-          secret: setupResult.secret!,
+          uri: setupResult.uri,
+          secret: setupResult.secret,
           backup_codes: setupResult.backup_codes || [],
         });
 
         setMfaStep("setup");
-        success("Scan the QR code with your authenticator app");
         setFormStep(2);
-      } catch (setupError: any) {
-        console.error("MFA Setup Error:", setupError);
 
-        if (
-          setupError?.status === 400 &&
-          setupError?.data?.detail === "MFA is already enabled"
-        ) {
-          info("MFA setup already started. Please continue with verification.");
-          setMfaStep("setup");
-          setFormStep(2);
+        success("Scan the QR code with your authenticator app");
+      } catch (setupError: any) {
+        console.error("❌ MFA Setup Error:", setupError);
+
+        if (setupError?.status === 401) {
+          error("Session expired. Please log in again.");
+          dispatch(logout());
+          navigate("/");
           return;
         }
 
-        handleApiError(setupError, "login");
-
-        if (setupError?.status === 401) {
-          dispatch(logout());
-          navigate("/");
+        // Handle other specific errors
+        if (setupError?.status === 400) {
+          const errorDetail = setupError?.data?.detail;
+          if (errorDetail === "MFA is already fully configured") {
+            info("MFA is already set up. Redirecting to verification.");
+            setMfaStep("verify");
+            setFormStep(2);
+            return;
+          }
         }
+
+        handleApiError(setupError, "login");
       } finally {
         setIsSettingUpMFA(false);
       }
     },
-    [setupMFA, success, handleApiError, dispatch, navigate]
+    [
+      setupMFA,
+      success,
+      error,
+      info,
+      dispatch,
+      navigate,
+      setMfaSetupData,
+      setMfaStep,
+      setFormStep,
+      setIsSettingUpMFA,
+      handleApiError,
+    ]
   );
 
   const handleLoginSubmit = useCallback(
     async (data: any) => {
       try {
+
         const result = await login({
           email: data.email,
           password: data.password,
+          enableMFA: data.enableMFA,
         }).unwrap();
 
         const user = result.user;
         const mfaEnabled = user?.mfa_enabled === true;
         const mfaFullyConfigured = user?.mfa_fully_configured === true;
 
-        if (result.requires_mfa && !user) {
-          error(
-            "MFA required but user info is missing. Please contact support."
-          );
+        success("Login successful!");
+
+        // Handle MFA setup requirement
+        if (result.requires_mfa_setup || (mfaEnabled && !mfaFullyConfigured)) {
+          setTimeout(async () => {
+            const freshAuthState = store.getState().auth;
+
+            if (!freshAuthState?.isAuthenticated || !freshAuthState?.token) {
+              error("Authentication state error. Please try logging in again.");
+              return;
+            }
+
+            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
+          }, 100);
           return;
         }
 
-        success("Login successful!");
+        // Handle MFA verification requirement
         if (result.requires_mfa && mfaFullyConfigured) {
           setFormStep(2);
           setMfaStep("verify");
@@ -180,23 +224,13 @@ const Login: React.FC = () => {
           return;
         }
 
-        if (data.enableMFA && mfaEnabled && !mfaFullyConfigured) {
-          try {
-            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
-            return;
-          } catch (setupError) {
-            console.error("MFA setup error during login:", setupError);
-            error("MFA setup failed. Please try again.");
-            return;
-          }
-        }
-
+        // Redirect to dashboard
         setTimeout(() => {
           info("Redirecting to dashboard...");
         }, 500);
-        setTimeout(() => navigate("/home"), 5000);
+        setTimeout(() => navigate("/home"), 1500);
       } catch (err: any) {
-        console.error("Login error:", err);
+        console.error("❌ Login error:", err);
         handleApiError(err, "login");
       }
     },
@@ -206,6 +240,7 @@ const Login: React.FC = () => {
   const handleMFASubmit = useCallback(
     async (data: any) => {
       try {
+
         const token = Object.values(data.code || {})
           .join("")
           .trim();
@@ -235,7 +270,7 @@ const Login: React.FC = () => {
           setMfaStep("backup");
         }
       } catch (err: any) {
-        console.error("MFA verification error:", err);
+        console.error("❌ MFA verification error:", err);
         handleApiError(err, "mfa");
       }
     },
@@ -282,7 +317,6 @@ const Login: React.FC = () => {
     }
   }, [setupMFA, navigate, success, handleApiError]);
 
-  // Background effect - Updated for dark theme
   useEffect(() => {
     document.body.className =
       "bg-gradient-to-br from-gray-50 to-indigo-50 dark:from-gray-900 dark:to-indigo-900";
@@ -304,7 +338,7 @@ const Login: React.FC = () => {
         {...ANIMATION_VARIANTS.pageEnter}
         className="w-full max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden relative z-10 border border-gray-200/50 dark:border-gray-700/50"
       >
-        {/* Gradient overlay - matching sidebar style */}
+        {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/30 dark:from-indigo-900/20 dark:via-transparent dark:to-purple-900/10 pointer-events-none" />
 
         <div className="flex flex-col md:flex-row relative">

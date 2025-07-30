@@ -101,13 +101,11 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Permission checks
   const canEditUsers = useHasPermission("user_edit_all");
   const canDeleteUsers = useHasPermission("user_delete");
   const canManageRoles = useHasPermission("user_manage_roles");
   const isAdmin = useIsAdmin();
 
-  // API hooks with proper error handling
   const {
     data: usersData,
     isLoading: usersLoading,
@@ -128,13 +126,11 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
   const { data: filtersData } = useGetUsersFiltersQuery();
   const { data: rolesData } = useGetRolesQuery();
 
-  // Mutations
   const [updateUserStatus] = useUpdateUserStatusMutation();
   const [bulkUserActions] = useBulkUserActionsMutation();
   const [assignUserRole] = useAssignUserRoleMutation();
   const [removeUserRole] = useRemoveUserRoleMutation();
 
-  // Reset selection when data changes or on component mount
   useEffect(() => {
     setSelectedRows([]);
   }, [usersData?.results]);
@@ -207,7 +203,6 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
     return `${Math.floor(days / 365)} years ago`;
   }, []);
 
-  // Safe data extraction with stable IDs
   const rows = useMemo(() => {
     if (!usersData?.results || !Array.isArray(usersData.results)) {
       return [];
@@ -215,14 +210,12 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
 
     return usersData.results.map((user, index) => ({
       ...user,
-      // Ensure every row has a valid, unique ID
       id: user.id || `user-${index}-${Date.now()}`,
     }));
   }, [usersData?.results]);
 
   const totalRowCount = usersData?.count || 0;
 
-  // Memoized columns with enhanced styling
   const columns: GridColDef[] = useMemo(
     () => [
       {
@@ -511,6 +504,20 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
                       ? "0 4px 12px rgba(99, 102, 241, 0.15)"
                       : "0 4px 12px rgba(99, 102, 241, 0.1)",
                   },
+                  "& .MuiDataGrid-row:hover": {
+                    backgroundColor: `${
+                      isDarkMode
+                        ? "rgba(99, 102, 241, 0.12) !important"
+                        : "rgba(99, 102, 241, 0.08) !important"
+                    }`,
+                    transform: "translateY(-1px)",
+                    boxShadow: `${
+                      isDarkMode
+                        ? "0 4px 12px rgba(99, 102, 241, 0.15)"
+                        : "0 4px 12px rgba(99, 102, 241, 0.1)"
+                    }`,
+                  },
+
                   "&.Mui-selected": {
                     backgroundColor: isDarkMode
                       ? "rgba(99, 102, 241, 0.16)"
@@ -543,9 +550,16 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
                 },
                 "& .MuiDataGrid-columnHeader": {
                   padding: "8px 16px",
+                  backgroundColor: isDarkMode
+                    ? "rgba(31, 41, 55, 0.9)"
+                    : "rgba(249, 250, 251, 0.9)",
+                  borderBottom: isDarkMode
+                    ? "1px solid rgba(255, 255, 255, 0.1)"
+                    : "1px solid rgba(0, 0, 0, 0.08)",
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
                   color: isDarkMode ? "rgb(209, 213, 219)" : "rgb(75, 85, 99)",
                   fontWeight: 600,
-                  "& .MuiDataGrid-columnSeparator": { display: "none" },
                 },
                 "& .MuiDataGrid-footerContainer": {
                   borderTop: isDarkMode
@@ -595,7 +609,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
         </div>
       </motion.div>
 
-      {/* Enhanced Context Menu */}
+      {/* Context Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -670,7 +684,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
         )}
       </Menu>
 
-      {/* Enhanced Summary Stats */}
+      {/* Summary Stats */}
       {usersData?.summary && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
