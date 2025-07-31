@@ -366,9 +366,10 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """Apply RBAC permissions based on action"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), RequirePermission('user_edit_all')()]
+            return [permissions.IsAuthenticated(), RequirePermission('user_manage')()]
         else:
-            return [permissions.IsAuthenticated(), RequirePermission('user_view_all')()]
+            # For viewing, allow users with admin access
+            return [permissions.IsAuthenticated(), IsAdminUser()]
     
     def get_serializer_class(self):
         """Use AdminUserCreateSerializer for user creation"""
@@ -1272,13 +1273,13 @@ class MFASetupView(generics.GenericAPIView):
             return Response(
                 {'detail': 'MFA must be enabled before acknowledging backup codes'},
                 status=status.HTTP_400_BAD_REQUEST
-        )
+            )
 
         logger.info(f"User {user.email} acknowledged backup codes.")
         return Response({
             'status': 'success',
             'message': 'Backup codes acknowledged. MFA setup complete.'
-    })
+        })
 
 
     def _disable_mfa(self, user):

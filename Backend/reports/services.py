@@ -42,9 +42,21 @@ class ReportGenerationService:
     
     def generate_report_async(self, report_id):
         """
-        Trigger async report generation
+        Generate report synchronously (fallback for when Celery is not available)
         """
-        generate_report_task.delay(report_id)
+        try:
+            return self.generate_report(report_id)
+        except Exception as e:
+            print(f"Report generation error: {str(e)}")
+            # Update report status to failed
+            try:
+                report = Report.objects.get(id=report_id)
+                report.status = 'FAILED'
+                report.error_message = str(e)
+                report.save()
+            except Report.DoesNotExist:
+                pass
+            raise e
     
     def generate_report(self, report_id):
         """
@@ -418,6 +430,14 @@ class ReportExportService:
 def generate_report_task(report_id):
     """
     Celery task for async report generation
+    """
+    service = ReportGenerationService()
+    return service.generate_report(report_id)
+
+# Fallback function for when Celery is not available
+def generate_report_sync(report_id):
+    """
+    Synchronous report generation fallback
     """
     service = ReportGenerationService()
     return service.generate_report(report_id)
