@@ -15,6 +15,7 @@ import {
   FiMousePointer,
 } from "react-icons/fi";
 import { FaKeyboard } from "react-icons/fa";
+import { useSessionManager } from "../hooks/useSessionManager";
 
 // Types
 interface TimedLogoutProps {
@@ -104,8 +105,21 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
   const styles = variantConfig[variant];
 
+  // Auto logout handler
+  const handleAutoLogout = useCallback(async () => {
+    setIsProcessing(true);
+    showToast("Session expired. Logging out...", "info");
+
+    // Simulate logout process
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    onLogout();
+    setIsProcessing(false);
+  }, [onLogout, showToast]);
+
   // Session timer management
   const resetSessionTimer = useCallback(() => {
+    console.log('🔵 Resetting session timer');
     if (sessionTimerRef.current) {
       clearInterval(sessionTimerRef.current);
     }
@@ -114,82 +128,7 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
     setShowFinalWarning(false);
   }, [sessionDuration]);
 
-  // Activity detection
-  const updateActivityStats = useCallback(
-    (eventType: keyof Omit<ActivityStats, "totalEvents" | "lastActivity">) => {
-      if (!enableActivityDetection) return;
-
-      const now = new Date();
-      const secondsSinceLastActivity =
-        (now.getTime() - lastActivityRef.current.getTime()) / 1000;
-
-      if (secondsSinceLastActivity < 1) return;
-
-      lastActivityRef.current = now;
-
-      setActivityStats((prev) => ({
-        ...prev,
-        [eventType]: prev[eventType] + 1,
-        totalEvents: prev.totalEvents + 1,
-        lastActivity: now,
-      }));
-
-      if (isActive && !isSessionPaused) {
-        resetSessionTimer();
-      }
-    },
-    [enableActivityDetection, isActive, isSessionPaused, resetSessionTimer]
-  );
-
-  // Activity event handlers
-  const handleMouseMove = useCallback(
-    () => updateActivityStats("mouseMovements"),
-    [updateActivityStats]
-  );
-  const handleKeyDown = useCallback(
-    () => updateActivityStats("keystrokes"),
-    [updateActivityStats]
-  );
-  const handleClick = useCallback(
-    () => updateActivityStats("clicks"),
-    [updateActivityStats]
-  );
-  const handleScroll = useCallback(
-    () => updateActivityStats("scrolls"),
-    [updateActivityStats]
-  );
-
-  // Setup activity listeners
-  useEffect(() => {
-    if (!enableActivityDetection || !isActive) return;
-
-    const events = [
-      ["mousemove", handleMouseMove],
-      ["keydown", handleKeyDown],
-      ["click", handleClick],
-      ["scroll", handleScroll],
-      ["touchstart", handleClick],
-      ["touchmove", handleMouseMove],
-    ] as const;
-
-    events.forEach(([event, handler]) => {
-      document.addEventListener(event, handler, { passive: true });
-    });
-
-    return () => {
-      events.forEach(([event, handler]) => {
-        document.removeEventListener(event, handler);
-      });
-    };
-  }, [
-    enableActivityDetection,
-    isActive,
-    handleMouseMove,
-    handleKeyDown,
-    handleClick,
-    handleScroll,
-  ]);
-
+  // Define session timer
   const startSessionTimer = useCallback(() => {
     if (sessionTimerRef.current) {
       clearInterval(sessionTimerRef.current);
@@ -215,7 +154,6 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
             "error"
           );
 
-          // Start grace period countdown
           const graceTimer = setInterval(() => {
             setGracePeriodRemaining((graceRemaining) => {
               if (graceRemaining <= 1) {
@@ -231,33 +169,149 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
         return newTime;
       });
     }, 1000);
-  }, [warningThreshold, gracePeriod, showToast]);
+  }, [warningThreshold, gracePeriod, showToast, handleAutoLogout]);
 
-  // Auto logout handler
-  const handleAutoLogout = useCallback(async () => {
-    setIsProcessing(true);
-    showToast("Session expired. Logging out...", "info");
+  // Activity detection
+  const updateActivityStats = useCallback(
+    (eventType: keyof Omit<ActivityStats, "totalEvents" | "lastActivity">) => {
+      if (!enableActivityDetection) return;
 
-    // Simulate logout process
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+      const now = new Date();
+      const secondsSinceLastActivity =
+        (now.getTime() - lastActivityRef.current.getTime()) / 1000;
 
-    onLogout();
-    setIsProcessing(false);
-  }, [onLogout, showToast]);
+      if (secondsSinceLastActivity < 0.5) return;
+
+      lastActivityRef.current = now;
+
+      setActivityStats((prev) => ({
+        ...prev,
+        [eventType]: prev[eventType] + 1,
+        totalEvents: prev.totalEvents + 1,
+        lastActivity: now,
+      }));
+
+      // Reset session timer on any activity
+      if (isActive && !isSessionPaused) {
+        console.log(`🔵 Activity detected: ${eventType}, resetting session timer`);
+        
+        // Clear existing timer
+        if (sessionTimerRef.current) {
+          clearInterval(sessionTimerRef.current);
+        }
+        
+        // Reset time and restart timer
+        setTimeRemaining(sessionDuration * 60);
+        setShowWarning(false);
+        setShowFinalWarning(false);
+        
+        // Start new timer
+        startSessionTimer();
+      }
+    },
+    [enableActivityDetection, isActive, isSessionPaused, sessionDuration, startSessionTimer]
+  );
+
+  // Activity event handlers
+  const handleMouseMove = useCallback(
+    () => updateActivityStats("mouseMovements"),
+    [updateActivityStats]
+  );
+  const handleKeyDown = useCallback(
+    () => updateActivityStats("keystrokes"),
+    [updateActivityStats]
+  );
+  const handleClick = useCallback(
+    () => updateActivityStats("clicks"),
+    [updateActivityStats]
+  );
+  const handleScroll = useCallback(
+    () => updateActivityStats("scrolls"),
+    [updateActivityStats]
+  );
+
+  // Setup activity listeners
+  useEffect(() => {
+    if (!enableActivityDetection || !isActive) {
+      console.log('🔵 Activity detection disabled or user not active');
+      return;
+    }
+
+    console.log('🔵 Setting up activity listeners');
+
+    const events = [
+      ["mousemove", handleMouseMove],
+      ["keydown", handleKeyDown],
+      ["click", handleClick],
+      ["scroll", handleScroll],
+      ["touchstart", handleClick],
+      ["touchmove", handleMouseMove],
+      ["focus", handleClick],
+      ["visibilitychange", handleClick],
+    ] as const;
+
+    events.forEach(([event, handler]) => {
+      if (event === "visibilitychange") {
+        document.addEventListener(event, handler, { passive: true });
+      } else {
+        document.addEventListener(event, handler, { passive: true });
+        window.addEventListener(event, handler, { passive: true });
+      }
+    });
+
+    // Test initial activity detection
+    console.log('🔵 Activity listeners attached successfully');
+
+    return () => {
+      console.log('🔵 Cleaning up activity listeners');
+      events.forEach(([event, handler]) => {
+        if (event === "visibilitychange") {
+          document.removeEventListener(event, handler);
+        } else {
+          document.removeEventListener(event, handler);
+          window.removeEventListener(event, handler);
+        }
+      });
+    };
+  }, [
+    enableActivityDetection,
+    isActive,
+    handleMouseMove,
+    handleKeyDown,
+    handleClick,
+    handleScroll,
+  ]);
+
+  // Session manager hook
+  const { extendSession, hasRefreshToken } = useSessionManager();
 
   // Session extension handler
   const handleExtendSession = useCallback(async () => {
     setIsProcessing(true);
     showToast("Extending session...", "info");
 
-    // Simulate server request
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    resetSessionTimer();
-    onSessionExtended();
-    setIsProcessing(false);
-    showToast("Session extended successfully!", "success");
-  }, [resetSessionTimer, onSessionExtended, showToast]);
+    try {
+      const success = await extendSession();
+      if (success) {
+        resetSessionTimer();
+        onSessionExtended();
+        showToast("Session extended successfully!", "success");
+      } else {
+        showToast("Failed to extend session. Please login again.", "error");
+        setTimeout(() => {
+          handleAutoLogout();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Session extension error:', error);
+      showToast("Failed to extend session. Please login again.", "error");
+      setTimeout(() => {
+        handleAutoLogout();
+      }, 2000);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [extendSession, resetSessionTimer, onSessionExtended, showToast]);
 
   // Pause/Resume session
   const toggleSessionPause = useCallback(() => {
@@ -278,12 +332,18 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
   // Initialize session timer
   useEffect(() => {
+    console.log('🔵 Session timer effect:', { isActive, isSessionPaused });
+    
     if (isActive && !isSessionPaused) {
+      console.log('🔵 Starting session timer');
       startSessionTimer();
+    } else {
+      console.log('🔵 Session timer not started - conditions not met');
     }
 
     return () => {
       if (sessionTimerRef.current) {
+        console.log('🔵 Cleaning up session timer');
         clearInterval(sessionTimerRef.current);
       }
     };

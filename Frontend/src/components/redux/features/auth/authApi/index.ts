@@ -29,6 +29,7 @@ interface MFASetupVerifyRequest {
 
 interface RefreshTokenResponse {
   access: string;
+  refresh?: string;
 }
 
 interface TokenVerificationResponse {
@@ -85,7 +86,8 @@ export const authApi = apiSlice.injectEndpoints({
           const mfaEnabled = user?.mfa_enabled === true;
           const mfaFullyConfigured = user?.mfa_fully_configured === true;
 
-          if (data.requires_mfa && data.temp_token) {
+          // Only require MFA if explicitly required by server AND user has MFA enabled
+          if (data.requires_mfa && data.temp_token && mfaEnabled) {
             dispatch(setAuthToken({ token: data.temp_token }));
             dispatch(
               setMFARequired({
@@ -281,6 +283,7 @@ export const authApi = apiSlice.injectEndpoints({
           dispatch(
             setAuthToken({
               token: data.access,
+              refreshToken: data.refresh,
             })
           );
         } catch (error) {

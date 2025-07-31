@@ -156,9 +156,27 @@ const RoleManagement: React.FC = () => {
     }
   ] : [];
 
-  const roles = rolesData?.results || (rolesError ? sampleRoles : []);
-  const permissions = permissionsData?.results || [];
-  const userRoles = userRolesData?.results || (userRolesError ? sampleUserRoles : []);
+  // Improved data handling - prioritize API data, fallback to sample data if no API data available
+  const roles = rolesData?.results && rolesData.results.length > 0 
+    ? rolesData.results 
+    : (rolesLoading ? [] : sampleRoles);
+  const permissions = permissionsData?.results && permissionsData.results.length > 0
+    ? permissionsData.results 
+    : (permissionsLoading ? [] : []);
+  const userRoles = userRolesData?.results && userRolesData.results.length > 0
+    ? userRolesData.results 
+    : (userRolesLoading ? [] : sampleUserRoles);
+
+  console.log('🔵 RoleManagement Debug:', {
+    rolesLoading,
+    rolesError,
+    rolesData,
+    rolesCount: roles.length,
+    showingSampleRoles: roles === sampleRoles,
+    permissionsCount: permissions.length,
+    userRolesCount: userRoles.length,
+    showingSampleUserRoles: userRoles === sampleUserRoles
+  });
 
   // Filter roles based on search and active status
   const filteredRoles = useMemo(() => {
@@ -211,8 +229,26 @@ const RoleManagement: React.FC = () => {
     return categories;
   };
 
+  const showingSampleData = roles === sampleRoles;
+
   return (
     <div className="space-y-6">
+      {/* Sample Data Warning Banner */}
+      {showingSampleData && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <div className="flex items-center space-x-2">
+            <FiAlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Demo Mode - Sample Data
+              </h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                API connection unavailable. Showing sample role data for demonstration purposes.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

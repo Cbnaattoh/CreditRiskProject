@@ -134,12 +134,23 @@ export const rbacApi = apiSlice.injectEndpoints({
         page_size?: number;
       }
     >({
-      query: (params) => ({
-        url: "auth/rbac/users/",
-        params: Object.fromEntries(
+      query: (params) => {
+        const filteredParams = Object.fromEntries(
           Object.entries(params).filter(([_, value]) => value !== undefined)
-        ),
-      }),
+        );
+        console.log('🔵 getAdminUsersList API call:', {
+          url: "auth/rbac/users/",
+          params: filteredParams
+        });
+        return {
+          url: "auth/rbac/users/",
+          params: filteredParams,
+        };
+      },
+      transformErrorResponse: (response, meta, arg) => {
+        console.error('🔴 getAdminUsersList API error:', response);
+        return response;
+      },
       providesTags: ["User"],
     }),
 
@@ -151,7 +162,7 @@ export const rbacApi = apiSlice.injectEndpoints({
 
     // Get filter options for admin users
     getUsersFilters: builder.query<UsersFiltersResponse, void>({
-      query: () => "users/admin/users/filters/",
+      query: () => "auth/rbac/users/filters/",
       providesTags: ["Auth"],
     }),
 
@@ -192,7 +203,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       }
     >({
       query: (body) => ({
-        url: "users/admin/bulk-actions/",
+        url: "auth/rbac/users/bulk-actions/",
         method: "POST",
         body,
       }),
@@ -234,13 +245,27 @@ export const rbacApi = apiSlice.injectEndpoints({
 
     // Get all roles
     getRoles: builder.query<any, void>({
-      query: () => "auth/rbac/roles/",
+      query: () => {
+        console.log('🔵 getRoles API call');
+        return "auth/rbac/roles/";
+      },
+      transformErrorResponse: (response, meta, arg) => {
+        console.error('🔴 getRoles API error:', response);
+        return response;
+      },
       providesTags: ["Auth"],
     }),
 
     // Get all permissions
     getPermissions: builder.query<any, void>({
-      query: () => "auth/rbac/permissions/",
+      query: () => {
+        console.log('🔵 getPermissions API call');
+        return "auth/rbac/permissions/";
+      },
+      transformErrorResponse: (response, meta, arg) => {
+        console.error('🔴 getPermissions API error:', response);
+        return response;
+      },
       providesTags: ["Auth"],
     }),
 
@@ -259,7 +284,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       { userId: number; action: "activate" | "deactivate" }
     >({
       query: ({ userId, action }) => ({
-        url: `users/admin/account-status/${userId}/`,
+        url: `auth/rbac/users/${userId}/status/`,
         method: "POST",
         body: { action },
       }),
@@ -272,7 +297,7 @@ export const rbacApi = apiSlice.injectEndpoints({
     // Admin password reset
     adminResetPassword: builder.mutation<any, { userId: number }>({
       query: ({ userId }) => ({
-        url: `users/admin/password-reset/${userId}/`,
+        url: `auth/rbac/users/${userId}/reset-password/`,
         method: "POST",
       }),
       invalidatesTags: (result, error, { userId }) => [

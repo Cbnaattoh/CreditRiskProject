@@ -117,8 +117,19 @@ const Login: React.FC = () => {
         let setupResult;
         try {
           setupResult = await setupMFA({ enable: true }).unwrap();
+          console.log('🔵 MFA Setup API Response:', setupResult);
         } catch (apiError) {
           console.error("❌ MFA Setup API call failed:", apiError);
+          
+          // Provide more specific error messages
+          if (apiError?.status === 401) {
+            throw new Error("Authentication expired. Please log in again.");
+          } else if (apiError?.status === 403) {
+            throw new Error("You don't have permission to setup MFA.");
+          } else if (apiError?.data?.detail) {
+            throw new Error(apiError.data.detail);
+          }
+          
           throw apiError;
         }
 
@@ -199,23 +210,8 @@ const Login: React.FC = () => {
 
         success("Login successful!");
 
-        // Handle MFA setup requirement
-        if (result.requires_mfa_setup || (mfaEnabled && !mfaFullyConfigured)) {
-          setTimeout(async () => {
-            const freshAuthState = store.getState().auth;
-
-            if (!freshAuthState?.isAuthenticated || !freshAuthState?.token) {
-              error("Authentication state error. Please try logging in again.");
-              return;
-            }
-
-            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
-          }, 100);
-          return;
-        }
-
-        // Handle MFA verification requirement
-        if (result.requires_mfa && mfaFullyConfigured) {
+        // Handle MFA verification requirement (only if MFA is enabled, configured, and explicitly required)
+        if (result.requires_mfa && result.temp_token && mfaEnabled && mfaFullyConfigured) {
           setFormStep(2);
           setMfaStep("verify");
           setTimeout(() => {
@@ -224,7 +220,34 @@ const Login: React.FC = () => {
           return;
         }
 
-        // Redirect to dashboard
+        // Handle MFA setup requirement (only if MFA is enabled but not fully configured)
+        if ((result.requires_mfa_setup || (mfaEnabled && !mfaFullyConfigured)) && result.access) {
+          console.log('🔵 Login: MFA Setup Required', { mfaEnabled, mfaFullyConfigured });
+          setTimeout(async () => {
+            const freshAuthState = store.getState().auth;
+
+            if (!freshAuthState?.isAuthenticated || !freshAuthState?.token) {
+              console.error('🔴 Login: Auth state error during MFA setup');
+              error("Authentication state error. Please try logging in again.");
+              return;
+            }
+
+            console.log('🔵 Login: Starting MFA setup process');
+            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
+          }, 100);
+          return;
+        }
+
+        // For users without MFA or with successful authentication, redirect to dashboard
+        if (result.access) {
+          setTimeout(() => {
+            info("Login successful! Redirecting to dashboard...");
+          }, 500);
+          setTimeout(() => navigate("/home"), 1500);
+          return;
+        }
+
+        // Fallback redirect for any other successful authentication
         setTimeout(() => {
           info("Redirecting to dashboard...");
         }, 500);

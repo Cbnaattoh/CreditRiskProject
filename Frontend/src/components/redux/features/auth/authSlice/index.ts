@@ -40,21 +40,33 @@ const isTokenExpired = (token: string | null): boolean => {
 const validateAndCleanupToken = (): {
   token: string | null;
   refreshToken: string | null;
+  user: any | null;
 } => {
-  if (typeof window === "undefined") return { token: null, refreshToken: null };
+  if (typeof window === "undefined") return { token: null, refreshToken: null, user: null };
 
   const token = localStorage.getItem("authToken");
   const refreshToken = localStorage.getItem("refreshToken");
+  const userDataString = localStorage.getItem("authUser");
+  
+  let user = null;
+  if (userDataString) {
+    try {
+      user = JSON.parse(userDataString);
+    } catch {
+      localStorage.removeItem("authUser");
+    }
+  }
 
   if (token && isTokenExpired(token)) {
     localStorage.removeItem("authToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("authState");
+    localStorage.removeItem("authUser");
     clearUserState();
-    return { token: null, refreshToken: null };
+    return { token: null, refreshToken: null, user: null };
   }
 
-  return { token, refreshToken };
+  return { token, refreshToken, user };
 };
 
 const safeParseLocalStorage = (key: string, fallback: any[] = []): any[] => {
@@ -70,7 +82,19 @@ const safeParseLocalStorage = (key: string, fallback: any[] = []): any[] => {
   }
 };
 
-const { token: initialToken, refreshToken: initialRefreshToken } =
+// Helper to get persisted permission summary
+const getPersistedPermissionSummary = (): PermissionSummary | null => {
+  if (typeof window === "undefined") return null;
+  
+  try {
+    const item = localStorage.getItem("user_permission_summary");
+    return item ? JSON.parse(item) : null;
+  } catch {
+    return null;
+  }
+};
+
+const { token: initialToken, refreshToken: initialRefreshToken, user: initialUser } =
   validateAndCleanupToken();
 
 const EMPTY_PERMISSIONS: string[] = [];
@@ -78,7 +102,7 @@ const EMPTY_ROLES: string[] = [];
 const EMPTY_MFA_METHODS: string[] = [];
 
 const initialState: AuthState = {
-  user: null,
+  user: initialUser,
   token: initialToken,
   refreshToken: initialRefreshToken,
   isAuthenticated: !!initialToken && !isTokenExpired(initialToken),
@@ -90,7 +114,7 @@ const initialState: AuthState = {
   tokenExpired: false,
   permissions: safeParseLocalStorage("user_permissions", EMPTY_PERMISSIONS),
   roles: safeParseLocalStorage("user_roles", EMPTY_ROLES),
-  permissionSummary: null,
+  permissionSummary: getPersistedPermissionSummary(),
 };
 
 const authSlice = createSlice({
@@ -105,6 +129,8 @@ const authSlice = createSlice({
         permissionSummary?: PermissionSummary;
       }>
     ) => {
+      console.log('🔵 Updating permissions:', action.payload);
+      
       state.permissions = Array.isArray(action.payload.permissions) 
         ? action.payload.permissions 
         : EMPTY_PERMISSIONS;
@@ -113,12 +139,27 @@ const authSlice = createSlice({
         : EMPTY_ROLES;
       state.permissionSummary = action.payload.permissionSummary || null;
 
+      // Persist to localStorage for page refresh survival
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "user_permissions",
           JSON.stringify(state.permissions)
         );
         localStorage.setItem("user_roles", JSON.stringify(state.roles));
+        if (state.permissionSummary) {
+          localStorage.setItem(
+            "user_permission_summary",
+            JSON.stringify(state.permissionSummary)
+          );
+        } else {
+          localStorage.removeItem("user_permission_summary");
+        }
+        
+        console.log('🔵 Persisted permissions to localStorage:', {
+          permissions: state.permissions.length,
+          roles: state.roles.length,
+          summary: !!state.permissionSummary
+        });
       }
     },
 
@@ -148,6 +189,7 @@ const authSlice = createSlice({
 
       if (typeof window !== "undefined") {
         localStorage.setItem("authToken", token);
+        localStorage.setItem("authUser", JSON.stringify(user));
         if (refreshToken) {
           localStorage.setItem("refreshToken", refreshToken);
         }
@@ -156,6 +198,8 @@ const authSlice = createSlice({
       // Handle RBAC data from user object
       if ("permissions" in action.payload.user) {
         const rbacUser = action.payload.user as any;
+        console.log('🔵 Processing RBAC data from user:', rbacUser);
+        
         state.permissions = Array.isArray(rbacUser.permissions) 
           ? rbacUser.permissions 
           : EMPTY_PERMISSIONS;
@@ -164,12 +208,25 @@ const authSlice = createSlice({
           : EMPTY_ROLES;
         state.permissionSummary = rbacUser.permission_summary || null;
         
+        // Persist RBAC data
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "user_permissions",
             JSON.stringify(state.permissions)
           );
           localStorage.setItem("user_roles", JSON.stringify(state.roles));
+          if (state.permissionSummary) {
+            localStorage.setItem(
+              "user_permission_summary",
+              JSON.stringify(state.permissionSummary)
+            );
+          }
+          
+          console.log('🔵 Persisted RBAC data from setCredentials:', {
+            permissions: state.permissions.length,
+            roles: state.roles.length,
+            summary: !!state.permissionSummary
+          });
         }
       }
     },
@@ -238,6 +295,9 @@ const authSlice = createSlice({
 
     setUser: (state, action: PayloadAction<AuthUser>) => {
       state.user = action.payload;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("authUser", JSON.stringify(action.payload));
+      }
     },
 
     clearMFAState: (state) => {
@@ -271,9 +331,12 @@ const authSlice = createSlice({
         localStorage.removeItem("authToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("authState");
+        localStorage.removeItem("authUser");
         localStorage.removeItem("user_permissions");
         localStorage.removeItem("user_roles");
+        localStorage.removeItem("user_permission_summary");
         clearUserState();
+        console.log('🔵 Logout: Cleared all auth and RBAC data from localStorage');
       }
     },
 
@@ -298,8 +361,10 @@ const authSlice = createSlice({
         localStorage.removeItem("authToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("authState");
+        localStorage.removeItem("authUser");
         localStorage.removeItem("user_permissions");
         localStorage.removeItem("user_roles");
+        localStorage.removeItem("user_permission_summary");
         clearUserState();
       }
     },
@@ -342,8 +407,10 @@ const authSlice = createSlice({
         localStorage.removeItem("authToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("authState");
+        localStorage.removeItem("authUser");
         localStorage.removeItem("user_permissions");
         localStorage.removeItem("user_roles");
+        localStorage.removeItem("user_permission_summary");
         clearUserState();
       }
     },

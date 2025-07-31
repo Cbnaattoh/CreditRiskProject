@@ -108,27 +108,30 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   // Admin-only navigation items
   const adminNavItems: NavItem[] = useMemo(() => [
     {
-      path: "/home/admin/users",
+      path: "/admin-panel",
       icon: <FiUsers />,
       label: "User Management",
       description: "Manage Users & Roles",
-      permissions: ["user_view_all"],
+      permissions: ["user_view_all", "user_manage"],
+      requireAll: false,
       featureFlag: "user_management",
     },
     {
-      path: "/home/admin/roles",
+      path: "/admin-panel?tab=roles",
       icon: <FiShield />,
-      label: "Role Management",
+      label: "Role Management", 
       description: "Configure Permissions",
-      permissions: ["role_view"],
+      permissions: ["role_view", "role_manage"],
+      requireAll: false,
       featureFlag: "role_management",
     },
     {
-      path: "/home/admin/audit-logs",
+      path: "/admin-panel?tab=logs",
       icon: <FiEye />,
       label: "Audit Logs",
       description: "System Activity",
-      permissions: ["view_audit_logs"],
+      permissions: ["audit_view", "security_logs_view"],
+      requireAll: false,
       featureFlag: "audit_logs",
     },
   ], []);
@@ -446,12 +449,12 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
                 </p>
                 <div className="flex items-center space-x-2">
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user.user_type}
+                    {typeof user.user_type === 'string' ? user.user_type : user.user_type_display || 'USER'}
                   </p>
                   {roles.length > 0 && (
                     <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-                      • {roles.slice(0, 2).join(", ")}
-                      {roles.length > 2 && ` +${roles.length - 2}`}
+                      • {roles.filter(role => typeof role === 'string').slice(0, 2).join(", ")}
+                      {roles.filter(role => typeof role === 'string').length > 2 && ` +${roles.filter(role => typeof role === 'string').length - 2}`}
                     </span>
                   )}
                 </div>

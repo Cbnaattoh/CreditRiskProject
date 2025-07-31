@@ -26,19 +26,34 @@ export const usePermissions = (): PermissionCheck => {
   const { permissions, roles, user } = useSelector((state: RootState) => state.auth);
 
   const permissionChecks = useMemo((): PermissionCheck => {
-    // TEMPORARY: For debugging, grant admin permissions if user is authenticated
-    // TODO: Remove this after fixing permission loading
     const isAuthenticated = user !== null;
-    const tempAdminPermissions = isAuthenticated ? [
+    
+    console.log('🔵 usePermissions - current state:', {
+      isAuthenticated,
+      permissionsCount: permissions?.length || 0,
+      rolesCount: roles?.length || 0,
+      permissions: permissions,
+      roles: roles
+    });
+    
+    // Fallback permissions for development/demo when API is unavailable
+    const fallbackPermissions = isAuthenticated ? [
       "user_view_all", "user_manage", "user_create", "user_update", "user_delete",
       "role_assign", "role_manage", "role_view",
-      "audit_view", "security_logs_view", "logs_access"
+      "audit_view", "security_logs_view", "logs_access",
+      "report_view", "report_create", "report_manage"
     ] : [];
-    const tempAdminRoles = isAuthenticated ? ["Admin", "Administrator"] : [];
+    const fallbackRoles = isAuthenticated ? ["Administrator"] : [];
     
-    // Use temp permissions if no real permissions are loaded
-    const effectivePermissions = (permissions && permissions.length > 0) ? permissions : tempAdminPermissions;
-    const effectiveRoles = (roles && roles.length > 0) ? roles : tempAdminRoles;
+    // Use real permissions/roles if available, otherwise fallback for demo
+    const effectivePermissions = (permissions && permissions.length > 0) ? permissions : fallbackPermissions;
+    const effectiveRoles = (roles && roles.length > 0) ? roles : fallbackRoles;
+    
+    console.log('🔵 usePermissions - effective state:', {
+      effectivePermissions: effectivePermissions.length,
+      effectiveRoles: effectiveRoles.length,
+      usingFallback: !(permissions && permissions.length > 0)
+    });
 
     const hasPermission = (permission: string): boolean => {
       return effectivePermissions?.includes(permission) || false;

@@ -181,144 +181,148 @@ export const RiskDistributionChart: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Interactive Legend */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-        {riskData.map((item, index) => (
-          <div
-            key={index}
-            className={`
-              relative p-4 rounded-xl cursor-pointer transition-all duration-300 transform
-              ${
-                activeIndex === index || hoveredLegend === index
-                  ? "scale-105 shadow-lg ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900"
-                  : "hover:scale-102 hover:shadow-md"
-              }
-              bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50
-              hover:bg-white/90 dark:hover:bg-gray-800/90
-            `}
-            style={{
-              ringColor:
-                activeIndex === index || hoveredLegend === index
-                  ? item.color
-                  : "transparent",
-            }}
-            onMouseEnter={() => setHoveredLegend(index)}
-            onMouseLeave={() => setHoveredLegend(null)}
-            onClick={() => setActiveIndex(activeIndex === index ? null : index)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <div
-                  className="w-4 h-4 rounded-full mr-3 ring-2 ring-white/50 dark:ring-gray-800/50"
-                  style={{ backgroundColor: item.color }}
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Enhanced Pie Chart */}
+      <div className="flex-1">
+        <ResponsiveContainer width="100%" height={320}>
+          <PieChart>
+            <defs>
+              {riskData.map((item, index) => (
+                <React.Fragment key={index}>
+                  <linearGradient
+                    id={`gradient-${index}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
+                    <stop
+                      offset="100%"
+                      stopColor={item.color}
+                      stopOpacity={0.6}
+                    />
+                  </linearGradient>
+                  <filter id={`glow-${index}`}>
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </React.Fragment>
+              ))}
+            </defs>
+            <Pie
+              data={riskData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={renderCustomizedLabel}
+              outerRadius={100}
+              innerRadius={60}
+              paddingAngle={3}
+              dataKey="value"
+              onMouseEnter={onPieEnter}
+              onMouseLeave={onPieLeave}
+              stroke="rgba(255,255,255,0.3)"
+              strokeWidth={2}
+            >
+              {riskData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={`url(#gradient-${index})`}
+                  filter={activeIndex === index ? `url(#glow-${index})` : ""}
+                  className={`
+                    transition-all duration-300 cursor-pointer
+                    ${
+                      activeIndex === index
+                        ? "drop-shadow-lg"
+                        : "hover:opacity-80"
+                    }
+                  `}
+                  style={{
+                    transform: activeIndex === index ? "scale(1.05)" : "scale(1)",
+                    transformOrigin: "center",
+                  }}
                 />
-                <span className="text-sm font-bold text-gray-900 dark:text-white">
-                  {item.name}
-                </span>
-              </div>
-              <span className="text-lg">{item.icon}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-600 dark:text-gray-400">
-                {item.description}
-              </span>
-              <span className="text-lg font-bold text-gray-900 dark:text-white">
-                {item.value}%
-              </span>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div
-                className="h-2 rounded-full transition-all duration-500"
-                style={{
-                  backgroundColor: item.color,
-                  width: `${
-                    (item.value / Math.max(...riskData.map((d) => d.value))) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
-      {/* Enhanced Pie Chart */}
-      <ResponsiveContainer width="100%" height={400}>
-        <PieChart>
-          <defs>
-            {riskData.map((item, index) => (
-              <React.Fragment key={index}>
-                <linearGradient
-                  id={`gradient-${index}`}
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
-                  <stop
-                    offset="100%"
-                    stopColor={item.color}
-                    stopOpacity={0.6}
+      {/* Compact Interactive Legend */}
+      <div className="flex-1 min-w-0">
+        <div className="space-y-3">
+          {riskData.map((item, index) => (
+            <div
+              key={index}
+              className={`
+                relative p-3 rounded-lg cursor-pointer transition-all duration-300 transform
+                ${
+                  activeIndex === index || hoveredLegend === index
+                    ? "scale-102 shadow-md ring-2 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
+                    : "hover:scale-101 hover:shadow-sm"
+                }
+                bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50
+                hover:bg-white/90 dark:hover:bg-gray-800/90
+              `}
+              style={{
+                ringColor:
+                  activeIndex === index || hoveredLegend === index
+                    ? item.color
+                    : "transparent",
+              }}
+              onMouseEnter={() => setHoveredLegend(index)}
+              onMouseLeave={() => setHoveredLegend(null)}
+              onClick={() => setActiveIndex(activeIndex === index ? null : index)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <div
+                    className="w-3 h-3 rounded-full mr-2 ring-2 ring-white/50 dark:ring-gray-800/50"
+                    style={{ backgroundColor: item.color }}
                   />
-                </linearGradient>
-                <filter id={`glow-${index}`}>
-                  <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </React.Fragment>
-            ))}
-          </defs>
-          <Pie
-            data={riskData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={renderCustomizedLabel}
-            outerRadius={120}
-            innerRadius={70}
-            paddingAngle={3}
-            dataKey="value"
-            onMouseEnter={onPieEnter}
-            onMouseLeave={onPieLeave}
-            stroke="rgba(255,255,255,0.3)"
-            strokeWidth={2}
-          >
-            {riskData.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={`url(#gradient-${index})`}
-                filter={activeIndex === index ? `url(#glow-${index})` : ""}
-                className={`
-                  transition-all duration-300 cursor-pointer
-                  ${
-                    activeIndex === index
-                      ? "drop-shadow-lg"
-                      : "hover:opacity-80"
-                  }
-                `}
-                style={{
-                  transform: activeIndex === index ? "scale(1.05)" : "scale(1)",
-                  transformOrigin: "center",
-                }}
-              />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
-      </ResponsiveContainer>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {item.name}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">{item.icon}</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {item.value}%
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                {item.description}
+              </div>
+
+              {/* Compact Progress bar */}
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                <div
+                  className="h-1.5 rounded-full transition-all duration-500"
+                  style={{
+                    backgroundColor: item.color,
+                    width: `${
+                      (item.value / Math.max(...riskData.map((d) => d.value))) *
+                      100
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
 export const ApplicationTrendChart: React.FC = () => (
-  <ResponsiveContainer width="100%" height={350}>
+  <ResponsiveContainer width="100%" height={320}>
     <AreaChart
       data={trendData}
       margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
@@ -396,7 +400,7 @@ export const ApplicationTrendChart: React.FC = () => (
 );
 
 export const RiskFactorsRadar: React.FC = () => (
-  <ResponsiveContainer width="100%" height={350}>
+  <ResponsiveContainer width="100%" height={320}>
     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
       <defs>
         <linearGradient id="radarGradient" x1="0" y1="0" x2="1" y2="1">
@@ -450,7 +454,7 @@ export const ApprovalRateChart: React.FC = () => {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
+    <ResponsiveContainer width="100%" height={320}>
       <LineChart
         data={approvalRateData}
         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}

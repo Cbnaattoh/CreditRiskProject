@@ -11,6 +11,8 @@ import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import { usePermissions, useHasPermission, useHasAnyPermission } from "../../components/utils/hooks/useRBAC";
+import { useSelector } from "react-redux";
+import { selectCurrentUser } from "../../components/redux/features/auth/authSlice";
 import { RBACStatsCard } from "./components/RBACStatsCard";
 import { UserActivityWidget } from "./components/UserActivityWidget";
 import { RoleDistributionChart } from "./components/RoleDistributionChart";
@@ -19,6 +21,13 @@ import { PermissionUsageChart } from "./components/PermissionUsageChart";
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const { isAdmin, roles, permissions } = usePermissions();
+  const user = useSelector(selectCurrentUser);
+
+  // Permission checks - must be declared before being used
+  const canViewRisk = useHasAnyPermission(['risk_view', 'risk_edit']);
+  const canViewUsers = useHasAnyPermission(['user_view_all', 'user_manage', 'role_view']) || isAdmin;
+  const canViewReports = useHasAnyPermission(['report_view', 'report_create']);
+  const canViewCompliance = useHasPermission('compliance_view');
   
   // RBAC data fetching
   const { 
@@ -31,16 +40,42 @@ const Dashboard: React.FC = () => {
   
   const { 
     data: usersData, 
-    isLoading: usersLoading 
+    isLoading: usersLoading,
+    error: usersError 
   } = useGetAdminUsersListQuery(
-    { page: 1, page_size: 5 },
-    { skip: !useHasPermission('user_view_all') }
+    { page: 1, page_size: 5, sort_by: 'last_login' },
+    { skip: !canViewUsers }
   );
-  
-  const canViewRisk = useHasAnyPermission(['risk_view', 'risk_edit']);
-  const canViewUsers = useHasPermission('user_view_all');
-  const canViewReports = useHasAnyPermission(['report_view', 'report_create']);
-  const canViewCompliance = useHasPermission('compliance_view');
+
+  // Create basic user activity data for non-admin users
+  const basicUserActivity = canViewUsers ? [] : [
+    {
+      id: 1,
+      email: user?.email || "current.user@example.com",
+      full_name: user?.full_name || user?.name || "Current User",
+      last_login: new Date().toISOString(),
+      active_roles: [{ 
+        name: typeof user?.user_type === 'string' 
+          ? user.user_type 
+          : (user?.user_type?.name || user?.user_type_display || "User"), 
+        assigned_at: new Date().toISOString() 
+      }],
+      is_active: true,
+      mfa_enabled: user?.mfa_enabled || false,
+    }
+  ];
+
+  // Debug logging
+  console.log('🔵 Dashboard Debug:', {
+    canViewUsers,
+    isAdmin,
+    permissions,
+    roles,
+    usersData: usersData?.results?.length || 0,
+    usersLoading,
+    usersError,
+    user: user?.email
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -229,7 +264,7 @@ const Dashboard: React.FC = () => {
 
         {/* RBAC Charts - Admin Only */}
         <AdminOnly>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -260,7 +295,7 @@ const Dashboard: React.FC = () => {
 
         {/* Regular Charts - For non-admin users */}
         <StaffOnly fallback={
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -282,7 +317,7 @@ const Dashboard: React.FC = () => {
           </div>
         }>
           {!isAdmin && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -308,7 +343,7 @@ const Dashboard: React.FC = () => {
 
         {/* Secondary Charts - Role-based content */}
         <ProtectedComponent permissions={['risk_view', 'report_view']} requireAll={false}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -332,7 +367,7 @@ const Dashboard: React.FC = () => {
         </ProtectedComponent>
 
         {/* Alerts and Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* User Activity Widget - Admin Only */}
           <AdminOnly>
             <motion.div
@@ -342,8 +377,9 @@ const Dashboard: React.FC = () => {
               className="lg:col-span-2"
             >
               <UserActivityWidget 
-                users={usersData?.results || []} 
-                isLoading={usersLoading}
+                users={canViewUsers ? (usersData?.results || []) : basicUserActivity} 
+                isLoading={canViewUsers ? usersLoading : false}
+                error={canViewUsers ? usersError : null}
                 onViewAll={() => window.location.href = '/admin-panel'}
               />
             </motion.div>
@@ -358,49 +394,12 @@ const Dashboard: React.FC = () => {
                 transition={{ delay: 0.8 }}
                 className="lg:col-span-2"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 p-6 transition-colors duration-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {canViewRisk ? 'Recent Risk Assessments' : 'My Recent Activity'}
-                    </h3>
-                    <button className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
-                      View all
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((item) => (
-                      <div
-                        key={item}
-                        className="border-b border-gray-100 dark:border-gray-700 pb-4 last:border-0"
-                      >
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                            {canViewRisk ? (
-                              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                              </svg>
-                            ) : (
-                              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {canViewRisk ? `Risk assessment completed` : `Application submitted`}
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {canViewRisk ? `Assessment ID: RSK-00${item}245` : `Application ID: APP-00${item}245`}
-                            </p>
-                          </div>
-                          <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-                            2{item} mins ago
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <UserActivityWidget 
+                  users={basicUserActivity} 
+                  isLoading={false}
+                  error={null}
+                  onViewAll={() => window.location.href = '/home/settings'}
+                />
               </motion.div>
             )}
           </ProtectedComponent>
@@ -411,7 +410,7 @@ const Dashboard: React.FC = () => {
             transition={{ delay: 0.9 }}
           >
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 p-6 transition-colors duration-200">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {isAdmin ? 'System Alerts' : canViewRisk ? 'Risk Alerts' : 'My Alerts'}
                 </h3>
@@ -419,7 +418,7 @@ const Dashboard: React.FC = () => {
                   View all
                 </button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {isAdmin ? (
                   <>
                     <AlertCard

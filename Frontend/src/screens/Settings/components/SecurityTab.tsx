@@ -1,143 +1,316 @@
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { 
-  FiBell,
+import {
   FiShield,
-  FiCheck,
+  FiLock,
+  FiBell,
+  FiSmartphone,
+  FiEye,
+  FiActivity,
+  FiAlertTriangle,
+  FiCheckCircle,
 } from "react-icons/fi";
-import {RiShieldKeyholeLine} from "react-icons/ri"
-import { FaFingerprint } from "react-icons/fa";
-import { SettingCard } from "./SettingCard";
-import { ToggleSwitch } from "./ToggleSwitch";
+import { useSelector } from "react-redux";
+import { selectCurrentUser } from "../../../components/redux/features/auth/authSlice";
 
-export const SecurityTab = () => {
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
+interface SecurityItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  status: 'enabled' | 'disabled' | 'warning';
+  action?: string;
+}
 
-  const securityFeatures = [
+export const SecurityTab: React.FC = () => {
+  const user = useSelector(selectCurrentUser);
+  const [settings, setSettings] = useState({
+    mfaEnabled: user?.mfa_enabled || false,
+    loginNotifications: true,
+    securityAlerts: true,
+    sessionTimeout: true,
+  });
+
+  const handleToggle = (key: string) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const securityItems: SecurityItem[] = [
     {
-      icon: <RiShieldKeyholeLine className="text-blue-600 dark:text-blue-400" size={24} />,
-      title: "Two-Factor Authentication",
-      description: "Add an extra layer of security to your account",
-      enabled: twoFactorEnabled,
-      toggle: () => setTwoFactorEnabled(!twoFactorEnabled),
-      color: "from-blue-600 to-teal-600",
+      id: 'mfa',
+      title: 'Multi-Factor Authentication',
+      description: 'Add an extra layer of security with MFA',
+      icon: <FiShield className="h-5 w-5" />,
+      status: settings.mfaEnabled ? 'enabled' : 'warning',
+      action: settings.mfaEnabled ? 'Manage' : 'Enable'
     },
     {
-      icon: <FiBell className="text-amber-600 dark:text-amber-400" size={24} />,
-      title: "Login Notifications",
-      description: "Get alerts for new sign-ins to your account",
-      enabled: notificationsEnabled,
-      toggle: () => setNotificationsEnabled(!notificationsEnabled),
-      color: "from-amber-600 to-orange-600",
+      id: 'notifications',
+      title: 'Login Notifications',
+      description: 'Get notified of new sign-ins to your account',
+      icon: <FiBell className="h-5 w-5" />,
+      status: settings.loginNotifications ? 'enabled' : 'disabled',
     },
     {
-      icon: <FaFingerprint className="text-purple-600 dark:text-purple-400" size={24} />,
-      title: "Biometric Authentication",
-      description: "Enable fingerprint or face recognition",
-      enabled: biometricEnabled,
-      toggle: () => setBiometricEnabled(!biometricEnabled),
-      color: "from-purple-600 to-indigo-600",
+      id: 'alerts',
+      title: 'Security Alerts',
+      description: 'Receive alerts about suspicious activities',
+      icon: <FiAlertTriangle className="h-5 w-5" />,
+      status: settings.securityAlerts ? 'enabled' : 'disabled',
+    },
+    {
+      id: 'sessions',
+      title: 'Session Management',
+      description: 'Automatic logout after inactivity',
+      icon: <FiActivity className="h-5 w-5" />,
+      status: settings.sessionTimeout ? 'enabled' : 'disabled',
+    },
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'enabled':
+        return 'text-green-600 dark:text-green-400';
+      case 'warning':
+        return 'text-amber-600 dark:text-amber-400';
+      case 'disabled':
+        return 'text-gray-600 dark:text-gray-400';
+      default:
+        return 'text-gray-600 dark:text-gray-400';
+    }
+  };
+
+  const getStatusBg = (status: string) => {
+    switch (status) {
+      case 'enabled':
+        return 'bg-green-100 dark:bg-green-900/20';
+      case 'warning':
+        return 'bg-amber-100 dark:bg-amber-900/20';
+      case 'disabled':
+        return 'bg-gray-100 dark:bg-gray-800/20';
+      default:
+        return 'bg-gray-100 dark:bg-gray-800/20';
+    }
+  };
+
+  const recentSessions = [
+    {
+      id: 1,
+      device: 'Chrome on Windows',
+      location: 'New York, NY',
+      time: '2 hours ago',
+      current: true,
+    },
+    {
+      id: 2,
+      device: 'Safari on iPhone',
+      location: 'New York, NY',
+      time: '1 day ago',
+      current: false,
+    },
+    {
+      id: 3,
+      device: 'Firefox on MacOS',
+      location: 'Los Angeles, CA',
+      time: '3 days ago',
+      current: false,
     },
   ];
 
   return (
     <motion.div
       key="security"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.4, type: "spring" }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
       className="space-y-6"
     >
-      <motion.h3
-        className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        Security Center
-      </motion.h3>
+      {/* Security Overview Header */}
+      <div className="bg-gradient-to-r from-white/80 via-blue-50/50 to-indigo-50/80 dark:from-gray-800/80 dark:via-gray-800/60 dark:to-gray-900/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/30 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Security Overview
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Manage your account security and privacy settings
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+              Account Secured
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <SettingCard>
-        <div className="space-y-4">
-          {securityFeatures.map((item, index) => (
-            <motion.div
-              key={index}
-              className="flex items-center justify-between p-5 md:p-6 bg-white/80 dark:bg-gray-700/80 rounded-xl border border-white/20 dark:border-gray-600/50"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + index * 0.05 }}
+      {/* Security Settings */}
+      <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/30 dark:border-gray-700/30 overflow-hidden">
+        <div className="p-6">
+          <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Security Settings
+          </h4>
+          <div className="space-y-4">
+            {securityItems.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`p-3 rounded-xl ${getStatusBg(item.status)}`}>
+                    <div className={getStatusColor(item.status)}>
+                      {item.icon}
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-gray-900 dark:text-white">
+                      {item.title}
+                    </h5>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    {item.status === 'enabled' && (
+                      <FiCheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                    {item.status === 'warning' && (
+                      <FiAlertTriangle className="h-4 w-4 text-amber-500" />
+                    )}
+                    <span className={`text-sm font-medium ${getStatusColor(item.status)}`}>
+                      {item.status === 'enabled' ? 'Enabled' : 
+                       item.status === 'warning' ? 'Setup Required' : 'Disabled'}
+                    </span>
+                  </div>
+                  
+                  {item.id === 'mfa' ? (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        settings.mfaEnabled
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                          : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      {item.action}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      onClick={() => {
+                        if (item.id === 'notifications') handleToggle('loginNotifications');
+                        if (item.id === 'alerts') handleToggle('securityAlerts');
+                        if (item.id === 'sessions') handleToggle('sessionTimeout');
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        (item.id === 'notifications' && settings.loginNotifications) ||
+                        (item.id === 'alerts' && settings.securityAlerts) ||
+                        (item.id === 'sessions' && settings.sessionTimeout)
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <motion.span
+                        className="inline-block h-4 w-4 transform rounded-full bg-white shadow-lg"
+                        animate={{
+                          x: (item.id === 'notifications' && settings.loginNotifications) ||
+                             (item.id === 'alerts' && settings.securityAlerts) ||
+                             (item.id === 'sessions' && settings.sessionTimeout) ? 24 : 4
+                        }}
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Sessions */}
+      <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/30 dark:border-gray-700/30 overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Recent Sessions
+            </h4>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
             >
-              <div className="flex items-center space-x-4">
-                <div className="p-3 rounded-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 border border-white/20 dark:border-gray-600/30">
-                  {item.icon}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 dark:text-white">
-                    {item.title}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-              <ToggleSwitch 
-                isOn={item.enabled} 
-                toggle={item.toggle} 
-                color={item.color} 
-              />
-            </motion.div>
-          ))}
-        </div>
-      </SettingCard>
-
-      {/* Session Management */}
-      <SettingCard>
-        <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
-          Session Management
-        </h4>
-        <div className="space-y-4">
-          <motion.div className="flex items-center justify-between p-5 md:p-6 bg-white/80 dark:bg-gray-700/80 rounded-xl border border-white/20 dark:border-gray-600/50">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 rounded-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 border border-white/20 dark:border-gray-600/30">
-                <FiShield className="text-green-600 dark:text-green-400" size={24} />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-800 dark:text-white">
-                  Active Sessions
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Manage your logged-in devices
-                </p>
-              </div>
-            </div>
-            <motion.button className="px-4 py-1.5 rounded-full bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-600 dark:to-gray-700 text-gray-800 dark:text-white text-sm font-medium border border-gray-200 dark:border-gray-600">
-              View Sessions
+              View All
             </motion.button>
-          </motion.div>
+          </div>
 
-          <motion.div className="flex items-center justify-between p-5 md:p-6 bg-white/80 dark:bg-gray-700/80 rounded-xl border border-white/20 dark:border-gray-600/50">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 rounded-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 border border-white/20 dark:border-gray-600/30">
-                <FiCheck className="text-red-600 dark:text-red-400" size={24} />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-800 dark:text-white">
-                  Log Out Everywhere
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Sign out of all devices except this one
-                </p>
-              </div>
-            </div>
-            <motion.button className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-100 to-red-50 dark:from-red-900/30 dark:to-red-800/30 text-red-600 dark:text-red-400 text-sm font-medium border border-red-200 dark:border-red-700/50">
-              Sign Out
-            </motion.button>
-          </motion.div>
+          <div className="space-y-3">
+            {recentSessions.map((session, index) => (
+              <motion.div
+                key={session.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                    <FiSmartphone className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {session.device}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {session.location} • {session.time}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  {session.current && (
+                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">
+                      Current
+                    </span>
+                  )}
+                  {!session.current && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium"
+                    >
+                      Revoke
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </SettingCard>
+      </div>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <motion.button
+          whileHover={{ scale: 1.02, y: -1 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+        >
+          Save Security Settings
+        </motion.button>
+      </div>
     </motion.div>
   );
 };

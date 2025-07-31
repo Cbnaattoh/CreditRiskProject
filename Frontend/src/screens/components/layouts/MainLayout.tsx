@@ -47,6 +47,7 @@ const MainLayout: React.FC = () => {
 
   const handleSessionExtended = () => {
     console.log("Session extended successfully");
+    showToast("Session refreshed and extended", "success");
   };
 
   return (
@@ -90,9 +91,9 @@ const MainLayout: React.FC = () => {
         onLogout={handleLogout}
         onSessionExtended={handleSessionExtended}
         showToast={showToast}
-        sessionDuration={5}
-        warningThreshold={3}
-        gracePeriod={60}
+        sessionDuration={15}
+        warningThreshold={5}
+        gracePeriod={120}
         variant="default"
         enableActivityDetection={true}
         debugMode={false}

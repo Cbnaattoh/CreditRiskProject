@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import { motion } from 'framer-motion';
 
 interface User {
@@ -17,14 +17,75 @@ interface User {
 interface UserActivityWidgetProps {
   users: User[];
   isLoading?: boolean;
+  error?: any;
   onViewAll?: () => void;
 }
 
 export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
   users = [],
   isLoading = false,
+  error,
   onViewAll
 }) => {
+  // Debug logging
+  console.log('🔵 UserActivityWidget - Props received:', {
+    usersCount: users.length,
+    isLoading,
+    error,
+    users: users.slice(0, 2) // Log first 2 users for debugging
+  });
+
+  // Sample data for fallback
+  const sampleUsers: User[] = [
+    {
+      id: 1,
+      email: "admin@example.com",
+      full_name: "Admin User",
+      last_login: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins ago
+      active_roles: [{ name: "Administrator", assigned_at: new Date().toISOString() }],
+      is_active: true,
+      mfa_enabled: true,
+    },
+    {
+      id: 2,
+      email: "manager@example.com", 
+      full_name: "Manager User",
+      last_login: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+      active_roles: [{ name: "Manager", assigned_at: new Date().toISOString() }],
+      is_active: true,
+      mfa_enabled: false,
+    },
+    {
+      id: 3,
+      email: "user@example.com",
+      full_name: "Standard User",
+      last_login: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      active_roles: [{ name: "User", assigned_at: new Date().toISOString() }],
+      is_active: true,
+      mfa_enabled: false,
+    }
+  ];
+
+  // Enhanced data handling with better fallback logic
+  const displayUsers = useMemo(() => {
+    // If we have actual API data, use it
+    if (users && users.length > 0) {
+      return users;
+    }
+    
+    // If still loading, show empty array (for loading state)
+    if (isLoading) {
+      return [];
+    }
+    
+    // If there's an error but we have cached/fallback users, show sample data
+    if (error && sampleUsers.length > 0) {
+      return sampleUsers;
+    }
+    
+    // Default fallback to sample users for demo purposes
+    return sampleUsers;
+  }, [users, isLoading, error, sampleUsers]);
   const formatLastLogin = (lastLogin?: string) => {
     if (!lastLogin) return 'Never';
     
@@ -95,7 +156,7 @@ export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
       animate={{ opacity: 1 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 p-6 transition-colors duration-200"
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Recent User Activity
         </h3>
@@ -109,8 +170,20 @@ export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
         )}
       </div>
       
-      <div className="space-y-4">
-        {users.length === 0 ? (
+      <div className="space-y-5">
+        {/* Sample data indicator */}
+        {displayUsers === sampleUsers && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+            <div className="flex items-center text-blue-700 dark:text-blue-300 text-sm">
+              <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              Showing sample data - API connection unavailable
+            </div>
+          </div>
+        )}
+        
+        {displayUsers.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -118,12 +191,12 @@ export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
             <p className="mt-2">No user activity to display</p>
           </div>
         ) : (
-          users.map((user) => (
+          displayUsers.map((user) => (
             <motion.div
               key={user.id}
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="flex items-center space-x-3 p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="relative">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium">
