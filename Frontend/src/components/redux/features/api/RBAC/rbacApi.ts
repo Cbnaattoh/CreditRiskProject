@@ -135,7 +135,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       }
     >({
       query: (params) => ({
-        url: "users/admin/users/list/",
+        url: "auth/rbac/users/",
         params: Object.fromEntries(
           Object.entries(params).filter(([_, value]) => value !== undefined)
         ),
@@ -145,7 +145,7 @@ export const rbacApi = apiSlice.injectEndpoints({
 
     // Get user detail (admin only)
     getAdminUserDetail: builder.query<any, number>({
-      query: (userId) => `users/admin/users/${userId}/detail/`,
+      query: (userId) => `auth/rbac/users/${userId}/`,
       providesTags: (result, error, userId) => [{ type: "User", id: userId }],
     }),
 
@@ -161,7 +161,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       { userId: number; role_id: number; expires_at?: string }
     >({
       query: ({ userId, ...body }) => ({
-        url: `users/rbac/users/${userId}/assign_role/`,
+        url: `auth/rbac/users/${userId}/assign_role/`,
         method: "POST",
         body,
       }),
@@ -173,7 +173,7 @@ export const rbacApi = apiSlice.injectEndpoints({
 
     removeUserRole: builder.mutation<any, { userId: number; role_id: number }>({
       query: ({ userId, role_id }) => ({
-        url: `users/rbac/users/${userId}/remove_role/`,
+        url: `auth/rbac/users/${userId}/remove_role/`,
         method: "DELETE",
         body: { role_id },
       }),
@@ -209,7 +209,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       }
     >({
       query: (body) => ({
-        url: "auth/rbac/user-roles/bulk_assign/",
+        url: "auth/rbac/users-roles/bulk_assign/",
         method: "POST",
         body,
       }),
@@ -225,7 +225,7 @@ export const rbacApi = apiSlice.injectEndpoints({
       }
     >({
       query: (body) => ({
-        url: "auth/rbac/user-roles/bulk_remove/",
+        url: "auth/rbac/users-roles/bulk_remove/",
         method: "POST",
         body,
       }),
@@ -247,7 +247,7 @@ export const rbacApi = apiSlice.injectEndpoints({
     // Get user roles
     getUserRoles: builder.query<any, { user?: number; role?: number }>({
       query: (params) => ({
-        url: "auth/rbac/user-roles/",
+        url: "auth/rbac/users-roles/",
         params,
       }),
       providesTags: ["User"],

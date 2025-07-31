@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiSearch, FiPlus } from "react-icons/fi";
+import { FiSearch, FiPlus, FiUsers, FiActivity, FiShield } from "react-icons/fi";
 import UserManagementTable from "./components/UserManagementTable";
 import SystemLogsTable from "./components/SystemLogsTable";
+import RoleManagement from "./components/RoleManagement";
+import DebugInfo from "./components/DebugInfo";
+import { usePermissions, PermissionGate } from "../../hooks/usePermissions";
 
 // Types
 interface User {
@@ -132,51 +135,116 @@ const Tabs: React.FC<{ tabs: Tab[]; defaultActiveTab?: number }> = ({
 // Main Component
 const AdminPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const { canManageUsers, canAssignRoles, canViewAuditLogs, isAdmin } = usePermissions();
+
+  // Check if user has any admin permissions
+  const hasAnyAdminAccess = canManageUsers || canAssignRoles || canViewAuditLogs || isAdmin;
+
+  if (!hasAnyAdminAccess) {
+    return (
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center max-w-md">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-400 to-red-600 rounded-full flex items-center justify-center">
+              <FiShield className="h-12 w-12 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Access Restricted
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              You don't have permission to access the admin panel. Contact your administrator if you believe this is an error.
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => window.history.back()}
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              Go Back
+            </motion.button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <div className="flex-1 p-6 overflow-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Admin Panel
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage users, roles, and system settings
+          </p>
+        </div>
+
+        <DebugInfo />
+
         <Tabs
           tabs={[
-            {
+            // User Management Tab
+            ...(canManageUsers ? [{
               label: "User Management",
+              icon: <FiUsers className="h-4 w-4" />,
               content: (
-                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <div className="w-full md:w-1/2">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search by name, email or role..."
-                          className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                <PermissionGate permissions={["user_view_all", "user_manage"]} roles={["Admin", "Super Admin"]}>
+                  <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                      <div className="w-full md:w-1/2">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Search by name, email or role..."
+                            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent text-gray-900 dark:text-white transition-all duration-200 shadow-sm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
+                          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        </div>
                       </div>
+                      <PermissionGate permissions={["user_create"]} roles={["Admin", "Super Admin"]}>
+                        <motion.button
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          className="w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 hover:from-indigo-600 hover:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <FiPlus className="w-5 h-5" />
+                          Add User
+                        </motion.button>
+                      </PermissionGate>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      className="w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 hover:from-indigo-600 hover:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FiPlus className="w-5 h-5" />
-                      Add User
-                    </motion.button>
+                    <UserManagementTable searchQuery={searchQuery} />
                   </div>
-                  <UserManagementTable users={users} />
-                </div>
+                </PermissionGate>
               ),
-            },
-            {
-              label: "System Logs",
+            }] : []),
+
+            // Role Management Tab
+            ...(canAssignRoles ? [{
+              label: "Role Management",
+              icon: <FiShield className="h-4 w-4" />,
               content: (
-                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
-                  <SystemLogsTable logs={logs} />
-                </div>
+                <PermissionGate permissions={["role_manage", "role_assign"]} roles={["Admin", "Super Admin"]}>
+                  <RoleManagement />
+                </PermissionGate>
               ),
-            },
-          ]}
+            }] : []),
+
+            // System Logs Tab
+            ...(canViewAuditLogs ? [{
+              label: "System Logs",
+              icon: <FiActivity className="h-4 w-4" />,
+              content: (
+                <PermissionGate permissions={["audit_view", "security_logs_view"]} roles={["Admin", "Super Admin"]}>
+                  <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-6 transition-all duration-300">
+                    <SystemLogsTable logs={logs} />
+                  </div>
+                </PermissionGate>
+              ),
+            }] : []),
+          ].filter(Boolean)}
           defaultActiveTab={0}
         />
       </div>

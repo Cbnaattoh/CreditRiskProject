@@ -107,7 +107,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           })
         );
 
-        showSuccessToast(result.message || "Account created successfully!");
+        showSuccessToast(result.message || "Account created successfully! Redirecting to dashboard...");
         setTimeout(() => {
           window.location.href = "/home";
         }, 2000);
@@ -116,11 +116,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       if (result?.requiresVerification) {
         showSuccessToast(
           result.message ||
-            "Registration successful! Please check your email to verify your account."
+            "Registration successful! Please check your email to verify your account. Redirecting to login..."
         );
         setTimeout(() => {
           setActiveTab("login");
-        }, 1500);
+        }, 2500);
         return;
       }
 
@@ -128,6 +128,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         showErrorToast("Registration failed. Please check your inputs.");
         return;
       }
+
+      // Fallback for other successful registration cases
+      showSuccessToast(
+        result.message || "Registration successful! Please log in to continue."
+      );
+      setTimeout(() => {
+        setActiveTab("login");
+      }, 2000);
     } catch (err: any) {
       console.error("Registration error:", err);
 

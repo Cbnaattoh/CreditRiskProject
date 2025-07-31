@@ -253,7 +253,7 @@ const redirectToLogin = () => {
 
 export const apiSlice = createApi({
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Auth", "User", "MFA"],
+  tagTypes: ["Auth", "User", "MFA", "Report", "ReportTemplate", "ReportSchedule", "ReportKPI", "Analytics"],
   endpoints: () => ({}),
   keepUnusedDataFor: 30,
   refetchOnMountOrArgChange: true,

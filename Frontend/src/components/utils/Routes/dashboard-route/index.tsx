@@ -7,6 +7,7 @@ import ApplicationExplainability from "../../../../screens/Explainability";
 import AdminPanel from "../../../../screens/Admin-Panel";
 import AccountSettings from "../../../../screens/Settings";
 import Customers from "../../../../screens/Applicants";
+import Reports from "../../../../screens/Reports";
 import ProtectedRoute from "../../ProtectedRoute";
 
 const dashboardRoutes: RouteObject[] = [
@@ -21,6 +22,7 @@ const dashboardRoutes: RouteObject[] = [
           { index: true, element: <Dashboard /> },
           { path: "customers", element: <Customers /> },
           { path: "loan-applications", element: <LoanApplications /> },
+          { path: "reports", element: <Reports /> },
           {
             path: "loan-applications/:applicationId",
             children: [
