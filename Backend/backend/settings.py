@@ -216,6 +216,7 @@ INSTALLED_APPS = [
     'risk',
     'security',
     'users',
+    'reports',
     
     # third party apps
     'rest_framework',

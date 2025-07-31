@@ -29,5 +29,8 @@ urlpatterns = [
     
     # Security endpoints
     path('security/', include('security.urls')),
+    
+    # Reports endpoints
+    path('reports/', include('reports.urls')),
 
 ]

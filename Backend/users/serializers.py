@@ -155,7 +155,7 @@ class UserWithRolesSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'user_type',
-            'is_active','is_verified,' 'date_joined', 'roles', 'permissions',
+            'is_active','is_verified', 'date_joined', 'roles', 'permissions',
             'active_role_count'
         ]
         read_only_fields = ['id', 'date_joined']

@@ -55,6 +55,28 @@ class BaseRBACPermission(permissions.BasePermission):
                 resource_type=resource_type
             )
 
+class RBACPermission(permissions.BasePermission):
+    """ Generic RBAC permission class that uses rbac_permissions dict on the view """
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        action = getattr(view, 'action', None)
+        if not action:
+            return False
+        
+        required_perms = getattr(view, 'rbac_permissions', {}).get(action, [])
+
+        if not required_perms:
+            return False
+        
+        has_perm = any(request.user.has_perm(perm) for perm in required_perms)
+
+        if hasattr(view, 'log_access'):
+            view.log_access(request, f'rbac:{action}', has_perm)
+        
+        return has_perm
+
 
 class HasPermission(BaseRBACPermission):
     """DRF Permission class to check if user has specific permission"""
