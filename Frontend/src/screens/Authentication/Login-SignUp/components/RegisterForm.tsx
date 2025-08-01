@@ -19,7 +19,7 @@ import {
 import { ANIMATION_VARIANTS } from "./constants";
 import type { ActiveTab } from "./types";
 import { useRegisterMutation } from "../../../../components/redux/features/auth/authApi";
-import type { RegisterCredentials } from "../../../../components/redux/features/auth/authApi";
+import type { RegisterRequest } from "../../../../components/redux/features/user/types/user";
 import { useAppDispatch } from "../../../../components/utils/hooks";
 import { setCredentials } from "../../../../components/redux/features/auth/authSlice";
 import type { User } from "../../../../components/redux/features/auth/authApi";
@@ -74,7 +74,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         return;
       }
 
-      const credentials: RegisterCredentials = {
+      const credentials: RegisterRequest = {
         first_name: data.first_name,
         last_name: data.last_name,
         email: data.email,
@@ -149,6 +149,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             email: "email",
             terms_accepted: "terms_accepted",
             mfa_enabled: "mfa_enabled",
+            enable_mfa: "mfa_enabled",
             first_name: "first_name",
             last_name: "last_name",
             phone_number: "phone_number",
@@ -654,9 +655,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                 htmlFor="mfa"
                 className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
               >
-                Enable Multi-Factor Authentication (MFA)
+                Request Multi-Factor Authentication (MFA) Setup
                 <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  Recommended for enhanced security
+                  You'll complete MFA setup after registration for enhanced security
                 </span>
               </label>
             </div>

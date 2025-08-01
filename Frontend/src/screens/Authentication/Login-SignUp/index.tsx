@@ -204,14 +204,11 @@ const Login: React.FC = () => {
           enableMFA: data.enableMFA,
         }).unwrap();
 
-        const user = result.user;
-        const mfaEnabled = user?.mfa_enabled === true;
-        const mfaFullyConfigured = user?.mfa_fully_configured === true;
+        console.log('🔵 Login result:', result);
 
-        success("Login successful!");
-
-        // Handle MFA verification requirement (only if MFA is enabled, configured, and explicitly required)
-        if (result.requires_mfa && result.temp_token && mfaEnabled && mfaFullyConfigured) {
+        // Handle MFA verification requirement (for users with completed MFA)
+        if (result.requires_mfa && result.temp_token) {
+          success("Login successful!");
           setFormStep(2);
           setMfaStep("verify");
           setTimeout(() => {
@@ -220,26 +217,19 @@ const Login: React.FC = () => {
           return;
         }
 
-        // Handle MFA setup requirement (only if MFA is enabled but not fully configured)
-        if ((result.requires_mfa_setup || (mfaEnabled && !mfaFullyConfigured)) && result.access) {
-          console.log('🔵 Login: MFA Setup Required', { mfaEnabled, mfaFullyConfigured });
-          setTimeout(async () => {
-            const freshAuthState = store.getState().auth;
-
-            if (!freshAuthState?.isAuthenticated || !freshAuthState?.token) {
-              console.error('🔴 Login: Auth state error during MFA setup');
-              error("Authentication state error. Please try logging in again.");
-              return;
-            }
-
-            console.log('🔵 Login: Starting MFA setup process');
-            await handleMFASetup(mfaEnabled, mfaFullyConfigured);
-          }, 100);
+        // Handle MFA setup requirement (for users who need to complete MFA setup)
+        if (result.requires_mfa_setup || result.limited_access || result.token_type === 'mfa_setup') {
+          success("Login successful! Please complete your MFA setup.");
+          setTimeout(() => {
+            info("Redirecting to dashboard with limited access. Complete MFA setup to unlock all features.");
+          }, 500);
+          setTimeout(() => navigate("/home"), 1500);
           return;
         }
 
-        // For users without MFA or with successful authentication, redirect to dashboard
-        if (result.access) {
+        // Standard successful login with full access
+        if (result.access && result.token_type !== 'mfa_setup') {
+          success("Login successful!");
           setTimeout(() => {
             info("Login successful! Redirecting to dashboard...");
           }, 500);
@@ -247,7 +237,8 @@ const Login: React.FC = () => {
           return;
         }
 
-        // Fallback redirect for any other successful authentication
+        // Fallback for other successful logins
+        success("Login successful!");
         setTimeout(() => {
           info("Redirecting to dashboard...");
         }, 500);

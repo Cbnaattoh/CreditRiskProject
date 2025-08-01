@@ -2,6 +2,8 @@ import { apiSlice } from "../../api/baseApi";
 import {
   setCredentials,
   setMFARequired,
+  setMFASetupRequired,
+  completeMFASetup,
   logout,
   setAuthToken,
 } from "../authSlice";
@@ -86,8 +88,8 @@ export const authApi = apiSlice.injectEndpoints({
           const mfaEnabled = user?.mfa_enabled === true;
           const mfaFullyConfigured = user?.mfa_fully_configured === true;
 
-          // Only require MFA if explicitly required by server AND user has MFA enabled
-          if (data.requires_mfa && data.temp_token && mfaEnabled) {
+          // Handle MFA verification required (user has fully configured MFA)
+          if (data.requires_mfa && data.temp_token && mfaEnabled && mfaFullyConfigured) {
             dispatch(setAuthToken({ token: data.temp_token }));
             dispatch(
               setMFARequired({
@@ -99,22 +101,30 @@ export const authApi = apiSlice.injectEndpoints({
             return;
           }
 
-          if (arg.enableMFA && mfaEnabled && !mfaFullyConfigured) {
+          // Handle MFA setup required (enhanced backend response)
+          if (data.requires_mfa_setup || data.limited_access || data.token_type === 'mfa_setup') {
             dispatch(
-              setAuthToken({
+              setMFASetupRequired({
+                user: data.user,
                 token: data.access!,
                 refreshToken: data.refresh,
+                message: data.message,
               })
             );
             return;
           }
 
+          // Standard successful login with full access
           if (data.access && data.user) {
             dispatch(
               setCredentials({
                 user: data.user,
                 token: data.access,
                 refreshToken: data.refresh,
+                tokenType: data.token_type || 'full_access',
+                requiresMFASetup: data.requires_mfa_setup || false,
+                limitedAccess: data.limited_access || false,
+                mfaCompleted: data.mfa_completed !== false,
               })
             );
           }
@@ -149,7 +159,7 @@ export const authApi = apiSlice.injectEndpoints({
         formData.append("confirm_password", credentials.confirm_password);
         formData.append("user_type", credentials.user_type);
         formData.append(
-          "mfa_enabled",
+          "enable_mfa",
           credentials.mfa_enabled ? "true" : "false"
         );
         formData.append(
@@ -207,6 +217,10 @@ export const authApi = apiSlice.injectEndpoints({
               user: data.user,
               token: data.access,
               refreshToken: data.refresh,
+              tokenType: data.token_type || 'full_access',
+              requiresMFASetup: false,
+              limitedAccess: false,
+              mfaCompleted: true,
             })
           );
         } catch (error) {
@@ -243,6 +257,24 @@ export const authApi = apiSlice.injectEndpoints({
         method: "POST",
         body: credentials,
       }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          
+          // If the response includes new tokens (indicating MFA setup completion)
+          if ('access' in data && 'token_type' in data) {
+            dispatch(
+              completeMFASetup({
+                token: (data as any).access,
+                refreshToken: (data as any).refresh,
+                tokenType: (data as any).token_type || 'full_access',
+              })
+            );
+          }
+        } catch (error) {
+          console.error("MFA setup verification error:", error);
+        }
+      },
       invalidatesTags: ["Auth", "MFA"],
     }),
 

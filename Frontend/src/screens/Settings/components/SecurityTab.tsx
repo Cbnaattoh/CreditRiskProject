@@ -11,7 +11,12 @@ import {
   FiCheckCircle,
 } from "react-icons/fi";
 import { useSelector } from "react-redux";
-import { selectCurrentUser } from "../../../components/redux/features/auth/authSlice";
+import { 
+  selectCurrentUser,
+  selectRequiresMFASetup,
+  selectMfaCompleted,
+} from "../../../components/redux/features/auth/authSlice";
+import { MFASetupModal } from "../../../components/MFA";
 
 interface SecurityItem {
   id: string;
@@ -24,12 +29,15 @@ interface SecurityItem {
 
 export const SecurityTab: React.FC = () => {
   const user = useSelector(selectCurrentUser);
+  const requiresMFASetup = useSelector(selectRequiresMFASetup);
+  const mfaCompleted = useSelector(selectMfaCompleted);
   const [settings, setSettings] = useState({
     mfaEnabled: user?.mfa_enabled || false,
     loginNotifications: true,
     securityAlerts: true,
     sessionTimeout: true,
   });
+  const [showMFAModal, setShowMFAModal] = useState(false);
 
   const handleToggle = (key: string) => {
     setSettings(prev => ({
@@ -38,14 +46,30 @@ export const SecurityTab: React.FC = () => {
     }));
   };
 
+  const getMFAStatus = () => {
+    if (requiresMFASetup) return 'warning';
+    if (settings.mfaEnabled && mfaCompleted) return 'enabled';
+    if (settings.mfaEnabled && !mfaCompleted) return 'warning';
+    return 'disabled';
+  };
+
+  const getMFAAction = () => {
+    if (requiresMFASetup) return 'Complete Setup';
+    if (settings.mfaEnabled && mfaCompleted) return 'Manage';
+    if (settings.mfaEnabled && !mfaCompleted) return 'Complete Setup';
+    return 'Enable';
+  };
+
   const securityItems: SecurityItem[] = [
     {
       id: 'mfa',
       title: 'Multi-Factor Authentication',
-      description: 'Add an extra layer of security with MFA',
+      description: requiresMFASetup 
+        ? 'Complete your MFA setup to secure your account'
+        : 'Add an extra layer of security with MFA',
       icon: <FiShield className="h-5 w-5" />,
-      status: settings.mfaEnabled ? 'enabled' : 'warning',
-      action: settings.mfaEnabled ? 'Manage' : 'Enable'
+      status: getMFAStatus(),
+      action: getMFAAction()
     },
     {
       id: 'notifications',
@@ -196,12 +220,15 @@ export const SecurityTab: React.FC = () => {
                   
                   {item.id === 'mfa' ? (
                     <motion.button
+                      onClick={() => setShowMFAModal(true)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        settings.mfaEnabled
-                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                          : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                        getMFAStatus() === 'enabled'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          : getMFAStatus() === 'warning'
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                          : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                       }`}
                     >
                       {item.action}
@@ -311,6 +338,17 @@ export const SecurityTab: React.FC = () => {
           Save Security Settings
         </motion.button>
       </div>
+      
+      {/* MFA Setup Modal */}
+      <MFASetupModal
+        isOpen={showMFAModal}
+        onClose={() => setShowMFAModal(false)}
+        onComplete={() => {
+          setShowMFAModal(false);
+          // Refresh the component state to reflect completed MFA
+          setSettings(prev => ({ ...prev, mfaEnabled: true }));
+        }}
+      />
     </motion.div>
   );
 };

@@ -15,6 +15,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   requiresMFA: boolean;
+  requiresMFASetup: boolean;
   tempToken: string | null;
   mfaMethods: string[];
   uid: string | null;
@@ -23,6 +24,9 @@ interface AuthState {
   permissions: string[];
   roles: string[];
   permissionSummary: PermissionSummary | null;
+  tokenType: 'full_access' | 'mfa_setup' | null;
+  limitedAccess: boolean;
+  mfaCompleted: boolean;
 }
 
 const isTokenExpired = (token: string | null): boolean => {
@@ -107,6 +111,7 @@ const initialState: AuthState = {
   refreshToken: initialRefreshToken,
   isAuthenticated: !!initialToken && !isTokenExpired(initialToken),
   requiresMFA: false,
+  requiresMFASetup: false,
   tempToken: null,
   mfaMethods: EMPTY_MFA_METHODS,
   uid: null,
@@ -115,6 +120,9 @@ const initialState: AuthState = {
   permissions: safeParseLocalStorage("user_permissions", EMPTY_PERMISSIONS),
   roles: safeParseLocalStorage("user_roles", EMPTY_ROLES),
   permissionSummary: getPersistedPermissionSummary(),
+  tokenType: null,
+  limitedAccess: false,
+  mfaCompleted: false,
 };
 
 const authSlice = createSlice({
@@ -169,9 +177,13 @@ const authSlice = createSlice({
         user: AuthUser;
         token: string;
         refreshToken?: string;
+        tokenType?: 'full_access' | 'mfa_setup';
+        requiresMFASetup?: boolean;
+        limitedAccess?: boolean;
+        mfaCompleted?: boolean;
       }>
     ) => {
-      const { user, token, refreshToken } = action.payload;
+      const { user, token, refreshToken, tokenType, requiresMFASetup, limitedAccess, mfaCompleted } = action.payload;
 
       if (isTokenExpired(token)) {
         console.warn("Attempted to set expired token");
@@ -183,9 +195,13 @@ const authSlice = createSlice({
       state.refreshToken = refreshToken || state.refreshToken;
       state.isAuthenticated = true;
       state.requiresMFA = false;
+      state.requiresMFASetup = requiresMFASetup ?? false;
       state.tempToken = null;
       state.isLoading = false;
       state.tokenExpired = false;
+      state.tokenType = tokenType ?? 'full_access';
+      state.limitedAccess = limitedAccess ?? false;
+      state.mfaCompleted = mfaCompleted ?? true;
 
       if (typeof window !== "undefined") {
         localStorage.setItem("authToken", token);
@@ -289,6 +305,78 @@ const authSlice = createSlice({
       state.isLoading = false;
     },
 
+    setMFASetupRequired: (
+      state,
+      action: PayloadAction<{
+        user: AuthUser;
+        token: string;
+        refreshToken?: string;
+        message?: string;
+      }>
+    ) => {
+      const { user, token, refreshToken } = action.payload;
+      
+      if (isTokenExpired(token)) {
+        console.warn("Attempted to set expired MFA setup token");
+        return;
+      }
+
+      state.user = user;
+      state.token = token;
+      state.refreshToken = refreshToken || state.refreshToken;
+      state.isAuthenticated = true;
+      state.requiresMFA = false;
+      state.requiresMFASetup = true;
+      state.tempToken = null;
+      state.isLoading = false;
+      state.tokenExpired = false;
+      state.tokenType = 'mfa_setup';
+      state.limitedAccess = true;
+      state.mfaCompleted = false;
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("authUser", JSON.stringify(user));
+        if (refreshToken) {
+          localStorage.setItem("refreshToken", refreshToken);
+        }
+      }
+
+      console.log('🔒 MFA Setup Required - Limited Access Token Issued');
+    },
+
+    completeMFASetup: (
+      state,
+      action: PayloadAction<{
+        token: string;
+        refreshToken?: string;
+        tokenType?: 'full_access';
+      }>
+    ) => {
+      const { token, refreshToken, tokenType } = action.payload;
+      
+      if (isTokenExpired(token)) {
+        console.warn("Attempted to set expired token after MFA completion");
+        return;
+      }
+
+      state.token = token;
+      state.refreshToken = refreshToken || state.refreshToken;
+      state.requiresMFASetup = false;
+      state.limitedAccess = false;
+      state.mfaCompleted = true;
+      state.tokenType = tokenType ?? 'full_access';
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("authToken", token);
+        if (refreshToken) {
+          localStorage.setItem("refreshToken", refreshToken);
+        }
+      }
+
+      console.log('✅ MFA Setup Completed - Full Access Token Issued');
+    },
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -302,9 +390,11 @@ const authSlice = createSlice({
 
     clearMFAState: (state) => {
       state.requiresMFA = false;
+      state.requiresMFASetup = false;
       state.tempToken = null;
       state.uid = null;
       state.mfaMethods = EMPTY_MFA_METHODS;
+      state.limitedAccess = false;
     },
 
     setTokenExpired: (state) => {
@@ -318,6 +408,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.requiresMFA = false;
+      state.requiresMFASetup = false;
       state.tempToken = null;
       state.mfaMethods = EMPTY_MFA_METHODS;
       state.uid = null;
@@ -326,6 +417,9 @@ const authSlice = createSlice({
       state.permissions = EMPTY_PERMISSIONS;
       state.roles = EMPTY_ROLES;
       state.permissionSummary = null;
+      state.tokenType = null;
+      state.limitedAccess = false;
+      state.mfaCompleted = false;
 
       if (typeof window !== "undefined") {
         localStorage.removeItem("authToken");
@@ -347,6 +441,7 @@ const authSlice = createSlice({
         refreshToken: null,
         isAuthenticated: false,
         requiresMFA: false,
+        requiresMFASetup: false,
         tempToken: null,
         mfaMethods: EMPTY_MFA_METHODS,
         uid: null,
@@ -355,6 +450,9 @@ const authSlice = createSlice({
         permissions: EMPTY_PERMISSIONS,
         roles: EMPTY_ROLES,
         permissionSummary: null,
+        tokenType: null,
+        limitedAccess: false,
+        mfaCompleted: false,
       });
 
       if (typeof window !== "undefined") {
@@ -394,6 +492,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.requiresMFA = false;
+      state.requiresMFASetup = false;
       state.tempToken = null;
       state.mfaMethods = EMPTY_MFA_METHODS;
       state.uid = null;
@@ -402,6 +501,9 @@ const authSlice = createSlice({
       state.permissions = EMPTY_PERMISSIONS;
       state.roles = EMPTY_ROLES;
       state.permissionSummary = null;
+      state.tokenType = null;
+      state.limitedAccess = false;
+      state.mfaCompleted = false;
 
       if (typeof window !== "undefined") {
         localStorage.removeItem("authToken");
@@ -422,6 +524,8 @@ export const {
   setAuthToken,
   setAuthTokenString,
   setMFARequired,
+  setMFASetupRequired,
+  completeMFASetup,
   setLoading,
   setUser,
   clearMFAState,
@@ -440,6 +544,7 @@ const selectAuthState = (state: RootState) => state.auth;
 // Basic selectors
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectRequiresMFA = (state: RootState) => state.auth.requiresMFA;
+export const selectRequiresMFASetup = (state: RootState) => state.auth.requiresMFASetup;
 export const selectTempToken = (state: RootState) => state.auth.tempToken;
 export const selectAuthToken = (state: RootState) => state.auth.token;
 export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
@@ -447,6 +552,9 @@ export const selectUid = (state: RootState) => state.auth.uid;
 export const selectIsLoading = (state: RootState) => state.auth.isLoading;
 export const selectTokenExpired = (state: RootState) => state.auth.tokenExpired;
 export const selectPermissionSummary = (state: RootState) => state.auth.permissionSummary;
+export const selectTokenType = (state: RootState) => state.auth.tokenType;
+export const selectLimitedAccess = (state: RootState) => state.auth.limitedAccess;
+export const selectMfaCompleted = (state: RootState) => state.auth.mfaCompleted;
 
 export const selectIsAuthenticated = createSelector(
   [selectAuthState],
@@ -454,6 +562,26 @@ export const selectIsAuthenticated = createSelector(
     auth.isAuthenticated &&
     auth.token !== null &&
     !isTokenExpired(auth.token)
+);
+
+export const selectHasFullAccess = createSelector(
+  [selectAuthState],
+  (auth) => 
+    auth.isAuthenticated &&
+    auth.token !== null &&
+    !isTokenExpired(auth.token) &&
+    auth.tokenType === 'full_access' &&
+    !auth.limitedAccess
+);
+
+export const selectHasLimitedAccess = createSelector(
+  [selectAuthState],
+  (auth) => 
+    auth.isAuthenticated &&
+    auth.token !== null &&
+    !isTokenExpired(auth.token) &&
+    auth.tokenType === 'mfa_setup' &&
+    auth.limitedAccess
 );
 
 export const selectIsTokenValid = createSelector(
@@ -545,16 +673,28 @@ export const selectPermissionCounts = createSelector(
 export const selectAuthStatus = createSelector(
   [
     selectIsAuthenticated,
+    selectHasFullAccess,
+    selectHasLimitedAccess,
     selectIsLoading,
     selectTokenExpired,
     selectRequiresMFA,
+    selectRequiresMFASetup,
+    selectTokenType,
+    selectLimitedAccess,
+    selectMfaCompleted,
     selectPermissionCounts,
   ],
-  (isAuthenticated, isLoading, tokenExpired, requiresMFA, permissionCounts) => ({
+  (isAuthenticated, hasFullAccess, hasLimitedAccess, isLoading, tokenExpired, requiresMFA, requiresMFASetup, tokenType, limitedAccess, mfaCompleted, permissionCounts) => ({
     isAuthenticated,
+    hasFullAccess,
+    hasLimitedAccess,
     isLoading,
     tokenExpired,
     requiresMFA,
+    requiresMFASetup,
+    tokenType,
+    limitedAccess,
+    mfaCompleted,
     ...permissionCounts,
   })
 );

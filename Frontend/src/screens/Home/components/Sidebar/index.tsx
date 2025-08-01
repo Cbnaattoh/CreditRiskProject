@@ -108,7 +108,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   // Admin-only navigation items
   const adminNavItems: NavItem[] = useMemo(() => [
     {
-      path: "/admin-panel",
+      path: "/home/admin",
       icon: <FiUsers />,
       label: "User Management",
       description: "Manage Users & Roles",
@@ -117,7 +117,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       featureFlag: "user_management",
     },
     {
-      path: "/admin-panel?tab=roles",
+      path: "/home/admin?tab=roles",
       icon: <FiShield />,
       label: "Role Management", 
       description: "Configure Permissions",
@@ -126,7 +126,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       featureFlag: "role_management",
     },
     {
-      path: "/admin-panel?tab=logs",
+      path: "/home/admin?tab=logs",
       icon: <FiEye />,
       label: "Audit Logs",
       description: "System Activity",
