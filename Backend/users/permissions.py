@@ -402,3 +402,98 @@ class CanViewAuditLogs(RequirePermission('view_audit_logs')):
 class CanViewDashboard(RequirePermission('view_dashboard')):
     """Permission class for viewing dashboard"""
     pass
+
+
+# MFA-specific permission classes
+class MFARequiredPermission(BaseRBACPermission):
+    """Base permission class that enforces MFA completion"""
+    
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        # Allow superusers to bypass MFA requirement
+        if request.user.is_superuser:
+            return True
+        
+        # If MFA is enabled for user, ensure it's fully configured
+        if hasattr(request.user, 'mfa_enabled') and request.user.mfa_enabled:
+            if not request.user.is_mfa_fully_configured:
+                self.log_access(request, "mfa_completion_required", False, view)
+                return False
+        
+        return True
+
+
+class RequiresMFASetup(BaseRBACPermission):
+    """Permission class for users who need to complete MFA setup"""
+    
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        # Allow access if user requires MFA setup (new logic)
+        if hasattr(request.user, 'requires_mfa_setup') and request.user.requires_mfa_setup:
+            self.log_access(request, "mfa_setup_pending", True, view)
+            return True
+        
+        # Legacy logic: Allow access if user has MFA enabled but not completed
+        if hasattr(request.user, 'mfa_enabled') and request.user.mfa_enabled:
+            has_setup_access = not request.user.is_mfa_fully_configured
+            self.log_access(request, "mfa_setup_required", has_setup_access, view)
+            return has_setup_access
+        
+        self.log_access(request, "mfa_setup_not_required", False, view)
+        return False
+
+
+class MFAVerificationPermission(BaseRBACPermission):
+    """Permission class for MFA verification during login"""
+    
+    def has_permission(self, request, view):
+        # Allow anyone to attempt MFA verification during login flow
+        # Additional validation will be done in the view logic
+        return True
+
+
+class HasCompletedMFA(BaseRBACPermission):
+    """Permission class that requires completed MFA if enabled"""
+    
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        # If user doesn't have MFA enabled, allow access
+        if not hasattr(request.user, 'mfa_enabled') or not request.user.mfa_enabled:
+            return True
+        
+        # If MFA is enabled, must be fully configured
+        has_completed_mfa = request.user.is_mfa_fully_configured
+        self.log_access(request, "mfa_completed", has_completed_mfa, view)
+        
+        return has_completed_mfa
+
+
+class MFAEnforcedPermission(BaseRBACPermission):
+    """
+    Permission class that enforces MFA completion for sensitive operations
+    Use this for high-security endpoints that always require MFA
+    """
+    
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        # Allow superusers to bypass for emergency access
+        if request.user.is_superuser and getattr(view, 'allow_superuser_bypass', False):
+            return True
+        
+        # Require MFA to be enabled AND completed
+        has_mfa = (
+            hasattr(request.user, 'mfa_enabled') and 
+            request.user.mfa_enabled and 
+            request.user.is_mfa_fully_configured
+        )
+        
+        self.log_access(request, "mfa_enforced", has_mfa, view)
+        return has_mfa

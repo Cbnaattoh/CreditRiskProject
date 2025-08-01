@@ -108,8 +108,8 @@ class ApplicationNoteSerializer(serializers.ModelSerializer):
 
 class CreditApplicationSerializer(serializers.ModelSerializer):
     applicant_info = ApplicantSerializer(required=False)
-    documents = DocumentSerializer(many=True, read_only=True)
-    notes = ApplicationNoteSerializer(many=True, read_only=True)
+    documents = DocumentSerializer(many=True, read_only=True)  
+    additional_notes = ApplicationNoteSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
     class Meta:

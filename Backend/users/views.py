@@ -29,7 +29,11 @@ from .permissions import (
     RequireOwnerOrPermission,
     CanViewAuditLogs,
     RBACMixin,
-    IsAdminUser
+    IsAdminUser,
+    RequiresMFASetup,
+    MFAVerificationPermission,
+    HasCompletedMFA,
+    MFAEnforcedPermission
 )
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -67,7 +71,11 @@ from api.docs.views.users import get_user_profile_docs, update_user_profile_docs
 from api.docs.views.mfa import mfa_setup_docs, mfa_verify_docs
 from users.utils.mfa import generate_backup_codes, verify_backup_code
 from .utils.email import send_password_reset_email, send_welcome_email
+from .tokens import create_tokens_for_user, MFASetupRefreshToken, FullAccessRefreshToken
 import pyotp
+import qrcode
+from io import BytesIO
+import base64
 import logging
 import json
 from datetime import timedelta, datetime
@@ -694,13 +702,18 @@ class LoginView(TokenObtainPairView):
                     'password_expired': True
                 })
 
-            if user.mfa_enabled:
-                if user.mfa_secret and user.is_mfa_fully_configured:
-                    return self._handle_mfa_required(user, validated_data)
-                else:
-                    return self._handle_mfa_setup_required(user, validated_data)
+            # New MFA flow logic
+            if user.requires_mfa_setup or (user.mfa_enabled and not user.is_mfa_fully_configured):
+                return self._handle_mfa_setup_required(user, validated_data)
+            elif user.mfa_enabled and user.is_mfa_fully_configured:
+                return self._handle_mfa_required(user, validated_data)
             
+            # User doesn't have MFA or has completed it - issue full access tokens
             self._clear_failed_attempts(email)
+            
+            # Replace default tokens with our custom token logic
+            token_data = create_tokens_for_user(user)
+            validated_data.update(token_data)
             
             return Response(validated_data, status=status.HTTP_200_OK)
             
@@ -745,11 +758,10 @@ class LoginView(TokenObtainPairView):
             logger.error(f"Error logging successful login: {str(e)}")
         
     def _handle_mfa_setup_required(self, user, response_data):
-        """"Handle MFA setup requirement for login"""
+        """"Handle MFA setup requirement for login with limited access tokens"""
         try:
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
+            # Create limited-scope tokens for MFA setup
+            token_data = create_tokens_for_user(user)
 
             user_data = response_data.get('user') or {
                 'id': user.id,
@@ -759,6 +771,7 @@ class LoginView(TokenObtainPairView):
                 'mfa_enabled': user.mfa_enabled,
                 'mfa_fully_configured': user.is_mfa_fully_configured,
                 'is_verified': user.is_verified,
+                'requires_mfa_setup': user.requires_mfa_setup,
                 'roles': [{'id': role.id, 'name': role.name} for role in user.get_roles()],
                 'permissions': [perm.codename for perm in user.get_permissions()],
             }
@@ -767,12 +780,14 @@ class LoginView(TokenObtainPairView):
                 'requires_mfa_setup': True,
                 'requires_mfa': False,
                 'user': user_data,
-                'access': access_token,
-                'refresh': refresh_token,
-                'message': 'MFA setup completion required',
+                'message': 'MFA setup completion required. Access is limited until MFA is configured.',
+                'limited_access': True
             }
+            
+            # Add token data to response
+            setup_response.update(token_data)
 
-            logger.info(f"MFA setup required for user: {user.email}")
+            logger.info(f"MFA setup required for user: {user.email} - issued limited access tokens")
             return Response(setup_response, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error handling MFA setup requirement: {str(e)}")
@@ -1205,7 +1220,7 @@ class LoginHistoryView(generics.ListAPIView):
 @mfa_setup_docs
 class MFASetupView(generics.GenericAPIView):
     serializer_class = MFASetupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, RequiresMFASetup]
     throttle_classes = [UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
@@ -1257,14 +1272,19 @@ class MFASetupView(generics.GenericAPIView):
             issuer_name=getattr(settings, 'MFA_ISSUER_NAME', 'RiskGuard Pro')
         )
         
+        # Generate QR code
+        qr_code_image = self._generate_qr_code(totp_uri)
+        
         logger.info(f"MFA enabled/re-configured for user: {user.email}")
         
         return Response({
             'status': 'success',
             'secret': secret,
             'uri': totp_uri,
+            'qr_code': qr_code_image,
             'backup_codes': codes,
-            'message': 'Scan the QR code with your authenticator app and save your backup codes'
+            'message': 'Scan the QR code with your authenticator app and save your backup codes. You must complete verification to gain full access.',
+            'next_step': 'Verify your setup by entering a code from your authenticator app'
         })
 
     def _acknowledge_backup_codes(self, user):
@@ -1290,10 +1310,8 @@ class MFASetupView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        user.mfa_enabled = False
-        user.mfa_secret = ''
-        user.backup_codes = []
-        user.save()
+        # Use the new reset method for consistency
+        user.reset_mfa()
         
         logger.info(f"MFA disabled for user: {user.email}")
         
@@ -1301,12 +1319,40 @@ class MFASetupView(generics.GenericAPIView):
             'status': 'success',
             'message': 'MFA has been disabled'
         })
+    
+    def _generate_qr_code(self, uri):
+        """Generate QR code image as base64 data URL"""
+        try:
+            # Create QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(uri)
+            qr.make(fit=True)
+            
+            # Create image
+            img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Convert to base64
+            buffer = BytesIO()
+            img.save(buffer, format='PNG')
+            img_str = base64.b64encode(buffer.getvalue()).decode()
+            
+            # Return as data URL
+            return f"data:image/png;base64,{img_str}"
+            
+        except Exception as e:
+            logger.error(f"QR code generation failed: {str(e)}")
+            return None
 
 
 class MFASetupVerifyView(generics.GenericAPIView):
     """Verify MFA setup by validating the first TOTP code"""
     serializer_class = MFASetupVerifySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, RequiresMFASetup]
     
     def post(self, request, *args, **kwargs):
         """Verify MFA setup for current user only"""
@@ -1324,10 +1370,19 @@ class MFASetupVerifyView(generics.GenericAPIView):
                 )
             
             if self._verify_mfa_code(user, mfa_code):
-                logger.info(f"MFA setup verified for user: {user.email}")
+                # Mark MFA setup as completed
+                user.complete_mfa_setup()
+                
+                logger.info(f"MFA setup verified and completed for user: {user.email}")
+                
+                # Generate new full-access tokens
+                token_data = create_tokens_for_user(user)
+                
                 return Response({
                     'status': 'success',
-                    'message': 'MFA setup verified successfully'
+                    'message': 'MFA setup verified successfully. You now have full access.',
+                    'mfa_completed': True,
+                    **token_data  # Include new tokens in response
                 })
             else:
                 return Response(
@@ -1354,7 +1409,7 @@ class MFASetupVerifyView(generics.GenericAPIView):
 
 class MFAVerifyView(generics.GenericAPIView):
     serializer_class = MFAVerifySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [MFAVerificationPermission]
     throttle_classes = [AnonRateThrottle]
 
     @mfa_verify_docs
@@ -1426,7 +1481,8 @@ class MFAVerifyView(generics.GenericAPIView):
 
     def _generate_final_tokens(self, user):
         """Generate final JWT tokens after successful MFA"""
-        refresh = RefreshToken.for_user(user)
+        # Use our custom token creation logic
+        token_data = create_tokens_for_user(user)
         
         cache_key_pattern = f"mfa_temp_token:{user.id}:*"
         cache.delete(cache_key_pattern)
@@ -1437,9 +1493,7 @@ class MFAVerifyView(generics.GenericAPIView):
         user_roles = [{'id': role.id, 'name': role.name} for role in user.get_roles()]
         user_permissions = [perm.codename for perm in user.get_permissions()]
         
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
+        response_data = {
             'user': {
                 'id': user.id,
                 'email': user.email,
@@ -1451,7 +1505,12 @@ class MFAVerifyView(generics.GenericAPIView):
                 'permissions': user_permissions
             },
             'mfa_verified': True
-        })
+        }
+        
+        # Add token data to response
+        response_data.update(token_data)
+        
+        return Response(response_data)
 
     def _log_mfa_failure(self, user, request):
         """Log MFA verification failure"""

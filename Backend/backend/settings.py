@@ -241,7 +241,7 @@ SPECTACULAR_SETTINGS = {
     'TAGS': API_TAGS,
     'SCHEMA_PATH_PREFIX': r'/api/',
     'AUTHENTICATION_WHITELIST': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.authentication.CustomJWTAuthentication',
     ],
     'SERVERS': [
         {'url': 'https://api.riskguard.pro', 'description': 'Production server'},
@@ -328,7 +328,7 @@ if DEBUG:
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.authentication.CustomJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (

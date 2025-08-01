@@ -136,6 +136,8 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=100, blank=True)
+    mfa_setup_pending = models.BooleanField(default=False, help_text="True if user requested MFA but hasn't completed setup")
+    mfa_completed_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when MFA setup was completed")
     backup_codes = models.JSONField(default=list, blank=True)
     last_password_change = models.DateTimeField(auto_now_add=True)
 
@@ -267,7 +269,33 @@ class User(AbstractUser):
     @property
     def is_mfa_fully_configured(self):
         """Check if MFA is fully configured"""
-        return self.mfa_enabled and bool(self.mfa_secret)
+        return self.mfa_enabled and bool(self.mfa_secret) and self.mfa_completed_at is not None
+    
+    @property
+    def requires_mfa_setup(self):
+        """Check if user needs to complete MFA setup"""
+        return self.mfa_setup_pending and not self.is_mfa_fully_configured
+    
+    def mark_mfa_setup_pending(self):
+        """Mark user as needing MFA setup"""
+        self.mfa_setup_pending = True
+        self.save(update_fields=['mfa_setup_pending'])
+    
+    def complete_mfa_setup(self):
+        """Mark MFA setup as completed"""
+        from django.utils import timezone
+        self.mfa_setup_pending = False
+        self.mfa_completed_at = timezone.now()
+        self.save(update_fields=['mfa_setup_pending', 'mfa_completed_at'])
+    
+    def reset_mfa(self):
+        """Reset MFA configuration"""
+        self.mfa_enabled = False
+        self.mfa_secret = ''
+        self.mfa_setup_pending = False
+        self.mfa_completed_at = None
+        self.backup_codes = []
+        self.save(update_fields=['mfa_enabled', 'mfa_secret', 'mfa_setup_pending', 'mfa_completed_at', 'backup_codes'])
     
     def __str__(self):
         return self.email

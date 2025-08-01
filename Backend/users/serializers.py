@@ -494,14 +494,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text='User type must be CLIENT. Admin accounts cannot be created through registration.'
     )
-    mfa_enabled = serializers.BooleanField(required=False, default=False)
+    enable_mfa = serializers.BooleanField(
+        required=False, 
+        default=False, 
+        write_only=True,
+        help_text='Request MFA setup after registration. You will need to complete setup before full access.'
+    )
     terms_accepted = serializers.BooleanField(required=True, write_only=True)
 
     class Meta:
         model = User
         fields = [
             'email', 'password', 'confirm_password', 'first_name', 'last_name',
-            'phone_number', 'profile_picture', 'user_type', 'mfa_enabled', 'terms_accepted'
+            'phone_number', 'profile_picture', 'user_type', 'enable_mfa', 'terms_accepted'
         ]
         extra_kwargs = {
             'first_name': {'required': True, 'min_length': 2},
@@ -517,7 +522,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             data._mutable = True
         
         # Convert string booleans to actual booleans for FormData
-        boolean_fields = ['mfa_enabled', 'terms_accepted']
+        boolean_fields = ['enable_mfa', 'terms_accepted']
         for field in boolean_fields:
             if field in data:
                 value = data[field]
@@ -613,6 +618,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create user with profile and proper role assignment"""
         profile_picture = validated_data.pop('profile_picture', None)
+        enable_mfa = validated_data.pop('enable_mfa', False)
         validated_data.pop('confirm_password', None)
         validated_data.pop('terms_accepted', None)
         
@@ -627,8 +633,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 last_name=validated_data['last_name'],
                 phone_number=validated_data.get('phone_number', ''),
                 user_type='CLIENT',
-                mfa_enabled=validated_data.get('mfa_enabled', False)
+                mfa_enabled=False  # Never enable MFA during registration
             )
+            
+            # If user requested MFA, mark setup as pending
+            if enable_mfa:
+                user.mark_mfa_setup_pending()
+                logger.info(f"MFA setup requested for new user: {user.email}")
             
             # Create user profile
             UserProfile.objects.create(

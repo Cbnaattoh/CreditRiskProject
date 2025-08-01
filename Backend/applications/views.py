@@ -19,8 +19,8 @@ class ApplicationListView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.user_type in ['ADMIN', 'ANALYST']:
-            return CreditApplication.objects.all().order_by('-created_at')
-        return user.applications.all().order_by('-created_at')
+            return CreditApplication.objects.all().order_by('-last_updated')
+        return user.applications.all().order_by('-last_updated')
 
     def perform_create(self, serializer):
         serializer.save(applicant=self.request.user)

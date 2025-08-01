@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from users.models import User
 import uuid
-from datetime import timezone
+from django.utils import timezone
 
 class CreditApplication(models.Model):
     APPLICATION_STATUS = (
@@ -41,11 +41,14 @@ class CreditApplication(models.Model):
     def save(self, *args, **kwargs):
         if not self.reference_number and self.status == 'SUBMITTED':
             self.reference_number = self._generate_reference_number()
+        if self.status == 'SUBMITTED' and not self.submission_date:
+            self.submission_date = timezone.now()
         super().save(*args, **kwargs)
     
     def _generate_reference_number(self):
         # Generate a unique reference number like RG-2023-0001
         from django.db.models import Max
+        from django.utils import timezone
         year = str(timezone.now().year)
         max_id = CreditApplication.objects.filter(
             reference_number__startswith=f'RG-{year}-'
