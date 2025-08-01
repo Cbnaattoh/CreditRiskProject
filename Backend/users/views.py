@@ -809,7 +809,7 @@ class LoginView(TokenObtainPairView):
                 'user_id': user.id,
                 'email': user.email,
                 'created_at': timezone.now().isoformat()
-            }, timeout=300)
+            }, timeout=600)  # 10 minutes
 
             # Ensure user data is present
             user_data = response_data.get('user') or {
@@ -1419,7 +1419,7 @@ class MFAVerifyView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         
         uid = serializer.validated_data.get('uid')
-        temp_token = serializer.validated_data.get('tempToken')
+        temp_token = serializer.validated_data.get('temp_token')
         mfa_code = serializer.validated_data.get('token')
         backup_code = serializer.validated_data.get('backup_code')
         
