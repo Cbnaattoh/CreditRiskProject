@@ -186,10 +186,14 @@ class User(AbstractUser):
 
     def set_password(self, raw_password):
         """Override to prevent saving with invalid data"""
-        if not self.email:
+        # Allow Django's security feature for non-existent users (no email + no pk)
+        # This happens during authentication when user doesn't exist (timing attack prevention)
+        if not self.email and self.pk is not None:
             raise ValidationError("Cannot set password without email")
         super().set_password(raw_password)
-        self.last_password_change = timezone.now()
+        # Only update last_password_change for real users (with email and pk)
+        if self.email and self.pk is not None:
+            self.last_password_change = timezone.now()
 
     def is_password_expired(self):
         """Check if password has expired"""
