@@ -212,7 +212,7 @@ const Toast: React.FC<ToastProps> = ({
   return (
     <div
       className={`
-        transform transition-all duration-500 ease-out w-full max-w-sm
+        transform transition-all duration-500 ease-out w-full max-w-2xl
         ${
           isVisible
             ? "translate-x-0 opacity-100 scale-100"
@@ -238,13 +238,13 @@ const Toast: React.FC<ToastProps> = ({
         </div>
 
         {/* Toast content */}
-        <div className="relative p-5 flex items-start gap-4">
-          <div className="mt-0.5 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg">
+        <div className="relative px-6 py-5 flex items-start gap-5">
+          <div className="mt-0.5 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg flex-shrink-0">
             {getIcon(type)}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 dark:text-white break-words leading-relaxed">
+          <div className="flex-1 pr-4">
+            <p className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap overflow-hidden text-ellipsis leading-6 tracking-normal">
               {message}
             </p>
           </div>
@@ -288,12 +288,15 @@ export const ToastContainer: React.FC<
       aria-live="polite"
       aria-label="Notifications"
     >
-      <div className="space-y-3 pointer-events-auto">
+      <div className="relative pointer-events-auto">
         {toasts.map((toast, index) => (
           <div
             key={toast.id}
             style={{
-              zIndex: 1000 + index,
+              zIndex: 1000 - index,
+              position: 'absolute',
+              top: `${index * 80}px`,
+              right: 0,
               animationDelay: `${index * 100}ms`,
             }}
             className="animate-in slide-in-from-right-full duration-500 ease-out"
@@ -323,8 +326,21 @@ export const useToast = () => {
       };
 
       setToasts((prev) => {
-        const updatedToasts = [...prev, newToast];
-        return updatedToasts.slice(-5);
+        // Check if there's already a toast with the same message and type
+        const existingToastIndex = prev.findIndex(
+          (toast) => toast.message === message && toast.type === type
+        );
+
+        if (existingToastIndex !== -1) {
+          // Replace the existing toast with the new one
+          const updatedToasts = [...prev];
+          updatedToasts[existingToastIndex] = newToast;
+          return updatedToasts;
+        }
+
+        // If no duplicate found, add new toast and limit to 3 toasts maximum
+        const updatedToasts = [newToast, ...prev];
+        return updatedToasts.slice(0, 3);
       });
     },
     []

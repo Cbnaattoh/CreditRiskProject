@@ -139,77 +139,35 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     } catch (err: any) {
       console.error("Registration error:", err);
 
-      if (err.status === 400 && err.data?.errors) {
-        const errors = err.data.errors;
+      // Create more descriptive error messages
+      let errorMessage = "Registration failed. Please try again.";
 
-        Object.keys(errors).forEach((field) => {
-          const errorMessages = errors[field];
-
-          const fieldMapping: Record<string, string> = {
-            email: "email",
-            terms_accepted: "terms_accepted",
-            mfa_enabled: "mfa_enabled",
-            enable_mfa: "mfa_enabled",
-            first_name: "first_name",
-            last_name: "last_name",
-            phone_number: "phone_number",
-            confirm_password: "confirm_password",
-            user_type: "user_type",
-            profile_picture: "profile_picture",
-          };
-
-          const frontendField = fieldMapping[field] || field;
-
-          if (Array.isArray(errorMessages)) {
-            registerMethods.setError(frontendField as any, {
-              type: "manual",
-              message: errorMessages[0],
-            });
-          } else if (typeof errorMessages === "string") {
-            registerMethods.setError(frontendField as any, {
-              type: "manual",
-              message: errorMessages,
-            });
-          }
-        });
-
-        showErrorToast("Please fix the errors below and try again.");
+      if (err.status === 400) {
+        if (err.data?.errors) {
+          // Handle field-specific errors
+          const errors = err.data.errors;
+          const firstError = Object.values(errors)[0];
+          const firstErrorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+          errorMessage = `Registration failed: ${firstErrorMessage}`;
+        } else {
+          errorMessage = err.data?.detail || "Invalid registration data. Please check your input and try again.";
+        }
       } else if (err.status === 409) {
-        const errorMessage =
-          err.data?.detail || "User with this email already exists.";
-        registerMethods.setError("email", {
-          type: "manual",
-          message: errorMessage,
-        });
-        showErrorToast(errorMessage);
+        errorMessage = "An account with this email already exists. Please use a different email or try logging in.";
       } else if (err.status === 500) {
-        showErrorToast("Server error occurred. Please try again later.");
+        errorMessage = "Server error occurred. Please try again later.";
       } else if (
         err.data &&
         typeof err.data === "string" &&
         err.data.includes("JSON parse error")
       ) {
-        showErrorToast(
-          "There was an issue processing your profile picture. Please try with a different image or without an image."
-        );
-        registerMethods.setError("profile_picture", {
-          type: "manual",
-          message:
-            "Please try with a different image or remove the profile picture.",
-        });
+        errorMessage = "There was an issue processing your profile picture. Please try with a different image or without an image.";
       } else {
-        const errorMessage =
-          err?.data?.detail ||
-          err?.data?.message ||
-          err?.message ||
-          "Registration failed. Please try again.";
-
-        showErrorToast(errorMessage);
-        registerMethods.setError("root", {
-          type: "manual",
-          message: errorMessage,
-        });
+        errorMessage = err?.data?.detail || err?.data?.message || "Registration failed. Please try again.";
       }
+
+      // Only show toast message, no form errors
+      showErrorToast(errorMessage);
     }
   };
 
@@ -227,17 +185,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           Join our platform to access advanced credit risk analysis tools.
         </p>
 
-        {registerMethods.formState.errors.root && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-start border border-red-200/50 dark:border-red-800/50"
-          >
-            <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-            <div>{registerMethods.formState.errors.root.message}</div>
-          </motion.div>
-        )}
 
         <form
           onSubmit={registerMethods.handleSubmit(handleSubmit)}

@@ -65,34 +65,86 @@ const Login: React.FC = () => {
     [isLoginLoading, isMFALoading, isMFASetupLoading, isSettingUpMFA]
   );
 
+  const handleBackToLogin = useCallback(() => {
+    setFormStep(1);
+    setMfaStep("login");
+    setMfaSetupData(null);
+    resetForms();
+    dispatch(clearMFAState());
+    info("Returned to login form");
+  }, [resetForms, dispatch, info]);
+
   const handleApiError = useCallback(
     (err: any, formType: "login" | "mfa") => {
       console.error(`${formType} error:`, err);
+      console.error("🔴 Error details:", {
+        status: err?.status,
+        data: err?.data,
+        detail: err?.data?.detail,
+        message: err?.message,
+        originalError: err
+      });
 
-      const errorMessage =
-        err?.data?.detail ||
-        err?.data?.message ||
-        err?.message ||
-        "An unknown error occurred";
-
-      if (err?.status === 401 && formStep === 2) {
-        handleBackToLogin();
-        return;
+      // Create more descriptive error messages
+      let errorMessage = "An unknown error occurred";
+      
+      if (err?.status === 401) {
+        if (formStep === 2) {
+          handleBackToLogin();
+          return;
+        }
+        // Login authentication failed - handle different error structures
+        let authErrorMessage = null;
+        
+        // Check for direct detail message
+        if (err?.data?.detail?.includes("Invalid email or password")) {
+          authErrorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+        }
+        // Check for serializer non_field_errors (common in DRF)
+        else if (err?.data?.non_field_errors?.length > 0) {
+          const firstError = err.data.non_field_errors[0];
+          if (firstError.includes("Invalid email or password") || firstError.includes("Invalid credentials")) {
+            authErrorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+          } else {
+            authErrorMessage = firstError;
+          }
+        }
+        // Check for other error structures
+        else if (err?.data?.detail) {
+          authErrorMessage = err.data.detail;
+        }
+        
+        errorMessage = authErrorMessage || "Login failed. Please check your credentials.";
+      } else if (err?.status === 429) {
+        errorMessage = "Account temporarily locked due to multiple failed attempts. Please try again later.";
+      } else if (err?.status === 400) {
+        errorMessage = err?.data?.detail || err?.data?.message || "Invalid request. Please check your input.";
+      } else if (err?.status === 500) {
+        // Handle specific login failure that comes as 500 error
+        if (err?.data?.detail === 'Login failed') {
+          errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+        } else {
+          errorMessage = "Server error occurred. Please try again later.";
+        }
+      } else if (err?.status === 403) {
+        errorMessage = "Access denied. Please check your credentials.";
+      } else if (!err?.status && err?.data?.detail) {
+        // Handle cases where status might be undefined but we have error details
+        if (err.data.detail.includes("Invalid email or password")) {
+          errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+        } else {
+          errorMessage = err.data.detail;
+        }
+      } else {
+        errorMessage = err?.data?.detail || err?.data?.message || err?.message || "An unexpected error occurred";
       }
 
-      if (err?.status === 429) {
-        error("Account temporarily locked due to multiple failed attempts");
-        return;
-      }
-
-      const methods = formType === "login" ? loginMethods : mfaFormMethods;
-      methods.setError("root", { message: errorMessage });
-
+      // Only show toast message, remove form error display
       error(errorMessage);
       setShake(true);
       setTimeout(() => setShake(false), 500);
     },
-    [formStep, loginMethods, mfaFormMethods]
+    [formStep, handleBackToLogin, error]
   );
 
   const handleMFASetup = useCallback(
@@ -245,6 +297,15 @@ const Login: React.FC = () => {
         setTimeout(() => navigate("/home"), 1500);
       } catch (err: any) {
         console.error("❌ Login error:", err);
+        console.error("🔴 LOGIN SPECIFIC - Error structure:", {
+          status: err?.status,
+          data: err?.data,
+          detail: err?.data?.detail,
+          non_field_errors: err?.data?.non_field_errors,
+          message: err?.message,
+          name: err?.name,
+          originalError: err
+        });
         handleApiError(err, "login");
       }
     },
@@ -290,8 +351,11 @@ const Login: React.FC = () => {
             verificationData.token = token;
           }
 
-          await verifyMFA(verificationData).unwrap();
-
+          console.log("🔵 Calling verifyMFA with:", verificationData);
+          const result = await verifyMFA(verificationData).unwrap();
+          console.log("🟢 MFA verification successful:", result);
+          
+          // Only show success message after API confirms success
           success("Verification successful! Redirecting...");
           setTimeout(() => navigate("/home"), 1500);
         } else if (mfaStep === "setup") {
@@ -302,14 +366,26 @@ const Login: React.FC = () => {
           setMfaStep("backup");
         }
       } catch (err: any) {
-        console.error("❌ MFA verification error:", err);
+        console.error("🔴 CATCH BLOCK REACHED - MFA verification error:", err);
+        console.error("🔴 Error structure:", {
+          status: err?.status,
+          data: err?.data,
+          detail: err?.data?.detail,
+          message: err?.message
+        });
         
-        // Handle specific backup code errors
+        // Handle specific error types using toast messages
         if (err?.data?.detail?.includes('backup code')) {
-          mfaFormMethods.setError("root", {
-            type: "manual",
-            message: "Invalid or already used backup code. Please try another one.",
-          });
+          error("Invalid or already used backup code. Please try another one.");
+        } else if (err?.data?.detail?.includes('Invalid verification code')) {
+          error("Invalid verification code. Please check your authenticator app and try again.");
+        } else if (err?.data?.detail?.includes('Invalid or expired token')) {
+          error("Your session has expired. Please log in again.");
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            setFormStep(1);
+            setMfaStep("login");
+          }, 2000);
         } else {
           handleApiError(err, "mfa");
         }
@@ -355,14 +431,6 @@ const Login: React.FC = () => {
     setTimeout(() => navigate("/forgot-password"), 1500);
   }, [info, navigate]);
 
-  const handleBackToLogin = useCallback(() => {
-    setFormStep(1);
-    setMfaStep("login");
-    setMfaSetupData(null);
-    resetForms();
-    dispatch(clearMFAState());
-    info("Returned to login form");
-  }, [resetForms, dispatch, info]);
 
   const handleBackupCodesAcknowledged = useCallback(async () => {
     try {

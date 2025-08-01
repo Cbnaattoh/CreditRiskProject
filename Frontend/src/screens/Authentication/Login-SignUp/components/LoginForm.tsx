@@ -91,17 +91,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
         <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Welcome Back</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-8">Sign in to your RiskGuard account</p>
 
-        {loginMethods.formState.errors.root && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-start border border-red-200/50 dark:border-red-800/50"
-          >
-            <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-            <div>{loginMethods.formState.errors.root.message}</div>
-          </motion.div>
-        )}
 
         <div className="space-y-6">
           {/* Email Field */}

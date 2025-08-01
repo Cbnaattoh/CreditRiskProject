@@ -367,17 +367,6 @@ const MFAForm: React.FC<MFAFormProps> = ({
           </div>
         )}
 
-        {/* Error Messages */}
-        {mfaFormMethods.formState.errors.root && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start"
-          >
-            <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-            <div>{mfaFormMethods.formState.errors.root?.message}</div>
-          </motion.div>
-        )}
 
         {mfaFormMethods.formState.errors.code && (
           <motion.div

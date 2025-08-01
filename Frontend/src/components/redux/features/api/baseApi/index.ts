@@ -43,7 +43,7 @@ const baseQuery = fetchBaseQuery({
 
     return headers;
   },
-  validateStatus: (response) => response.status < 500,
+  validateStatus: (response) => response.status >= 200 && response.status < 300,
 });
 
 const baseQueryWithReauth = async (
