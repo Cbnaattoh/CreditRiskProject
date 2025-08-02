@@ -12,6 +12,7 @@ import UserManagementTable from "./components/UserManagementTable";
 import SystemLogsTable from "./components/SystemLogsTable";
 import RoleManagement from "./components/RoleManagement";
 import DebugInfo from "./components/DebugInfo";
+import AdminUserCreation from "./components/AdminUserCreation";
 import { usePermissions, useIsAdmin, useCanAccessAdmin, useHasAnyPermission } from "../../components/utils/hooks/useRBAC";
 import { ProtectedComponent, AdminOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import ComprehensiveDebug from "../../components/utils/ComprehensiveDebug";
@@ -181,6 +182,7 @@ const Tabs: React.FC<{ tabs: Tab[]; activeTab: string; onTabChange?: (tabLabel: 
 const AdminPanel: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isUserCreationModalOpen, setIsUserCreationModalOpen] = useState(false);
   const { permissions, roles, isAdmin } = usePermissions();
   const canAccessAdmin = useCanAccessAdmin();
   const canManageUsers = useHasAnyPermission(["user_view_all", "user_edit_all"]);
@@ -432,6 +434,7 @@ const AdminPanel: React.FC = () => {
                                   <motion.button
                                     whileHover={{ scale: 1.02, y: -1 }}
                                     whileTap={{ scale: 0.98 }}
+                                    onClick={() => setIsUserCreationModalOpen(true)}
                                     className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                                   >
                                     <FiPlus className="w-5 h-5" />
@@ -541,6 +544,17 @@ const AdminPanel: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Admin User Creation Modal */}
+      <AdminUserCreation
+        isOpen={isUserCreationModalOpen}
+        onClose={() => setIsUserCreationModalOpen(false)}
+        onUserCreated={(userData) => {
+          console.log("User created:", userData);
+          // Optionally refresh user list or show success message
+          setIsUserCreationModalOpen(false);
+        }}
+      />
     </div>
   );
 };

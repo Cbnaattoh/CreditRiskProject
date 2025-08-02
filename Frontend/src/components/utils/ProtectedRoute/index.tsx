@@ -6,6 +6,9 @@ import {
   selectCurrentUser,
   selectRequiresMFASetup,
   selectHasLimitedAccess,
+  selectRequiresPasswordChange,
+  selectPasswordExpired,
+  selectTemporaryPassword,
 } from "../../redux/features/auth/authSlice";
 import { useGetCurrentUserQuery } from "../../redux/features/auth/authApi";
 import { MFASetupGuard } from "../../../components/guards/MFASetupGuard";
@@ -15,6 +18,9 @@ const ProtectedRoute = () => {
   const user = useSelector(selectCurrentUser);
   const requiresMFASetup = useSelector(selectRequiresMFASetup);
   const hasLimitedAccess = useSelector(selectHasLimitedAccess);
+  const requiresPasswordChange = useSelector(selectRequiresPasswordChange);
+  const passwordExpired = useSelector(selectPasswordExpired);
+  const temporaryPassword = useSelector(selectTemporaryPassword);
   const navigate = useNavigate();
   const location = useLocation();
   const [shouldVerify, setShouldVerify] = useState(false);
@@ -33,10 +39,19 @@ const ProtectedRoute = () => {
       return;
     }
 
+    // Check if user needs to change password (temporary or expired)
+    if (isAuthenticated && (requiresPasswordChange || passwordExpired || temporaryPassword)) {
+      // Don't redirect if already on password change page
+      if (location.pathname !== "/change-password") {
+        navigate("/change-password");
+        return;
+      }
+    }
+
     if (isAuthenticated && !user) {
       setShouldVerify(true);
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, requiresPasswordChange, passwordExpired, temporaryPassword, navigate, location.pathname]);
 
   useEffect(() => {
     if (error) {

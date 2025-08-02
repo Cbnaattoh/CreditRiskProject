@@ -27,6 +27,10 @@ interface AuthState {
   tokenType: 'full_access' | 'mfa_setup' | null;
   limitedAccess: boolean;
   mfaCompleted: boolean;
+  requiresPasswordChange: boolean;
+  passwordExpired: boolean;
+  temporaryPassword: boolean;
+  createdByAdmin: boolean;
 }
 
 const isTokenExpired = (token: string | null): boolean => {
@@ -123,6 +127,10 @@ const initialState: AuthState = {
   tokenType: null,
   limitedAccess: false,
   mfaCompleted: false,
+  requiresPasswordChange: false,
+  passwordExpired: false,
+  temporaryPassword: false,
+  createdByAdmin: false,
 };
 
 const authSlice = createSlice({
@@ -181,9 +189,25 @@ const authSlice = createSlice({
         requiresMFASetup?: boolean;
         limitedAccess?: boolean;
         mfaCompleted?: boolean;
+        requires_password_change?: boolean;
+        password_expired?: boolean;
+        temporary_password?: boolean;
+        created_by_admin?: boolean;
       }>
     ) => {
-      const { user, token, refreshToken, tokenType, requiresMFASetup, limitedAccess, mfaCompleted } = action.payload;
+      const { 
+        user, 
+        token, 
+        refreshToken, 
+        tokenType, 
+        requiresMFASetup, 
+        limitedAccess, 
+        mfaCompleted,
+        requires_password_change,
+        password_expired,
+        temporary_password,
+        created_by_admin
+      } = action.payload;
 
       if (isTokenExpired(token)) {
         console.warn("Attempted to set expired token");
@@ -202,6 +226,10 @@ const authSlice = createSlice({
       state.tokenType = tokenType ?? 'full_access';
       state.limitedAccess = limitedAccess ?? false;
       state.mfaCompleted = mfaCompleted ?? true;
+      state.requiresPasswordChange = requires_password_change ?? false;
+      state.passwordExpired = password_expired ?? false;
+      state.temporaryPassword = temporary_password ?? false;
+      state.createdByAdmin = created_by_admin ?? false;
 
       if (typeof window !== "undefined") {
         localStorage.setItem("authToken", token);
@@ -420,6 +448,10 @@ const authSlice = createSlice({
       state.tokenType = null;
       state.limitedAccess = false;
       state.mfaCompleted = false;
+      state.requiresPasswordChange = false;
+      state.passwordExpired = false;
+      state.temporaryPassword = false;
+      state.createdByAdmin = false;
 
       if (typeof window !== "undefined") {
         localStorage.removeItem("authToken");
@@ -432,6 +464,12 @@ const authSlice = createSlice({
         clearUserState();
         console.log('🔵 Logout: Cleared all auth and RBAC data from localStorage');
       }
+    },
+
+    clearPasswordChangeRequirements: (state) => {
+      state.requiresPasswordChange = false;
+      state.passwordExpired = false;
+      state.temporaryPassword = false;
     },
 
     clearAllAuthData: (state) => {
@@ -453,6 +491,10 @@ const authSlice = createSlice({
         tokenType: null,
         limitedAccess: false,
         mfaCompleted: false,
+        requiresPasswordChange: false,
+        passwordExpired: false,
+        temporaryPassword: false,
+        createdByAdmin: false,
       });
 
       if (typeof window !== "undefined") {
@@ -535,6 +577,7 @@ export const {
   refreshTokenFailure,
   clearAllAuthData,
   updatePermissions,
+  clearPasswordChangeRequirements,
 } = authSlice.actions;
 
 export default authSlice.reducer;
@@ -555,6 +598,12 @@ export const selectPermissionSummary = (state: RootState) => state.auth.permissi
 export const selectTokenType = (state: RootState) => state.auth.tokenType;
 export const selectLimitedAccess = (state: RootState) => state.auth.limitedAccess;
 export const selectMfaCompleted = (state: RootState) => state.auth.mfaCompleted;
+
+// Password change selectors
+export const selectRequiresPasswordChange = (state: RootState) => state.auth.requiresPasswordChange;
+export const selectPasswordExpired = (state: RootState) => state.auth.passwordExpired;
+export const selectTemporaryPassword = (state: RootState) => state.auth.temporaryPassword;
+export const selectCreatedByAdmin = (state: RootState) => state.auth.createdByAdmin;
 
 export const selectIsAuthenticated = createSelector(
   [selectAuthState],

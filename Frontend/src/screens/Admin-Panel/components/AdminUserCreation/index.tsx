@@ -1,0 +1,510 @@
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FiX,
+  FiUser,
+  FiMail,
+  FiShield,
+  FiEye,
+  FiEyeOff,
+  FiSend,
+  FiCheck,
+  FiAlertCircle,
+  FiUserPlus,
+} from "react-icons/fi";
+import { useGetUsersFiltersQuery } from "../../../../components/redux/features/api/RBAC/rbacApi";
+
+interface Role {
+  id: number;
+  name: string;
+  description: string;
+}
+
+interface AdminUserCreationProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUserCreated?: (userData: any) => void;
+}
+
+// Default roles - these will be loaded from API
+const defaultRoles: Role[] = [
+  { id: 1, name: "Client User", description: "Basic client access with limited permissions" },
+  { id: 2, name: "Risk Analyst", description: "Analyze and assess credit risk for applications" },
+  { id: 3, name: "Compliance Auditor", description: "Review compliance and audit activities" },
+  { id: 4, name: "Manager", description: "Manage team operations and oversee processes" },
+  { id: 5, name: "Administrator", description: "Full system access and administration" },
+];
+
+const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
+  isOpen,
+  onClose,
+  onUserCreated,
+}) => {
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    role_id: "",
+    send_email_notification: true,
+  });
+  const [availableRoles, setAvailableRoles] = useState<Role[]>(defaultRoles);
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [showTempPassword, setShowTempPassword] = useState(false);
+  const [tempPassword, setTempPassword] = useState("");
+
+  // Get roles from RBAC API
+  const { data: filtersData, isLoading: isLoadingRoles } = useGetUsersFiltersQuery();
+
+  // Update available roles when RBAC data loads
+  useEffect(() => {
+    if (filtersData?.roles) {
+      const formattedRoles = filtersData.roles.map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        description: getRoleDescription(role.name),
+      }));
+      setAvailableRoles(formattedRoles);
+    }
+  }, [filtersData]);
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setTimeout(() => {
+        setFormData({
+          first_name: "",
+          last_name: "",
+          email: "",
+          role_id: "",
+          send_email_notification: true,
+        });
+        setSuccess(false);
+        setError("");
+        setShowTempPassword(false);
+        setTempPassword("");
+      }, 300);
+    }
+  }, [isOpen]);
+
+  const getRoleDescription = (roleName: string): string => {
+    const descriptions: { [key: string]: string } = {
+      "Client User": "Basic client access with limited permissions",
+      "Risk Analyst": "Analyze and assess credit risk for applications",
+      "Compliance Auditor": "Review compliance and audit activities",
+      "Manager": "Manage team operations and oversee processes",
+      "Administrator": "Full system access and administration",
+    };
+    return descriptions[roleName] || "Standard role permissions";
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
+    // Clear error when user starts typing
+    if (error) setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    // Validate form
+    if (!formData.first_name || !formData.last_name || !formData.email || !formData.role_id) {
+      setError("Please fill in all required fields.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Make API call to create user
+      const response = await fetch("http://localhost:8000/api/users/admin/create-user/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || errorData.message || "Failed to create user");
+      }
+
+      const data = await response.json();
+      setTempPassword(data.temporary_password);
+      setSuccess(true);
+      
+      // Call success callback
+      if (onUserCreated) {
+        onUserCreated(data);
+      }
+
+    } catch (err: any) {
+      setError(err.message || "Failed to create user. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const selectedRole = availableRoles.find(role => role.id.toString() === formData.role_id);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/30 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-8 py-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <FiUserPlus className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">Create New User</h2>
+                <p className="text-indigo-100 mt-1">Add a new team member with role-based access</p>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200"
+            >
+              <FiX className="h-6 w-6" />
+            </motion.button>
+          </div>
+        </div>
+
+        <div className="p-8">
+          <AnimatePresence mode="wait">
+            {success ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="text-center space-y-6"
+              >
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                  className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-lg"
+                >
+                  <FiCheck className="h-10 w-10 text-white" />
+                </motion.div>
+
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    User Created Successfully!
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    The new user account has been created and configured.
+                  </p>
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 rounded-2xl p-6 mb-6">
+                    <div className="flex items-start space-x-3">
+                      <FiUser className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-left">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                          Account Details
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <p className="text-blue-800 dark:text-blue-200">
+                            <strong>Name:</strong> {formData.first_name} {formData.last_name}
+                          </p>
+                          <p className="text-blue-800 dark:text-blue-200">
+                            <strong>Email:</strong> {formData.email}
+                          </p>
+                          <p className="text-blue-800 dark:text-blue-200">
+                            <strong>Role:</strong> {selectedRole?.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {tempPassword && (
+                    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-6 mb-6">
+                      <div className="flex items-start space-x-3">
+                        <FiShield className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-left">
+                          <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                            Temporary Password
+                          </h4>
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-3">
+                            <div className="flex items-center justify-between">
+                              <code className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                                {showTempPassword ? tempPassword : "••••••••••••"}
+                              </code>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setShowTempPassword(!showTempPassword)}
+                                className="ml-3 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                              >
+                                {showTempPassword ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                              </motion.button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            The user will be required to change this password on their first login.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.send_email_notification && (
+                    <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-2xl p-4">
+                      <div className="flex items-center space-x-2">
+                        <FiSend className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          Welcome email sent to {formData.email}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onClose}
+                  className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  Done
+                </motion.button>
+              </motion.div>
+            ) : (
+              <motion.form
+                key="form"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                onSubmit={handleSubmit}
+                className="space-y-6"
+              >
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{ opacity: 0, height: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      className="p-4 rounded-2xl flex items-start border bg-red-50/80 dark:bg-red-900/30 text-red-600 dark:text-red-300 border-red-200/50 dark:border-red-700/30"
+                    >
+                      <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
+                      <div className="font-medium">{error}</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Name Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">
+                      First Name *
+                    </label>
+                    <motion.div whileFocus={{ scale: 1.02 }} className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <FiUser className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        name="first_name"
+                        value={formData.first_name}
+                        onChange={handleInputChange}
+                        placeholder="John"
+                        className="pl-12 w-full px-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all duration-300 backdrop-blur-sm bg-white/70 dark:bg-gray-800/50 border-gray-300/70 dark:border-gray-600/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                        required
+                      />
+                    </motion.div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">
+                      Last Name *
+                    </label>
+                    <motion.div whileFocus={{ scale: 1.02 }} className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <FiUser className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        name="last_name"
+                        value={formData.last_name}
+                        onChange={handleInputChange}
+                        placeholder="Doe"
+                        className="pl-12 w-full px-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all duration-300 backdrop-blur-sm bg-white/70 dark:bg-gray-800/50 border-gray-300/70 dark:border-gray-600/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                        required
+                      />
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* Email Field */}
+                <div>
+                  <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">
+                    Email Address *
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }} className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiMail className="text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="john.doe@company.com"
+                      className="pl-12 w-full px-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all duration-300 backdrop-blur-sm bg-white/70 dark:bg-gray-800/50 border-gray-300/70 dark:border-gray-600/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                      required
+                    />
+                  </motion.div>
+                </div>
+
+                {/* Role Selection */}
+                <div>
+                  <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">
+                    Role Assignment *
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }} className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                      <FiShield className="text-gray-400" />
+                    </div>
+                    <select
+                      name="role_id"
+                      value={formData.role_id}
+                      onChange={handleInputChange}
+                      className="pl-12 w-full px-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all duration-300 backdrop-blur-sm bg-white/70 dark:bg-gray-800/50 border-gray-300/70 dark:border-gray-600/50 text-gray-900 dark:text-white appearance-none cursor-pointer"
+                      required
+                    >
+                      <option value="">Select a role...</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.id} value={role.id} className="bg-white dark:bg-gray-800">
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </motion.div>
+                  {selectedRole && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      transition={{ duration: 0.3 }}
+                      className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-700/50"
+                    >
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        {selectedRole.description}
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Email Notification Toggle */}
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    name="send_email_notification"
+                    id="send_email_notification"
+                    checked={formData.send_email_notification}
+                    onChange={handleInputChange}
+                    className="w-5 h-5 text-indigo-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                  />
+                  <label htmlFor="send_email_notification" className="text-sm text-gray-700 dark:text-gray-300">
+                    Send welcome email with login credentials
+                  </label>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4 pt-4">
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={onClose}
+                    className="flex-1 py-4 px-6 rounded-2xl font-semibold border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                  >
+                    Cancel
+                  </motion.button>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={isLoading}
+                    className={`flex-1 py-4 px-6 rounded-2xl font-semibold shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white ${
+                      isLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <motion.svg
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                          className="w-5 h-5 mr-3"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </motion.svg>
+                        Creating User...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        <FiUserPlus className="mr-2" />
+                        Create User
+                      </span>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default AdminUserCreation;

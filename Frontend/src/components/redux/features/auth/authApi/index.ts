@@ -6,6 +6,7 @@ import {
   completeMFASetup,
   logout,
   setAuthToken,
+  clearPasswordChangeRequirements,
 } from "../authSlice";
 import type {
   AuthUser,
@@ -127,6 +128,10 @@ export const authApi = apiSlice.injectEndpoints({
                 requiresMFASetup: data.requires_mfa_setup || false,
                 limitedAccess: data.limited_access || false,
                 mfaCompleted: data.mfa_completed !== false,
+                requires_password_change: data.requires_password_change || false,
+                password_expired: data.password_expired || false,
+                temporary_password: data.temporary_password || false,
+                created_by_admin: data.created_by_admin || false,
               })
             );
           }
@@ -354,6 +359,23 @@ export const authApi = apiSlice.injectEndpoints({
       }),
     }),
 
+    changePasswordRequired: builder.mutation<BaseResponse, ChangePasswordRequest>({
+      query: (credentials) => ({
+        url: "auth/password-change-required/",
+        method: "POST",
+        body: credentials,
+      }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          // Clear password change requirements after successful change
+          dispatch(clearPasswordChangeRequirements());
+        } catch (error) {
+          console.error("Password change required error:", error);
+        }
+      },
+    }),
+
     requestPasswordReset: builder.mutation<BaseResponse, PasswordResetRequest>({
       query: (data) => ({
         url: "auth/password-reset/request/",
@@ -406,6 +428,7 @@ export const {
   useRefreshTokenMutation,
   useVerifyMFASetupMutation,
   useChangePasswordMutation,
+  useChangePasswordRequiredMutation,
   useRequestPasswordResetMutation,
   useConfirmPasswordResetMutation,
   useVerifyEmailMutation,
