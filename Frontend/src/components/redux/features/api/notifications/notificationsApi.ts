@@ -76,32 +76,32 @@ export const notificationsApi = createApi({
   endpoints: (builder) => ({
     // Get all notifications for current user
     getNotifications: builder.query<Notification[], void>({
-      query: () => 'api/notifications/',
+      query: () => 'notifications/',
       providesTags: ['Notification'],
     }),
 
     // Get unread notifications
     getUnreadNotifications: builder.query<Notification[], void>({
-      query: () => 'api/notifications/unread/',
+      query: () => 'notifications/unread/',
       providesTags: ['Notification'],
     }),
 
     // Get unread notification count
     getUnreadCount: builder.query<UnreadCountResponse, void>({
-      query: () => 'api/notifications/unread_count/',
+      query: () => 'notifications/unread_count/',
       providesTags: ['Notification'],
     }),
 
     // Get recent notifications (last 7 days)
     getRecentNotifications: builder.query<Notification[], void>({
-      query: () => 'api/notifications/recent/',
+      query: () => 'notifications/recent/',
       providesTags: ['Notification'],
     }),
 
     // Mark specific notification as read
     markNotificationRead: builder.mutation<Notification, number>({
       query: (id) => ({
-        url: `api/notifications/${id}/mark_read/`,
+        url: `notifications/${id}/mark_read/`,
         method: 'POST',
       }),
       invalidatesTags: ['Notification'],
@@ -110,7 +110,7 @@ export const notificationsApi = createApi({
     // Mark all notifications as read
     markAllNotificationsRead: builder.mutation<MarkAllReadResponse, void>({
       query: () => ({
-        url: 'api/notifications/mark_all_read/',
+        url: 'notifications/mark_all_read/',
         method: 'POST',
       }),
       invalidatesTags: ['Notification'],
@@ -119,7 +119,7 @@ export const notificationsApi = createApi({
     // Clear all read notifications
     clearReadNotifications: builder.mutation<ClearReadResponse, void>({
       query: () => ({
-        url: 'api/notifications/clear_read/',
+        url: 'notifications/clear_read/',
         method: 'DELETE',
       }),
       invalidatesTags: ['Notification'],
@@ -128,7 +128,7 @@ export const notificationsApi = createApi({
     // Create notification (admin only)
     createNotification: builder.mutation<Notification, NotificationCreateRequest>({
       query: (notification) => ({
-        url: 'api/notifications/',
+        url: 'notifications/',
         method: 'POST',
         body: notification,
       }),
@@ -137,19 +137,19 @@ export const notificationsApi = createApi({
 
     // Get audit logs
     getAuditLogs: builder.query<AuditLog[], void>({
-      query: () => 'api/audit-logs/',
+      query: () => 'audit-logs/',
       providesTags: ['AuditLog'],
     }),
 
     // Get recent audit logs
     getRecentAuditLogs: builder.query<AuditLog[], void>({
-      query: () => 'api/audit-logs/recent/',
+      query: () => 'audit-logs/recent/',
       providesTags: ['AuditLog'],
     }),
 
     // Get audit logs by action type
     getAuditLogsByAction: builder.query<AuditLog[], string>({
-      query: (action) => `api/audit-logs/by_action/?action=${action}`,
+      query: (action) => `audit-logs/by_action/?action=${action}`,
       providesTags: ['AuditLog'],
     }),
   }),
