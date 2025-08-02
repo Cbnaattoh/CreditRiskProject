@@ -32,5 +32,8 @@ urlpatterns = [
     
     # Reports endpoints
     path('reports/', include('reports.urls')),
+    
+    # Notifications endpoints  
+    path('', include('notifications.urls')),
 
 ]

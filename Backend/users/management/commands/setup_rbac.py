@@ -171,14 +171,14 @@ class Command(BaseCommand):
             },
             'Client User': {
                 'permissions': [
-                    # Limited client permissions
+                    # Limited client permissions - only what they need for their own risk assessments
                     'risk_view',
                     'compliance_view',
-                    'report_view',
+                    'client_view',  # Can view client data (for their own applications)
                     'view_own_profile', 'edit_own_profile',
                 ],
                 'is_default': True,
-                'description': 'Standard client user with limited view permissions'
+                'description': 'Standard client user with limited view permissions - no access to system reports'
             },
             'Manager': {
                 'permissions': [
