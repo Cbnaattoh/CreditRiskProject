@@ -894,3 +894,92 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 pass
         
         return validated_data
+
+
+class AdminUserCreationSerializer(serializers.ModelSerializer):
+    """Serializer for admin-only user creation with temporary passwords"""
+    role_id = serializers.IntegerField(write_only=True, help_text="Role ID to assign to the user")
+    send_email_notification = serializers.BooleanField(default=True, write_only=True)
+    temporary_password = serializers.CharField(read_only=True, help_text="Generated temporary password")
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'user_type', 
+            'phone_number', 'role_id', 'send_email_notification', 'temporary_password'
+        ]
+        read_only_fields = ['id', 'temporary_password']
+        extra_kwargs = {
+            'email': {'required': True},
+            'first_name': {'required': True, 'min_length': 2},
+            'last_name': {'required': True, 'min_length': 2},
+            'user_type': {'required': True},
+        }
+
+    def validate_user_type(self, value):
+        """Validate that user type is allowed"""
+        if value not in ['ADMIN', 'ANALYST', 'AUDITOR', 'CLIENT']:
+            raise serializers.ValidationError("Invalid user type")
+        return value
+
+    def validate_role_id(self, value):
+        """Validate that role exists and is active"""
+        try:
+            role = Role.objects.get(id=value, is_active=True)
+            return value
+        except Role.DoesNotExist:
+            raise serializers.ValidationError("Role does not exist or is inactive")
+
+    def validate_email(self, value):
+        """Check if email already exists"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email already exists")
+        return value.lower()
+
+    def create(self, validated_data):
+        """Create user with temporary password and assign role"""
+        role_id = validated_data.pop('role_id')
+        send_email = validated_data.pop('send_email_notification', True)
+        
+        # Get the admin user who is creating this user
+        admin_user = self.context['request'].user
+        
+        # Create user with temporary password
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            user_type=validated_data['user_type'],
+            phone_number=validated_data.get('phone_number', ''),
+            created_by_admin=True,
+            password='temporary_password_placeholder'  # Will be overridden
+        )
+        
+        # Set temporary password
+        temp_password = user.set_temporary_password()
+        user.save()
+        
+        # Assign role
+        try:
+            role = Role.objects.get(id=role_id, is_active=True)
+            user.assign_role(role, assigned_by=admin_user)
+        except Role.DoesNotExist:
+            user.delete()  # Cleanup if role assignment fails
+            raise serializers.ValidationError("Role assignment failed")
+        
+        # Create user profile
+        UserProfile.objects.create(user=user)
+        
+        # Send welcome email if requested
+        if send_email:
+            from .utils.email import send_admin_created_user_email
+            try:
+                send_admin_created_user_email(user, temp_password, admin_user)
+            except Exception as e:
+                logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+        
+        # Set temporary password in response
+        user.temporary_password = temp_password
+        
+        logger.info(f"Admin {admin_user.email} created user {user.email} with role {role.name}")
+        return user

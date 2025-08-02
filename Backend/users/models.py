@@ -140,6 +140,9 @@ class User(AbstractUser):
     mfa_completed_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when MFA setup was completed")
     backup_codes = models.JSONField(default=list, blank=True)
     last_password_change = models.DateTimeField(auto_now_add=True)
+    password_change_required = models.BooleanField(default=False, help_text="True if user must change password on next login")
+    is_temp_password = models.BooleanField(default=False, help_text="True if current password is temporary")
+    created_by_admin = models.BooleanField(default=False, help_text="True if user was created by admin")
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -184,16 +187,18 @@ class User(AbstractUser):
             except Role.DoesNotExist:
                 raise ValidationError(f"Default role for user type '{self.user_type}' does not exist")
 
-    def set_password(self, raw_password):
-        """Override to prevent saving with invalid data"""
+    def set_password(self, raw_password, is_temporary=False):
+        """Override to handle temporary passwords"""
         # Allow Django's security feature for non-existent users (no email + no pk)
         # This happens during authentication when user doesn't exist (timing attack prevention)
         if not self.email and self.pk is not None:
             raise ValidationError("Cannot set password without email")
         super().set_password(raw_password)
-        # Only update last_password_change for real users (with email and pk)
+        # Only update for real users (with email and pk)
         if self.email and self.pk is not None:
             self.last_password_change = timezone.now()
+            self.is_temp_password = is_temporary
+            self.password_change_required = is_temporary
 
     def is_password_expired(self):
         """Check if password has expired"""
@@ -201,6 +206,20 @@ class User(AbstractUser):
             return True
         expiration_days = getattr(settings, 'PASSWORD_EXPIRATION_DAYS', 90)
         return (timezone.now() - self.last_password_change).days > expiration_days
+    
+    @staticmethod
+    def generate_temporary_password():
+        """Generate a secure temporary password"""
+        import secrets
+        import string
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        return ''.join(secrets.choice(alphabet) for _ in range(12))
+    
+    def set_temporary_password(self):
+        """Set a temporary password for the user"""
+        temp_password = self.generate_temporary_password()
+        self.set_password(temp_password, is_temporary=True)
+        return temp_password
     
     def get_roles(self):
         """Get all active, non-expired roles for user"""

@@ -11,7 +11,8 @@ from ..views import (
     SecurityAuditView,
     AdminUsersListView,
     AdminUserDetailView,
-    AdminUsersFiltersView
+    AdminUsersFiltersView,
+    AdminUserCreationView
 )
 
 app_name = 'users'
@@ -28,6 +29,7 @@ urlpatterns = [
     path('me/login-history/<int:user_id>/', LoginHistoryView.as_view(), name='user-login-history-detail'),
 
     # Admin-only User Management
+    path('admin/create-user/', AdminUserCreationView.as_view(), name='admin-create-user'),
     path('admin/password-reset/<int:user_id>/', AdminPasswordResetView.as_view(), name='admin-password-reset'),
     path('admin/account-status/<int:user_id>/', UserAccountStatusView.as_view(), name='admin-account-status'),
     path('admin/bulk-actions/', BulkUserActionsView.as_view(), name='admin-bulk-actions'),

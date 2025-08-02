@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {{ app_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 10px;
+        }
+        .welcome-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        .title {
+            color: #1f2937;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+        }
+        .content {
+            margin: 30px 0;
+        }
+        .login-button {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .login-button:hover {
+            background: linear-gradient(to right, #4338ca, #6d28d9);
+        }
+        .credentials-box {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .credentials-box h4 {
+            color: #374151;
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            font-family: inherit;
+        }
+        .credential-item {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .credential-label {
+            font-weight: bold;
+            color: #4b5563;
+        }
+        .credential-value {
+            color: #1f2937;
+            background: #ffffff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            margin-left: 8px;
+        }
+        .security-info {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        .security-info h4 {
+            color: #92400e;
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+        .security-info p {
+            color: #92400e;
+            margin: 0;
+            font-size: 14px;
+        }
+        .role-info {
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        .role-info h4 {
+            color: #065f46;
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+        .role-info p {
+            color: #065f46;
+            margin: 0;
+            font-size: 14px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .steps-list {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .steps-list h4 {
+            color: #1e40af;
+            margin: 0 0 12px 0;
+            font-size: 16px;
+        }
+        .steps-list ol {
+            color: #1e40af;
+            margin: 0;
+            padding-left: 20px;
+        }
+        .steps-list li {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">{{ app_name }}</div>
+            <div class="welcome-icon">👋</div>
+            <h1 class="title">Welcome to the Team!</h1>
+            <p class="subtitle">Your account has been created by {{ admin_user.first_name }} {{ admin_user.last_name }}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ user.first_name }},</p>
+            
+            <p>Welcome to {{ app_name }}! Your account has been set up and you've been assigned the role of <strong>{{ user_role }}</strong>. You now have access to our secure credit risk assessment platform.</p>
+            
+            <div class="role-info">
+                <h4>🎯 Your Role & Access</h4>
+                <p>As a <strong>{{ user_role }}</strong>, you have been granted specific permissions to access relevant features of the platform. Your administrator will provide additional guidance on your responsibilities.</p>
+            </div>
+            
+            <div class="credentials-box">
+                <h4>🔐 Your Login Credentials</h4>
+                <div class="credential-item">
+                    <span class="credential-label">Email:</span>
+                    <span class="credential-value">{{ user.email }}</span>
+                </div>
+                <div class="credential-item">
+                    <span class="credential-label">Temporary Password:</span>
+                    <span class="credential-value">{{ temporary_password }}</span>
+                </div>
+            </div>
+            
+            <div class="steps-list">
+                <h4>📋 Next Steps</h4>
+                <ol>
+                    <li>Click the login button below or visit the platform directly</li>
+                    <li>Log in using your email and the temporary password provided</li>
+                    <li><strong>You will be required to change your password</strong> on first login</li>
+                    <li>Complete your profile setup</li>
+                    <li>Consider enabling two-factor authentication for enhanced security</li>
+                </ol>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ login_url }}" class="login-button">Login to {{ app_name }}</a>
+            </div>
+            
+            <div class="security-info">
+                <h4>🔒 Important Security Information</h4>
+                <p><strong>Your temporary password will expire and must be changed on first login.</strong> Never share your login credentials with anyone. If you didn't expect this account creation, please contact your administrator immediately.</p>
+            </div>
+            
+            <p>If you have any questions about using the platform or need assistance, please don't hesitate to reach out to your administrator or our support team.</p>
+            
+            <p>We're excited to have you on board!</p>
+            
+            <p>Best regards,<br>
+            The {{ app_name }} Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This account was created by {{ admin_user.first_name }} {{ admin_user.last_name }} ({{ admin_user.email }}) on {{ creation_date }}.</p>
+            <p>© {{ app_name }} - Secure Credit Risk Assessment Platform</p>
+        </div>
+    </div>
+</body>
+</html>

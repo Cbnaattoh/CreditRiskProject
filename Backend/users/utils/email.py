@@ -122,3 +122,44 @@ def send_mfa_enabled_notification(user):
 
     except Exception as e:
         logger.error(f"Failed to send MFA enabled notification to {user.email}: {str(e)}")
+
+
+def send_admin_created_user_email(user, temporary_password, admin_user):
+    """Send welcome email to admin-created user with temporary password"""
+    try:
+        # Get user's primary role for display
+        user_roles = user.get_roles()
+        user_role = user_roles.first().name if user_roles.exists() else user.user_type
+        
+        # Build login URL
+        frontend_base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        login_url = f"{frontend_base_url}/"
+        
+        subject = f'Welcome to {getattr(settings, "APP_NAME", "RiskGuard Pro")} - Account Created'
+        
+        html_message = render_to_string('emails/admin_created_user.html', {
+            'user': user,
+            'temporary_password': temporary_password,
+            'admin_user': admin_user,
+            'user_role': user_role,
+            'login_url': login_url,
+            'app_name': getattr(settings, 'APP_NAME', 'RiskGuard Pro'),
+            'creation_date': user.date_joined.strftime('%B %d, %Y at %I:%M %p'),
+        })
+        
+        plain_message = strip_tags(html_message)
+        
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        
+        logger.info(f"Admin-created user welcome email sent to: {user.email}")
+        
+    except Exception as e:
+        logger.error(f"Failed to send admin-created user email to {user.email}: {str(e)}")
+        raise

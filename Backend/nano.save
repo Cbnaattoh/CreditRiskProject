@@ -1,7 +1,0 @@
-
-# Database (PostgreSQL)
-DB_NAME=your_database_name
-DB_USER=kelvin_afriyie
-DB_PASSWORD=iota--iota
-DB_HOST=localhost
-DB_PORT=5432

@@ -44,7 +44,7 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserRegisterSerializer,
-    AdminUserCreateSerializer,
+    AdminUserCreationSerializer,
     PasswordChangeSerializer,
     UserUpdateSerializer,
     MFASetupVerifySerializer,
@@ -537,7 +537,43 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         serializer = UserRoleSerializer(user_roles, many=True)
         return Response(serializer.data)
     
-    
+    @action(detail=False, methods=['get'])
+    def filters(self, request):
+        """Get available filter options for users list"""
+        from .models import Role
+        
+        # Get available roles
+        roles = Role.objects.filter(is_active=True).values('id', 'name')
+        
+        # Get user types
+        user_types = [{'code': choice[0], 'display': choice[1]} for choice in User.USER_TYPES]
+        
+        # Get status options
+        status_options = [
+            {'code': 'Active', 'display': 'Active (last 7 days)'},
+            {'code': 'Recently Active', 'display': 'Recently Active (7-30 days)'},
+            {'code': 'Inactive', 'display': 'Inactive (30+ days)'},
+            {'code': 'Never Logged In', 'display': 'Never Logged In'},
+        ]
+        
+        # Get sort options
+        sort_options = [
+            {'code': 'date_joined', 'display': 'Date Joined (Oldest)'},
+            {'code': '-date_joined', 'display': 'Date Joined (Newest)'},
+            {'code': 'email', 'display': 'Email (A-Z)'},
+            {'code': '-email', 'display': 'Email (Z-A)'},
+            {'code': 'last_login', 'display': 'Last Login (Oldest)'},
+            {'code': '-last_login', 'display': 'Last Login (Newest)'},
+        ]
+        
+        return Response({
+            'roles': list(roles),
+            'user_types': user_types,
+            'status_options': status_options,
+            'sort_options': sort_options
+        })
+
+
 class RBACDashboardView(generics.GenericAPIView):
     """Dashboard view with RBAC statistics"""
     required_permissions = 'view_dashboard'
@@ -695,11 +731,13 @@ class LoginView(TokenObtainPairView):
             
             self._handle_successful_login(user, request)
             
-            # Check for password expiration
-            if user.is_password_expired():
+            # Check for password expiration or temporary password
+            if user.is_password_expired() or user.password_change_required:
                 validated_data.update({
                     'requires_password_change': True,
-                    'password_expired': True
+                    'password_expired': user.is_password_expired(),
+                    'temporary_password': user.is_temp_password,
+                    'created_by_admin': user.created_by_admin
                 })
 
             # New MFA flow logic
@@ -1728,16 +1766,30 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
     @password_change_required_get_docs
     def get(self, request):
         """Check if password change is required"""
+        user = request.user
+        
+        if user.is_temp_password:
+            message = 'You must change your temporary password before accessing the system'
+            detail_type = 'temporary_password'
+        else:
+            message = 'Your password has expired and must be changed'
+            detail_type = 'expired_password'
+            
         return Response({
-            'detail': 'Your password has expired and must be changed',
-            'password_expired': True,
-            'last_change': request.user.last_password_change
+            'detail': message,
+            'type': detail_type,
+            'password_expired': user.is_password_expired(),
+            'temporary_password': user.is_temp_password,
+            'created_by_admin': user.created_by_admin,
+            'last_change': user.last_password_change
         }, status=status.HTTP_403_FORBIDDEN)
 
     @password_change_required_post_docs
     def post(self, request):
-        """Force password change for expired passwords"""
-        if not request.user.is_password_expired():
+        """Force password change for expired/temporary passwords"""
+        user = request.user
+        
+        if not (user.is_password_expired() or user.password_change_required):
             return Response(
                 {'detail': 'Password change not required'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -1757,11 +1809,24 @@ class PasswordChangeRequiredView(generics.GenericAPIView):
         
         try:
             with transaction.atomic():
-                user.set_password(serializer.validated_data['new_password'])
-                user.last_password_change = timezone.now()
+                # Check if this was a temporary password before clearing flags
+                was_temp_password = user.is_temp_password
+                
+                # Set new password and clear temporary/required flags
+                user.set_password(serializer.validated_data['new_password'], is_temporary=False)
+                user.password_change_required = False
+                user.is_temp_password = False
                 user.save()
                 
-                logger.info(f"Expired password changed for user: {user.email}")
+                # Send notification if it was a temporary password
+                if user.created_by_admin and was_temp_password:
+                    from .utils.email import send_password_changed_notification
+                    try:
+                        send_password_changed_notification(user)
+                    except Exception as e:
+                        logger.error(f"Failed to send password change notification: {str(e)}")
+                
+                logger.info(f"Password changed for user: {user.email} (was_temporary: {was_temp_password})")
                 
             return Response(
                 {'detail': 'Password changed successfully'},
@@ -2859,5 +2924,72 @@ def get_view_permissions_summary():
         "SecurityAuditView": {
             "GET": ["IsAuthenticated", "RequirePermission('view_audit_logs')"],
             "description": "Security audit information for admins/auditors"
+        },
+        "AdminUserCreationView": {
+            "POST": ["IsAuthenticated", "RequirePermission('user_create')"],
+            "description": "Admin-only user creation with temporary passwords"
         }
     }
+
+
+class AdminUserCreationView(generics.CreateAPIView):
+    """Admin-only view for creating users with temporary passwords"""
+    serializer_class = AdminUserCreationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Only admins with user_create permission can create users"""
+        permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def check_permissions(self, request):
+        """Check if user has permission to create users"""
+        super().check_permissions(request)
+        if not request.user.has_permission('user_create'):
+            raise PermissionDenied("You don't have permission to create users")
+    
+    def create(self, request, *args, **kwargs):
+        """Create user with temporary password and role assignment"""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {"detail": "Validation failed", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create the user
+            user = serializer.save()
+            
+            # Log the creation
+            logger.info(
+                f"Admin {request.user.email} created user {user.email} with type {user.user_type}",
+                extra={
+                    'admin_id': request.user.id,
+                    'created_user_id': user.id,
+                    'user_type': user.user_type,
+                    'action': 'admin_user_creation'
+                }
+            )
+            
+            # Return response without exposing password in logs
+            response_data = {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'user_type': user.user_type,
+                'temporary_password': user.temporary_password,
+                'password_change_required': user.password_change_required,
+                'created_by_admin': user.created_by_admin,
+                'message': 'User created successfully. Temporary password must be changed on first login.'
+            }
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Admin user creation failed: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': 'User creation failed. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
