@@ -2,7 +2,6 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
-from django.urls import reverse
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,10 +39,9 @@ def send_welcome_email(user):
 def send_password_reset_email(user, uid, token, request):
     """Send password reset email"""
     try:
-        # Build reset URL
-        reset_url = request.build_absolute_uri(
-            reverse('password_reset_confirm') + f'?uid={uid}&token={token}'
-        )
+        # Build reset URL (Frontend React app URL)
+        frontend_base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        reset_url = f"{frontend_base_url}/reset-password?uid={uid}&token={token}"
         
         subject = 'Password Reset Request'
         
