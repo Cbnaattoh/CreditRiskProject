@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiLock,
@@ -8,19 +8,36 @@ import {
   FiArrowRight,
   FiAlertCircle,
 } from "react-icons/fi";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import Logo from "../../../../components/utils/Logo";
+import { useConfirmPasswordResetMutation } from "../../../../components/redux/features/auth/authApi";
 
 const ResetPassword: React.FC = () => {
-  const [email, setEmail] = useState("user@example.com");
-  const [otp, setOtp] = useState("");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [token, setToken] = useState("");
+  const [uid, setUid] = useState("");
+  const [confirmPasswordReset, { isLoading }] = useConfirmPasswordResetMutation();
+
+  useEffect(() => {
+    const tokenParam = searchParams.get('token');
+    const uidParam = searchParams.get('uid');
+    
+    if (!tokenParam || !uidParam) {
+      setError("Invalid reset link. Please request a new password reset.");
+      return;
+    }
+    
+    setToken(tokenParam);
+    setUid(uidParam);
+  }, [searchParams]);
 
   // Password strength calculator
   React.useEffect(() => {
@@ -49,7 +66,12 @@ const ResetPassword: React.FC = () => {
     e.preventDefault();
     setError("");
 
-    if (!otp || !newPassword || !confirmPassword) {
+    if (!token || !uid) {
+      setError("Invalid reset link. Please request a new password reset.");
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
       setError("Please fill in all fields");
       return;
     }
@@ -64,17 +86,22 @@ const ResetPassword: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Password reset successful");
+      await confirmPasswordReset({
+        token,
+        uid,
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      }).unwrap();
       setIsSuccess(true);
-    } catch (err) {
-      setError("Failed to reset password. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setError("");
+    } catch (err: any) {
+      const errorMessage = err?.data?.detail || 
+                          err?.data?.new_password?.[0] || 
+                          err?.data?.token?.[0] || 
+                          err?.data?.uid?.[0] ||
+                          "Failed to reset password. Please try again.";
+      setError(errorMessage);
     }
   };
 
@@ -191,7 +218,7 @@ const ResetPassword: React.FC = () => {
 
                 <motion.button
                   type="button"
-                  onClick={() => (window.location.href = "/")}
+                  onClick={() => navigate("/")}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full py-4 px-6 rounded-2xl font-semibold shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white shadow-indigo-500/30 dark:shadow-indigo-500/25"
@@ -221,11 +248,7 @@ const ResetPassword: React.FC = () => {
                     Reset Password
                   </h2>
                   <p className="leading-relaxed text-gray-600 dark:text-gray-300">
-                    Enter the verification code sent to{" "}
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                      {email}
-                    </span>{" "}
-                    and your new password
+                    Enter your new password to complete the reset process
                   </p>
                 </div>
 
@@ -244,24 +267,6 @@ const ResetPassword: React.FC = () => {
                   )}
                 </AnimatePresence>
 
-                <div>
-                  <label
-                    htmlFor="otp"
-                    className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200"
-                  >
-                    Verification Code
-                  </label>
-                  <motion.div whileFocus={{ scale: 1.02 }}>
-                    <input
-                      type="text"
-                      id="otp"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      className="w-full px-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all duration-300 backdrop-blur-sm bg-white/70 dark:bg-gray-800/50 border-gray-300/70 dark:border-gray-600/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 hover:border-gray-400/80 dark:hover:border-gray-500/70"
-                    />
-                  </motion.div>
-                </div>
 
                 <div>
                   <label
@@ -370,15 +375,17 @@ const ResetPassword: React.FC = () => {
                   whileTap={{ scale: 0.98 }}
                   disabled={
                     isLoading ||
-                    !otp ||
                     !newPassword ||
-                    newPassword !== confirmPassword
+                    newPassword !== confirmPassword ||
+                    !token ||
+                    !uid
                   }
                   className={`w-full py-4 px-6 rounded-2xl font-semibold shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white shadow-indigo-500/30 dark:shadow-indigo-500/25 ${
                     isLoading ||
-                    !otp ||
                     !newPassword ||
-                    newPassword !== confirmPassword
+                    newPassword !== confirmPassword ||
+                    !token ||
+                    !uid
                       ? "opacity-80 cursor-not-allowed"
                       : ""
                   }`}
@@ -428,13 +435,14 @@ const ResetPassword: React.FC = () => {
 
                 <div className="text-center pt-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Didn't receive code?{" "}
+                    Need a new reset link?{" "}
                     <motion.button
                       type="button"
+                      onClick={() => navigate("/forgot-password")}
                       whileHover={{ scale: 1.05 }}
                       className="font-semibold transition-colors text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                     >
-                      Resend code
+                      Request new reset
                     </motion.button>
                   </p>
                 </div>

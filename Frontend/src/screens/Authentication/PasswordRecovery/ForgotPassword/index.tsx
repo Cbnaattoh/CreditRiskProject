@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiMail, FiCheck, FiArrowRight, FiAlertCircle } from "react-icons/fi";
 import Logo from "../../../../components/utils/Logo";
+import { useRequestPasswordResetMutation } from "../../../../components/redux/features/auth/authApi";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [requestPasswordReset, { isLoading }] = useRequestPasswordResetMutation();
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -22,17 +23,13 @@ const ForgotPassword: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Reset email sent to:", email);
+      await requestPasswordReset({ email }).unwrap();
       setIsEmailSent(true);
-    } catch (err) {
-      setError("Failed to send reset email. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setError("");
+    } catch (err: any) {
+      const errorMessage = err?.data?.detail || err?.data?.email?.[0] || "Failed to send reset email. Please try again.";
+      setError(errorMessage);
     }
   };
 
@@ -171,7 +168,7 @@ const ForgotPassword: React.FC = () => {
 
                 <motion.button
                   type="button"
-                  onClick={() => (window.location.href = "/")}
+                  onClick={() => window.location.href = "/"}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full py-4 px-6 rounded-2xl font-semibold shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white shadow-indigo-500/30 dark:shadow-indigo-500/25"

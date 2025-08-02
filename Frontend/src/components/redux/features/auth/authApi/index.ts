@@ -54,7 +54,9 @@ interface PasswordResetRequest {
 
 interface PasswordResetConfirmRequest {
   token: string;
+  uid: string;
   new_password: string;
+  confirm_password: string;
 }
 
 interface EmailVerificationRequest {
@@ -354,7 +356,7 @@ export const authApi = apiSlice.injectEndpoints({
 
     requestPasswordReset: builder.mutation<BaseResponse, PasswordResetRequest>({
       query: (data) => ({
-        url: "auth/password-reset/",
+        url: "auth/password-reset/request/",
         method: "POST",
         body: data,
       }),
