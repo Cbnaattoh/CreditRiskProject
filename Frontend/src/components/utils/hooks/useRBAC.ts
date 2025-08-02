@@ -6,6 +6,10 @@ import type {
   RoleName,
 } from "../../redux/features/api/RBAC/rbac";
 import {
+  ROLE_PERMISSIONS,
+  ROLE_FEATURES,
+} from "../../redux/features/api/RBAC/rbac";
+import {
   selectUserPermissions,
   selectUserRoles,
   selectIsAuthenticated,
@@ -154,7 +158,39 @@ export const useCanManageRoles = () => {
 };
 
 export const useCanViewReports = () => {
-  return useHasAnyPermission(["report_view", "report_create", "report_admin"]);
+  const { roles, permissions, isAuthenticated } = usePermissions();
+  const isAdmin = useIsAdmin();
+  
+  // If not authenticated, no access
+  if (!isAuthenticated) {
+    return false;
+  }
+  
+  // Admin check - be very permissive for admin users
+  if (isAdmin) {
+    return true;
+  }
+  
+  // Check for Administrator role (case variations)
+  const adminRoleVariants = ['Administrator', 'Admin', 'admin', 'administrator'];
+  if (roles.some(role => adminRoleVariants.includes(role))) {
+    return true;
+  }
+  
+  // Check for other authorized roles
+  const authorizedRoles = ["Risk Analyst", "Compliance Auditor", "Manager"];
+  if (roles.some(role => authorizedRoles.includes(role))) {
+    return true;
+  }
+  
+  // If user has report permissions, allow access
+  const reportPermissions = ["report_view", "report_create", "report_admin"];
+  if (permissions.some(perm => reportPermissions.includes(perm))) {
+    return true;
+  }
+  
+  // Default to false
+  return false;
 };
 
 export const useCanAccessAdmin = () => {
@@ -296,4 +332,115 @@ export const useFeatureAccess = (feature: string): boolean => {
       userPermissions.includes(permission)
     );
   }, [feature, isAdmin, userPermissions]);
+};
+
+// ========================
+// ENHANCED RBAC UTILITIES
+// ========================
+
+/**
+ * Check if user can access reports (explicitly exclude Client Users)
+ */
+export const useCanAccessReports = (): boolean => {
+  const { roles } = usePermissions();
+  return useMemo(() => {
+    // Client Users are explicitly excluded from reports
+    return !roles.some(role => role === 'Client User') && 
+           roles.some(role => ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role));
+  }, [roles]);
+};
+
+/**
+ * Check if user has specific feature access based on role
+ */
+export const useHasFeatureAccess = (feature: string): boolean => {
+  const { roles } = usePermissions();
+  return useMemo(() => {
+    return roles.some(roleName => {
+      const roleFeatures = ROLE_FEATURES[roleName as RoleName];
+      return roleFeatures?.includes(feature);
+    });
+  }, [roles, feature]);
+};
+
+/**
+ * Get all features accessible to current user
+ */
+export const useAccessibleFeatures = (): string[] => {
+  const { roles } = usePermissions();
+  return useMemo(() => {
+    const features = new Set<string>();
+    roles.forEach(roleName => {
+      const roleFeatures = ROLE_FEATURES[roleName as RoleName];
+      if (roleFeatures) {
+        roleFeatures.forEach(feature => features.add(feature));
+      }
+    });
+    return Array.from(features);
+  }, [roles]);
+};
+
+/**
+ * Check if user is a Client User (lowest privilege level)
+ */
+export const useIsClientUser = (): boolean => {
+  const { roles } = usePermissions();
+  return useMemo(() => {
+    return roles.includes('Client User') && roles.length === 1; // Only Client User role
+  }, [roles]);
+};
+
+/**
+ * Get user's highest privilege role
+ */
+export const useHighestRole = (): RoleName | null => {
+  const { roles } = usePermissions();
+  return useMemo(() => {
+    const roleHierarchy: RoleName[] = ['Administrator', 'Manager', 'Compliance Auditor', 'Risk Analyst', 'Client User'];
+    for (const role of roleHierarchy) {
+      if (roles.includes(role)) return role;
+    }
+    return null;
+  }, [roles]);
+};
+
+/**
+ * Comprehensive access check with role and permission validation
+ */
+export const useRobustAccessCheck = (config: {
+  permissions?: PermissionCode[];
+  roles?: RoleName[];
+  excludeRoles?: RoleName[];
+  features?: string[];
+  requireAll?: boolean;
+}): boolean => {
+  const { permissions: userPermissions, roles: userRoles } = usePermissions();
+  const { permissions = [], roles = [], excludeRoles = [], features = [], requireAll = false } = config;
+
+  return useMemo(() => {
+    // Check if user has any excluded roles
+    if (excludeRoles.length > 0 && excludeRoles.some(role => userRoles.includes(role))) {
+      return false;
+    }
+
+    // Check roles
+    const hasRequiredRoles = roles.length === 0 || 
+      (requireAll ? roles.every(role => userRoles.includes(role)) 
+                  : roles.some(role => userRoles.includes(role)));
+
+    // Check permissions
+    const hasRequiredPermissions = permissions.length === 0 || 
+      (requireAll ? permissions.every(perm => userPermissions.includes(perm))
+                  : permissions.some(perm => userPermissions.includes(perm)));
+
+    // Check features
+    const hasRequiredFeatures = features.length === 0 || 
+      features.some(feature => {
+        const roleFeatures = userRoles.flatMap(role => ROLE_FEATURES[role as RoleName] || []);
+        return roleFeatures.includes(feature);
+      });
+
+    // Combine results
+    return hasRequiredRoles && hasRequiredPermissions && hasRequiredFeatures;
+  }, [userPermissions, userRoles, permissions, roles, excludeRoles, features, requireAll]);
 };

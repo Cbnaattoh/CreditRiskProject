@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FiSearch,
   FiPlus,
@@ -34,7 +34,11 @@ interface EnhancedApplication extends CreditApplication {
   bank_statement_count?: number;
 }
 
-const Applicants: React.FC = () => {
+interface ApplicantsProps {
+  showClientView?: boolean;
+}
+
+const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedApplicant, setSelectedApplicant] =
     useState<EnhancedApplication | null>(null);
@@ -42,6 +46,15 @@ const Applicants: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Determine the page title based on route
+  const getPageTitle = () => {
+    if (showClientView) return "My Applications";
+    if (location.pathname.includes('customers')) return "Customers";
+    if (location.pathname.includes('loan-applications')) return "All Applications";
+    return "Credit Applications";
+  };
 
   // Fetch applications from API
   const {
@@ -234,7 +247,7 @@ const Applicants: React.FC = () => {
               transition={{ delay: 0.1 }}
             >
               <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-indigo-900 to-purple-900 dark:from-white dark:via-indigo-100 dark:to-purple-100 bg-clip-text text-transparent mb-3">
-                Credit Applications
+                {getPageTitle()}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">
                 Manage and review credit applications with real-time risk

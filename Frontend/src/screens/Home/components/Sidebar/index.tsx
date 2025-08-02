@@ -27,6 +27,8 @@ import {
   useIsAdmin,
   useIsStaff,
   useCanAccessAdmin,
+  useCanAccessReports,
+  useRobustAccessCheck,
   checkCanAccess,
 } from "../../../../components/utils/hooks/useRBAC";
 import type {
@@ -63,21 +65,42 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       icon: <FiHome />,
       label: "Dashboard",
       description: "Overview & Analytics",
+      permissions: ["view_dashboard"],
     },
     {
-      path: "/home/customers",
-      icon: <RiUserSearchLine />,
-      label: "Customers",
-      description: "Manage Client Base",
-      permissions: ["client_view"],
-      featureFlag: "client_management",
+      path: "/home/applications",
+      icon: <FiFileText />,
+      label: "My Applications",
+      description: "Your Credit Applications",
+      permissions: ["risk_view"],
+      roles: ["Client User"],
+      featureFlag: "risk_management",
+    },
+    {
+      path: "/home/risk-analysis",
+      icon: <FiShield />,
+      label: "Risk Analysis",
+      description: "Credit Risk Insights",
+      permissions: ["risk_view"],
+      roles: ["Client User"],
+      featureFlag: "risk_management",
+    },
+    {
+      path: "/home/explainability",
+      icon: <FiEye />,
+      label: "AI Explainability",
+      description: "Understand Your Assessment",
+      permissions: ["risk_view"],
+      roles: ["Client User"],
+      featureFlag: "risk_management",
     },
     {
       path: "/home/loan-applications",
       icon: <FiFileText />,
-      label: "Loan Applications",
-      description: "Review Applications",
+      label: "All Applications",
+      description: "Review All Applications", 
       permissions: ["risk_view"],
+      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
       featureFlag: "risk_management",
     },
     {
@@ -86,6 +109,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       label: "Reports",
       description: "Analytics & Insights",
       permissions: ["report_view"],
+      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"], // Explicitly exclude Client Users
       featureFlag: "reporting",
     },
     {
@@ -94,6 +118,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       label: "Admin Console",
       description: "System Management",
       permissions: ["user_view_all", "role_view", "system_settings"],
+      roles: ["Administrator", "Manager"],
       requireAll: false,
       featureFlag: "admin_panel",
     },
@@ -347,7 +372,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
           width: isCollapsed && !isMobile ? 80 : 280,
         }}
         transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
-        className={`fixed lg:relative z-50 h-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-2xl ${
+        className={`fixed lg:relative z-50 h-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-2xl flex flex-col ${
           isMobile ? "" : "lg:translate-x-0"
         }`}
       >
@@ -355,7 +380,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/30 dark:from-indigo-900/20 dark:via-transparent dark:to-purple-900/10 pointer-events-none" />
 
         {/* Header */}
-        <div className="relative p-6 flex items-center justify-between border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="relative p-6 flex items-center justify-between border-b border-gray-200/50 dark:border-gray-700/50 flex-shrink-0">
           {!isCollapsed && (
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -394,7 +419,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="relative p-4 flex-1 overflow-y-auto">
+        <nav className="relative p-4 flex-1 overflow-y-auto min-h-0">
           <ul className="space-y-2">
             {/* Main navigation items */}
             {navItems.map((item, index) => (
@@ -439,7 +464,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="relative p-4 border-t border-gray-200/50 dark:border-gray-700/50"
+            className="relative p-4 border-t border-gray-200/50 dark:border-gray-700/50 flex-shrink-0"
           >
             <div className="flex items-center p-4 rounded-xl bg-gradient-to-r from-gray-50 to-indigo-50/50 dark:from-gray-800/50 dark:to-indigo-900/20 border border-gray-200/50 dark:border-gray-700/50 hover:from-indigo-50 hover:to-purple-50/50 dark:hover:from-gray-800/70 dark:hover:to-indigo-900/30 transition-all duration-200">
               <SidebarProfilePicture />

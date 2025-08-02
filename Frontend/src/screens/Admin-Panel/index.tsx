@@ -12,7 +12,8 @@ import UserManagementTable from "./components/UserManagementTable";
 import SystemLogsTable from "./components/SystemLogsTable";
 import RoleManagement from "./components/RoleManagement";
 import DebugInfo from "./components/DebugInfo";
-import { usePermissions, PermissionGate } from "../../hooks/usePermissions";
+import { usePermissions, useIsAdmin, useCanAccessAdmin, useHasAnyPermission } from "../../components/utils/hooks/useRBAC";
+import { ProtectedComponent, AdminOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import ComprehensiveDebug from "../../components/utils/ComprehensiveDebug";
 import ErrorBoundary from "../../components/utils/ErrorBoundary";
 
@@ -180,8 +181,11 @@ const Tabs: React.FC<{ tabs: Tab[]; activeTab: string; onTabChange?: (tabLabel: 
 const AdminPanel: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const { canManageUsers, canAssignRoles, canViewAuditLogs, isAdmin, permissions, roles } =
-    usePermissions();
+  const { permissions, roles, isAdmin } = usePermissions();
+  const canAccessAdmin = useCanAccessAdmin();
+  const canManageUsers = useHasAnyPermission(["user_view_all", "user_edit_all"]);
+  const canAssignRoles = useHasAnyPermission(["role_view", "user_manage_roles"]);
+  const canViewAuditLogs = useHasAnyPermission(["view_audit_logs", "security_logs_view"]);
 
   // Debug logging
   console.log('🔵 Admin Panel Permissions Debug:', {
@@ -393,9 +397,10 @@ const AdminPanel: React.FC = () => {
                       label: "User Management",
                       icon: <FiUsers className="h-5 w-5" />,
                     content: (
-                      <PermissionGate
+                      <ProtectedComponent
                         permissions={["user_view_all", "user_manage"]}
-                        roles={["Admin", "Super Admin"]}
+                        roles={["Administrator", "Manager"]}
+                        requireAll={false}
                       >
                         <div className="space-y-6">
                           {/* Enhanced Search and Actions Header */}
@@ -420,9 +425,9 @@ const AdminPanel: React.FC = () => {
                               </div>
                               
                               <div className="flex items-center space-x-3">
-                                <PermissionGate
+                                <ProtectedComponent
                                   permissions={["user_create"]}
-                                  roles={["Admin", "Super Admin"]}
+                                  roles={["Administrator", "Manager"]}
                                 >
                                   <motion.button
                                     whileHover={{ scale: 1.02, y: -1 }}
@@ -432,7 +437,7 @@ const AdminPanel: React.FC = () => {
                                     <FiPlus className="w-5 h-5" />
                                     <span>Add New User</span>
                                   </motion.button>
-                                </PermissionGate>
+                                </ProtectedComponent>
                                 
                                 <motion.button
                                   whileHover={{ scale: 1.02, y: -1 }}
@@ -451,7 +456,7 @@ const AdminPanel: React.FC = () => {
                             <UserManagementTable searchQuery={searchQuery} />
                           </div>
                         </div>
-                      </PermissionGate>
+                      </ProtectedComponent>
                     ),
                   },
                 ]
@@ -464,14 +469,15 @@ const AdminPanel: React.FC = () => {
                     label: "Role Management",
                     icon: <FiShield className="h-5 w-5" />,
                     content: (
-                      <PermissionGate
+                      <ProtectedComponent
                         permissions={["role_manage", "role_assign"]}
-                        roles={["Admin", "Super Admin"]}
+                        roles={["Administrator", "Manager"]}
+                        requireAll={false}
                       >
                         <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/30 dark:border-gray-700/30 overflow-hidden">
                           <RoleManagement />
                         </div>
-                      </PermissionGate>
+                      </ProtectedComponent>
                     ),
                   },
                 ]
@@ -484,9 +490,10 @@ const AdminPanel: React.FC = () => {
                     label: "System Logs",
                     icon: <FiActivity className="h-5 w-5" />,
                     content: (
-                      <PermissionGate
+                      <ProtectedComponent
                         permissions={["audit_view", "security_logs_view"]}
-                        roles={["Admin", "Super Admin"]}
+                        roles={["Administrator", "Manager"]}
+                        requireAll={false}
                       >
                         <div className="space-y-6">
                           {/* System Logs Header */}
@@ -523,7 +530,7 @@ const AdminPanel: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      </PermissionGate>
+                      </ProtectedComponent>
                     ),
                   },
                 ]

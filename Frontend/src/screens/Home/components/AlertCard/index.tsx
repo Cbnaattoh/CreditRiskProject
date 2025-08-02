@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { FiAlertTriangle, FiAlertCircle, FiInfo } from "react-icons/fi";
 
 interface AlertCardProps {
-  severity: "high" | "medium" | "low";
+  severity: "high" | "medium" | "low" | "info";
   title: string;
   description: string;
   time: string;
@@ -70,9 +70,27 @@ const AlertCard: React.FC<AlertCardProps> = ({
       gradientOverlay:
         "from-blue-50/50 via-transparent to-blue-100/30 dark:from-blue-900/10 dark:via-transparent dark:to-blue-800/20",
     },
+    info: {
+      icon: <FiInfo className="h-5 w-5" />,
+      // Light theme
+      bg: "bg-green-50/80",
+      border: "border-green-200/60",
+      text: "text-green-800",
+      iconColor: "text-green-500",
+      accentBg: "bg-green-100/50",
+      // Dark theme
+      darkBg: "dark:bg-green-900/20",
+      darkBorder: "dark:border-green-800/30",
+      darkText: "dark:text-green-200",
+      darkIconColor: "dark:text-green-400",
+      darkAccentBg: "dark:bg-green-800/20",
+      // Gradient overlay
+      gradientOverlay:
+        "from-green-50/50 via-transparent to-green-100/30 dark:from-green-900/10 dark:via-transparent dark:to-green-800/20",
+    },
   };
 
-  const config = severityConfig[severity];
+  const config = severityConfig[severity] || severityConfig.info; // Fallback to info if severity is not found
 
   return (
     <motion.div
