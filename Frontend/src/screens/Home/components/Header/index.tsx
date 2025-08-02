@@ -16,6 +16,8 @@ import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/u
 import defaultAvatar from "../../../../assets/creditrisklogo.png";
 import SignoutModal from "../SignoutModal";
 import { useToast, ToastContainer } from "../../../../components/utils/Toast";
+import NotificationBell from "../../../../components/notifications/NotificationBell";
+import { useNotifications } from "../../../../components/utils/hooks/useNotifications";
 
 const Header: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -28,6 +30,9 @@ const Header: React.FC = () => {
 
   // Initialize toast
   const { showToast, toasts, removeToast } = useToast();
+  
+  // Initialize notifications
+  useNotifications();
 
   const {
     user,
@@ -249,18 +254,7 @@ const Header: React.FC = () => {
             </motion.button>
 
             {/* Notifications */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 shadow-sm"
-            >
-              <FiBell className="h-5 w-5" />
-              <motion.span
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-900 shadow-sm"
-              />
-            </motion.button>
+            <NotificationBell />
 
             {/* Help */}
             <motion.button

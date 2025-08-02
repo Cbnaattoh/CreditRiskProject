@@ -12,6 +12,8 @@ import AccountSettings from "../../../../screens/Settings";
 import Customers from "../../../../screens/Applicants";
 import CustomerManagement from "../../../../screens/Applicants/CustomerManagement";
 import Reports from "../../../../screens/Reports";
+import NotificationsPage from "../../../../screens/Notifications";
+import WebSocketTest from "../../../../screens/WebSocketTest";
 import ProtectedRoute from "../../ProtectedRoute";
 
 const dashboardRoutes: RouteObject[] = [
@@ -38,6 +40,12 @@ const dashboardRoutes: RouteObject[] = [
           
           // Reports - accessible to all authenticated users (RBAC handled in component)
           { path: "reports", element: <Reports /> },
+          
+          // Notifications - accessible to all authenticated users
+          { path: "notifications", element: <NotificationsPage /> },
+          
+          // WebSocket Test - temporary for debugging
+          { path: "websocket-test", element: <WebSocketTest /> },
           
           // Application-specific routes
           {

@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { apiSlice } from "./features/api/baseApi";
 import { applicationsApi } from "./features/api/applications/applicationsApi";
 import { riskApi } from "./features/api/risk/riskApi";
+import { notificationsApi } from "./features/api/notifications/notificationsApi";
 import authReducer from "./features/auth/authSlice";
 import userReducer from "./features/user/userSlice";
 import { loadAuthState, saveAuthState } from "../utils/services/authPersist";
@@ -30,6 +31,7 @@ export const store = configureStore({
     [apiSlice.reducerPath]: apiSlice.reducer,
     [applicationsApi.reducerPath]: applicationsApi.reducer,
     [riskApi.reducerPath]: riskApi.reducer,
+    [notificationsApi.reducerPath]: notificationsApi.reducer,
     auth: authReducer,
     user: userReducer,
   },
@@ -56,6 +58,7 @@ export const store = configureStore({
       .concat(apiSlice.middleware)
       .concat(applicationsApi.middleware)
       .concat(riskApi.middleware)
+      .concat(notificationsApi.middleware)
       .concat(authUserSyncMiddleware),
   devTools: process.env.NODE_ENV !== "production",
 });
@@ -100,6 +103,7 @@ export const resetApplicationState = () => {
   store.dispatch(apiSlice.util.resetApiState());
   store.dispatch(applicationsApi.util.resetApiState());
   store.dispatch(riskApi.util.resetApiState());
+  store.dispatch(notificationsApi.util.resetApiState());
 };
 
 // Function to check and log current state consistency

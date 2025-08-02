@@ -13,6 +13,7 @@ import {
   FiUsers,
   FiEye,
   FiDatabase,
+  FiBell,
 } from "react-icons/fi";
 import { RiUserSearchLine } from "react-icons/ri";
 import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/useAuth";
@@ -111,6 +112,15 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       permissions: ["report_view"],
       roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"], // Explicitly exclude Client Users
       featureFlag: "reporting",
+    },
+    {
+      path: "/home/notifications",
+      icon: <FiBell />,
+      label: "Notifications",
+      description: "Manage Notifications",
+      permissions: ["user_view_all", "system_settings"],
+      roles: ["Administrator", "Manager"],
+      requireAll: false,
     },
     {
       path: "/home/admin",
