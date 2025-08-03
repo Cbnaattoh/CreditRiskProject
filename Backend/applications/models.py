@@ -195,11 +195,15 @@ class Document(models.Model):
         ('PROOF_OF_INCOME', 'Proof of Income'),
         ('TAX_RETURN', 'Tax Return'),
         ('BANK_STATEMENT', 'Bank Statement'),
+        ('CREDIT_REPORT', 'Credit Report'),
+        ('PROPERTY_DEED', 'Property Deed'),
+        ('BUSINESS_REGISTRATION', 'Business Registration'),
+        ('INSURANCE_DOCUMENT', 'Insurance Document'),
         ('OTHER', 'Other'),
     )
     
     application = models.ForeignKey(CreditApplication, on_delete=models.CASCADE, related_name='documents')
-    document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
+    document_type = models.CharField(max_length=25, choices=DOCUMENT_TYPES)
     file = models.FileField(upload_to='application_documents/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     verified = models.BooleanField(default=False)

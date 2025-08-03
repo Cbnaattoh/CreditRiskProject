@@ -1,4 +1,7 @@
 from rest_framework import serializers
+from django.core.validators import validate_email
+from decimal import Decimal, InvalidOperation
+from datetime import datetime, date
 from .models import (
     CreditApplication, 
     Applicant, 
@@ -10,6 +13,7 @@ from .models import (
     ApplicationNote
 )
 import uuid
+import re
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,14 +22,62 @@ class AddressSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'applicant': {'required': False}
         }
+    
+    def validate_postal_code(self, value):
+        if value and not re.match(r'^[A-Za-z0-9\s-]{3,10}$', value):
+            raise serializers.ValidationError("Invalid postal code format")
+        return value
+    
+    def validate_country(self, value):
+        if not value:
+            return 'Ghana'  # Default country
+        return value
 
 class EmploymentInfoSerializer(serializers.ModelSerializer):
+    duration_years = serializers.SerializerMethodField()
+    
     class Meta:
         model = EmploymentInfo
         fields = '__all__'
         extra_kwargs = {
-            'applicant': {'required': False}
+            'applicant': {'required': False},
+            'monthly_income': {'required': False},
+            'verification_documents': {'required': False}
         }
+    
+    def get_duration_years(self, obj):
+        if obj.start_date:
+            end = obj.end_date or date.today()
+            return (end - obj.start_date).days / 365.25
+        return 0
+    
+    def validate_monthly_income(self, value):
+        try:
+            if isinstance(value, str):
+                income = Decimal(value)
+            else:
+                income = Decimal(str(value))
+            if income < 0:
+                raise serializers.ValidationError("Monthly income cannot be negative")
+            return str(income)
+        except (ValueError, InvalidOperation):
+            raise serializers.ValidationError("Invalid income format")
+    
+    def validate(self, attrs):
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        is_current = attrs.get('is_current', False)
+        
+        if start_date and start_date > date.today():
+            raise serializers.ValidationError("Start date cannot be in the future")
+        
+        if end_date and start_date and end_date < start_date:
+            raise serializers.ValidationError("End date cannot be before start date")
+        
+        if is_current and end_date:
+            raise serializers.ValidationError("Current employment cannot have an end date")
+        
+        return attrs
 
 class BankAccountSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,13 +89,48 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 class FinancialInfoSerializer(serializers.ModelSerializer):
     bank_accounts = BankAccountSerializer(many=True, required=False)
+    net_worth = serializers.ReadOnlyField()
+    debt_to_income_ratio = serializers.SerializerMethodField()
     
     class Meta:
         model = FinancialInfo
         fields = '__all__'
         extra_kwargs = {
-            'applicant': {'required': False}
+            'applicant': {'required': False},
+            'bankruptcy_details': {'required': False}
         }
+    
+    def get_debt_to_income_ratio(self, obj):
+        # This would need to be calculated based on employment info
+        # For now, return a default or calculated value
+        return None
+    
+    def validate_total_assets(self, value):
+        try:
+            assets = Decimal(str(value))
+            if assets < 0:
+                raise serializers.ValidationError("Total assets cannot be negative")
+            return str(assets)
+        except (ValueError, InvalidOperation):
+            raise serializers.ValidationError("Invalid assets format")
+    
+    def validate_total_liabilities(self, value):
+        try:
+            liabilities = Decimal(str(value))
+            if liabilities < 0:
+                raise serializers.ValidationError("Total liabilities cannot be negative")
+            return str(liabilities)
+        except (ValueError, InvalidOperation):
+            raise serializers.ValidationError("Invalid liabilities format")
+    
+    def validate_monthly_expenses(self, value):
+        try:
+            expenses = Decimal(str(value))
+            if expenses < 0:
+                raise serializers.ValidationError("Monthly expenses cannot be negative")
+            return str(expenses)
+        except (ValueError, InvalidOperation):
+            raise serializers.ValidationError("Invalid expenses format")
 
     def create(self, validated_data):
         bank_accounts_data = validated_data.pop('bank_accounts', [])
@@ -53,18 +140,148 @@ class FinancialInfoSerializer(serializers.ModelSerializer):
             BankAccount.objects.create(financial_info=financial_info, **account_data)
             
         return financial_info
+    
+    def update(self, instance, validated_data):
+        bank_accounts_data = validated_data.pop('bank_accounts', [])
+        
+        # Update financial info
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Handle bank accounts update
+        if bank_accounts_data:
+            # Remove existing accounts and create new ones
+            instance.bank_accounts.all().delete()
+            for account_data in bank_accounts_data:
+                BankAccount.objects.create(financial_info=instance, **account_data)
+        
+        return instance
 
 class ApplicantSerializer(serializers.ModelSerializer):
     addresses = AddressSerializer(many=True, required=False)
     employment_history = EmploymentInfoSerializer(many=True, required=False)
     financial_info = FinancialInfoSerializer(required=False)
+    full_name = serializers.ReadOnlyField()
+    age = serializers.SerializerMethodField()
+    
+    # Frontend compatibility fields (allow both formats)
+    firstName = serializers.CharField(write_only=True, required=False)
+    lastName = serializers.CharField(write_only=True, required=False)
+    otherNames = serializers.CharField(write_only=True, required=False)
+    phone = serializers.CharField(write_only=True, required=False)
+    dob = serializers.CharField(write_only=True, required=False)
+    nationalIDNumber = serializers.CharField(write_only=True, required=False)
+    ssnitNumber = serializers.CharField(write_only=True, required=False)
     
     class Meta:
         model = Applicant
         fields = '__all__'
         extra_kwargs = {
-            'application': {'required': False}
+            'application': {'required': False},
+            'middle_name': {'required': False},
+            'tax_id': {'required': False},
+            'alternate_phone': {'required': False}
         }
+    
+    def get_age(self, obj):
+        if obj.date_of_birth:
+            today = date.today()
+            return today.year - obj.date_of_birth.year - (
+                (today.month, today.day) < (obj.date_of_birth.month, obj.date_of_birth.day)
+            )
+        return None
+    
+    def validate_email(self, value):
+        validate_email(value)
+        return value
+    
+    def validate_national_id(self, value):
+        # Ghana National ID validation
+        if value and not re.match(r'^GHA-\d{9}-\d{1}$', value):
+            # Allow flexible format for now, but could be stricter
+            if not re.match(r'^[A-Z0-9-]{10,20}$', value):
+                raise serializers.ValidationError("Invalid National ID format")
+        return value
+    
+    def validate_phone_number(self, value):
+        # Ghana phone number validation
+        if value and not re.match(r'^(\+233|0)[2-9]\d{8}$', value):
+            raise serializers.ValidationError("Invalid Ghana phone number format")
+        return value
+    
+    def validate_gender(self, value):
+        # Handle frontend gender values
+        gender_map = {
+            'male': 'M',
+            'female': 'F', 
+            'other': 'O',
+            'prefer_not_to_say': 'P',
+            'M': 'M',
+            'F': 'F',
+            'O': 'O',
+            'P': 'P'
+        }
+        mapped_value = gender_map.get(value.lower() if isinstance(value, str) else value)
+        if not mapped_value:
+            raise serializers.ValidationError("Invalid gender value")
+        return mapped_value
+    
+    def validate_marital_status(self, value):
+        # Handle frontend marital status values
+        status_map = {
+            'single': 'S',
+            'married': 'M',
+            'divorced': 'D',
+            'widowed': 'W',
+            'S': 'S',
+            'M': 'M',
+            'D': 'D',
+            'W': 'W'
+        }
+        mapped_value = status_map.get(value.lower() if isinstance(value, str) else value)
+        if not mapped_value:
+            raise serializers.ValidationError("Invalid marital status value")
+        return mapped_value
+    
+    def validate_date_of_birth(self, value):
+        if isinstance(value, str):
+            try:
+                dob = datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD")
+        else:
+            dob = value
+        
+        # Check age constraints
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        
+        if age < 18:
+            raise serializers.ValidationError("Applicant must be at least 18 years old")
+        if age > 100:
+            raise serializers.ValidationError("Invalid date of birth")
+        
+        return dob
+    
+    def to_internal_value(self, data):
+        # Handle frontend field mapping
+        if 'firstName' in data:
+            data['first_name'] = data.pop('firstName')
+        if 'lastName' in data:
+            data['last_name'] = data.pop('lastName')
+        if 'otherNames' in data:
+            data['middle_name'] = data.pop('otherNames')
+        if 'phone' in data:
+            data['phone_number'] = data.pop('phone')
+        if 'dob' in data:
+            data['date_of_birth'] = data.pop('dob')
+        if 'nationalIDNumber' in data:
+            data['national_id'] = data.pop('nationalIDNumber')
+        if 'ssnitNumber' in data:
+            data['tax_id'] = data.pop('ssnitNumber')
+        
+        return super().to_internal_value(data)
 
     def create(self, validated_data):
         addresses_data = validated_data.pop('addresses', [])
@@ -73,12 +290,15 @@ class ApplicantSerializer(serializers.ModelSerializer):
         
         applicant = Applicant.objects.create(**validated_data)
         
+        # Create addresses
         for address_data in addresses_data:
             Address.objects.create(applicant=applicant, **address_data)
             
-        for employment_data in employment_data:
-            EmploymentInfo.objects.create(applicant=applicant, **employment_data)
+        # Create employment history
+        for emp_data in employment_data:
+            EmploymentInfo.objects.create(applicant=applicant, **emp_data)
             
+        # Create financial information
         if financial_data:
             bank_accounts_data = financial_data.pop('bank_accounts', [])
             financial_info = FinancialInfo.objects.create(applicant=applicant, **financial_data)
@@ -87,8 +307,52 @@ class ApplicantSerializer(serializers.ModelSerializer):
                 BankAccount.objects.create(financial_info=financial_info, **account_data)
                 
         return applicant
+    
+    def update(self, instance, validated_data):
+        addresses_data = validated_data.pop('addresses', [])
+        employment_data = validated_data.pop('employment_history', [])
+        financial_data = validated_data.pop('financial_info', None)
+        
+        # Update basic applicant fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update addresses
+        if addresses_data:
+            instance.addresses.all().delete()
+            for address_data in addresses_data:
+                Address.objects.create(applicant=instance, **address_data)
+        
+        # Update employment history
+        if employment_data:
+            instance.employment_history.all().delete()
+            for emp_data in employment_data:
+                EmploymentInfo.objects.create(applicant=instance, **emp_data)
+        
+        # Update financial info
+        if financial_data:
+            bank_accounts_data = financial_data.pop('bank_accounts', [])
+            financial_info, created = FinancialInfo.objects.get_or_create(
+                applicant=instance,
+                defaults=financial_data
+            )
+            if not created:
+                for attr, value in financial_data.items():
+                    setattr(financial_info, attr, value)
+                financial_info.save()
+            
+            # Update bank accounts
+            financial_info.bank_accounts.all().delete()
+            for account_data in bank_accounts_data:
+                BankAccount.objects.create(financial_info=financial_info, **account_data)
+        
+        return instance
 
 class DocumentSerializer(serializers.ModelSerializer):
+    file_size = serializers.SerializerMethodField()
+    file_extension = serializers.SerializerMethodField()
+    
     class Meta:
         model = Document
         fields = '__all__'
@@ -97,6 +361,58 @@ class DocumentSerializer(serializers.ModelSerializer):
             'verified': {'read_only': True},
             'verification_notes': {'read_only': True}
         }
+    
+    def get_file_size(self, obj):
+        if obj.file:
+            return obj.file.size
+        return 0
+    
+    def get_file_extension(self, obj):
+        if obj.file:
+            import os
+            return os.path.splitext(obj.file.name)[1].lower()
+        return ''
+    
+    def validate_file(self, value):
+        # File size validation (10MB max)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if value.size > max_size:
+            raise serializers.ValidationError("File size cannot exceed 10MB")
+        
+        # File type validation
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.xlsx']
+        import os
+        file_extension = os.path.splitext(value.name)[1].lower()
+        
+        if file_extension not in allowed_extensions:
+            raise serializers.ValidationError(f"File type {file_extension} is not allowed")
+        
+        # Security check for file content
+        if file_extension in ['.exe', '.bat', '.cmd', '.scr', '.pif', '.com', '.vbs', '.js']:
+            raise serializers.ValidationError("Executable files are not allowed")
+        
+        return value
+    
+    def validate(self, attrs):
+        document_type = attrs.get('document_type')
+        file = attrs.get('file')
+        
+        if file and document_type:
+            import os
+            file_extension = os.path.splitext(file.name)[1].lower()
+            
+            # Document type specific validations
+            if document_type == 'ID':
+                if file_extension not in ['.pdf', '.jpg', '.jpeg', '.png']:
+                    raise serializers.ValidationError("ID documents must be PDF or image files")
+            elif document_type in ['PROOF_OF_INCOME', 'TAX_RETURN']:
+                if file_extension not in ['.pdf', '.doc', '.docx']:
+                    raise serializers.ValidationError("Income documents should be PDF or Word documents")
+            elif document_type == 'BANK_STATEMENT':
+                if file_extension not in ['.pdf', '.xls', '.xlsx', '.csv']:
+                    raise serializers.ValidationError("Bank statements should be PDF or spreadsheet files")
+        
+        return attrs
 
 class ApplicationNoteSerializer(serializers.ModelSerializer):
     author_email = serializers.EmailField(source='author.email', read_only=True)
@@ -112,10 +428,67 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
     additional_notes = ApplicationNoteSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
+    # Computed fields
+    completion_percentage = serializers.SerializerMethodField()
+    days_since_submission = serializers.SerializerMethodField()
+    risk_level = serializers.SerializerMethodField()
+    
     class Meta:
         model = CreditApplication
         fields = '__all__'
-        read_only_fields = ['reference_number', 'submission_date', 'assigned_analyst']
+        extra_kwargs = {
+            'applicant': {'required': False, 'allow_null': True},
+        }
+        read_only_fields = ['reference_number', 'submission_date', 'assigned_analyst', 'applicant']
+    
+    def get_completion_percentage(self, obj):
+        total_fields = 4  # Basic sections: personal, employment, financial, documents
+        completed = 0
+        
+        if hasattr(obj, 'applicant_info') and obj.applicant_info:
+            completed += 1
+            if obj.applicant_info.employment_history.exists():
+                completed += 1
+            if hasattr(obj.applicant_info, 'financial_info') and obj.applicant_info.financial_info:
+                completed += 1
+        
+        if obj.documents.exists():
+            completed += 1
+            
+        return int((completed / total_fields) * 100)
+    
+    def get_days_since_submission(self, obj):
+        if obj.submission_date:
+            from django.utils import timezone
+            return (timezone.now().date() - obj.submission_date.date()).days
+        return None
+    
+    def get_risk_level(self, obj):
+        # This would integrate with risk assessment
+        if hasattr(obj, 'risk_assessment') and obj.risk_assessment:
+            return obj.risk_assessment.risk_rating
+        return None
+    
+    def validate(self, attrs):
+        # Ensure logical status transitions
+        if self.instance:
+            current_status = self.instance.status
+            new_status = attrs.get('status', current_status)
+            
+            invalid_transitions = {
+                'SUBMITTED': ['DRAFT'],
+                'UNDER_REVIEW': ['DRAFT'],
+                'APPROVED': ['DRAFT', 'SUBMITTED'],
+                'REJECTED': ['DRAFT', 'SUBMITTED']
+            }
+            
+            if current_status in invalid_transitions:
+                if new_status in invalid_transitions[current_status]:
+                    raise serializers.ValidationError(
+                        f"Cannot change status from {current_status} to {new_status}"
+                    )
+        
+        return attrs
         
     def create(self, validated_data):
         applicant_data = validated_data.pop('applicant_info', None)
@@ -125,8 +498,47 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
             applicant_serializer = ApplicantSerializer(data=applicant_data)
             if applicant_serializer.is_valid():
                 applicant_serializer.save(application=application)
+            else:
+                # If applicant data is invalid, delete the application and raise error
+                application.delete()
+                raise serializers.ValidationError({
+                    'applicant_info': applicant_serializer.errors
+                })
                 
         return application
+    
+    def update(self, instance, validated_data):
+        applicant_data = validated_data.pop('applicant_info', None)
+        
+        # Update application fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update applicant info if provided
+        if applicant_data:
+            if hasattr(instance, 'applicant_info') and instance.applicant_info:
+                applicant_serializer = ApplicantSerializer(
+                    instance.applicant_info, 
+                    data=applicant_data, 
+                    partial=True
+                )
+                if applicant_serializer.is_valid():
+                    applicant_serializer.save()
+                else:
+                    raise serializers.ValidationError({
+                        'applicant_info': applicant_serializer.errors
+                    })
+            else:
+                applicant_serializer = ApplicantSerializer(data=applicant_data)
+                if applicant_serializer.is_valid():
+                    applicant_serializer.save(application=instance)
+                else:
+                    raise serializers.ValidationError({
+                        'applicant_info': applicant_serializer.errors
+                    })
+        
+        return instance
 
 class ApplicationSubmitSerializer(serializers.Serializer):
     confirm = serializers.BooleanField(required=True, write_only=True)
