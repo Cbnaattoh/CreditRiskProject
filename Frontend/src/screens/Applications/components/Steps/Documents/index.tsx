@@ -4,7 +4,7 @@ import type { UploadedFile } from "../../types";
 
 type DocumentsStepProps = {
   uploadedFiles: UploadedFile[];
-  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, category?: string) => void;
   removeFile: (id: string) => void;
 };
 

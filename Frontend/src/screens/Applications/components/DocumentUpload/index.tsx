@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-hot-toast";
 import {
   FiUpload,
   FiX,
@@ -36,6 +37,12 @@ type DocumentUploadProps = {
     category: string
   ) => void;
   removeFile: (id: string) => void;
+};
+
+type PreviewModalProps = {
+  file: UploadedFile | null;
+  isOpen: boolean;
+  onClose: () => void;
 };
 
 const DOCUMENT_CATEGORIES: DocumentCategory[] = [
@@ -120,6 +127,126 @@ const DOCUMENT_CATEGORIES: DocumentCategory[] = [
   },
 ];
 
+const PreviewModal: React.FC<PreviewModalProps> = ({ file, isOpen, onClose }) => {
+  if (!isOpen || !file) return null;
+
+  const renderPreview = () => {
+    const fileType = file.type.toLowerCase();
+    const fileUrl = URL.createObjectURL(file);
+
+    if (fileType.startsWith('image/')) {
+      return (
+        <img
+          src={fileUrl}
+          alt={file.name}
+          className="max-w-full max-h-[70vh] object-contain"
+          onError={() => toast.error('Failed to load image preview')}
+        />
+      );
+    } else if (fileType === 'application/pdf') {
+      return (
+        <iframe
+          src={fileUrl}
+          className="w-full h-[70vh] border-0"
+          title={file.name}
+        />
+      );
+    } else if (fileType.includes('text/') || fileType.includes('csv')) {
+      return (
+        <div className="bg-gray-100 p-4 rounded-lg h-[70vh] overflow-auto">
+          <pre className="text-sm font-mono whitespace-pre-wrap">
+            Preview not available for this file type. Click download to view.
+          </pre>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
+          <FiFileText className="h-16 w-16 text-gray-400 mb-4" />
+          <p className="text-gray-600 mb-2">Preview not available</p>
+          <p className="text-sm text-gray-500">
+            File type: {file.type || 'Unknown'}
+          </p>
+          <p className="text-sm text-gray-500">
+            Size: {formatFileSize(file.size)}
+          </p>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                {file.name}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {formatFileSize(file.size)} • {file.type || 'Unknown type'} • Uploaded {file.uploadDate.toLocaleDateString()}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  const url = URL.createObjectURL(file);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = file.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  toast.success('Download started');
+                }}
+                className="p-2 text-gray-400 hover:text-green-600 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Download"
+              >
+                <FiDownload className="h-5 w-5" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Close"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Preview Content */}
+          <div className="p-6 overflow-auto">
+            {renderPreview()}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
+
 export const DocumentUpload = ({
   uploadedFiles,
   handleFileUpload,
@@ -129,6 +256,8 @@ export const DocumentUpload = ({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(["identity", "income"])
   );
+  const [previewFile, setPreviewFile] = useState<UploadedFile | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const toggleCategory = (categoryId: string) => {
@@ -188,12 +317,14 @@ export const DocumentUpload = ({
     );
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  const handlePreviewFile = (file: UploadedFile) => {
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
+
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewFile(null);
   };
 
   const completionPercentage = getCompletionPercentage();
@@ -412,6 +543,7 @@ export const DocumentUpload = ({
                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     type="button"
+                                    onClick={() => handlePreviewFile(file)}
                                     className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                     title="Preview"
                                   >
@@ -419,6 +551,17 @@ export const DocumentUpload = ({
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() => {
+                                      const url = URL.createObjectURL(file);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = file.name;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      URL.revokeObjectURL(url);
+                                      toast.success('Download started');
+                                    }}
                                     className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                     title="Download"
                                   >
@@ -468,6 +611,13 @@ export const DocumentUpload = ({
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      <PreviewModal
+        file={previewFile}
+        isOpen={isPreviewOpen}
+        onClose={closePreview}
+      />
     </div>
   );
 };

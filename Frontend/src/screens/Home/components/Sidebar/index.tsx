@@ -51,6 +51,8 @@ interface NavItem {
 const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   const [isOpen, setIsOpen] = useState(!isMobile);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [stableRoleDisplay, setStableRoleDisplay] = useState<string>('User');
+  const [stableIsClientUserState, setStableIsClientUserState] = useState<boolean | null>(null);
   const location = useLocation();
 
   const { user, profileImage, userInitials, imageError, handleImageError } =
@@ -58,7 +60,146 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   const { roles, permissions, isAuthenticated } = usePermissions();
   const isAdmin = useIsAdmin();
   const isStaff = useIsStaff();
+  
+  // Additional stability checks - ensure we don't lose role status during state updates
+  const isAdminStable = React.useMemo(() => {
+    return isAdmin || user?.user_type === 'ADMIN' || roles.includes('Administrator');
+  }, [isAdmin, user?.user_type, roles]);
+
+  // Stable client user detection - similar to admin logic
+  const currentIsClientUser = React.useMemo(() => {
+    return roles.includes('Client User') || 
+           user?.user_type === 'CLIENT_USER' || 
+           user?.user_type === 'Client User' ||
+           user?.user_type_display === 'Client User';
+  }, [roles, user?.user_type, user?.user_type_display]);
+
+  const isClientUserStable = stableIsClientUserState ?? currentIsClientUser;
   const canAccessAdmin = useCanAccessAdmin();
+
+  // COMPREHENSIVE USER TYPE DETECTION FOR SIDEBAR
+  const sidebarUserTypeDetection = React.useMemo(() => {
+    if (!user || !isAuthenticated) {
+      return { type: 'GUEST', isAdmin: false, isClient: false, isStaff: false };
+    }
+
+    // Admin detection
+    const adminChecks = [
+      isAdmin,
+      roles?.includes('Administrator'),
+      user?.user_type === 'ADMIN',
+      user?.role === 'ADMIN',
+      user?.user_type?.toLowerCase() === 'admin',
+      user?.role?.toLowerCase() === 'admin'
+    ];
+    const isDefinitelyAdmin = adminChecks.some(check => check === true);
+
+    // Client detection
+    const clientChecks = [
+      roles?.includes('Client User'),
+      user?.user_type === 'CLIENT_USER',
+      user?.user_type === 'Client User',
+      user?.user_type_display === 'Client User',
+      user?.role === 'CLIENT',
+      user?.user_type === 'CLIENT',
+      user?.user_type?.toLowerCase().includes('client'),
+      user?.role?.toLowerCase() === 'client'
+    ];
+    const isDefinitelyClient = clientChecks.some(check => check === true);
+
+    // Staff detection
+    const staffRoles = ['Risk Analyst', 'Compliance Auditor', 'Manager'];
+    const isDefinitelyStaff = roles?.some(r => staffRoles.includes(r)) || false;
+
+    const result = {
+      type: isDefinitelyAdmin ? 'ADMIN' : isDefinitelyClient ? 'CLIENT' : isDefinitelyStaff ? 'STAFF' : 'USER',
+      isAdmin: isDefinitelyAdmin,
+      isClient: isDefinitelyClient,
+      isStaff: isDefinitelyStaff
+    };
+
+    console.log('🟡 SIDEBAR USER TYPE RESULT:', result);
+    return result;
+  }, [user, roles, isAdmin, isAuthenticated]);
+
+  // COMPREHENSIVE role display logic
+  const roleDisplay = useMemo(() => {
+    console.log('🟡 SIDEBAR roleDisplay computation:', {
+      sidebarUserTypeDetection,
+      userType: user?.user_type,
+      userRole: user?.role
+    });
+
+    // Use comprehensive detection
+    switch (sidebarUserTypeDetection.type) {
+      case 'ADMIN':
+        console.log('🟡 Returning Administrator');
+        return 'Administrator';
+      case 'CLIENT':
+        console.log('🟡 Returning Client User');
+        return 'Client User';
+      case 'STAFF':
+        // Return specific staff role if available
+        const staffRoles = roles?.filter(role => 
+          ['Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
+        ) || [];
+        if (staffRoles.length > 0) {
+          console.log('🟡 Returning staff role:', staffRoles[0]);
+          return staffRoles[0];
+        }
+        console.log('🟡 Returning Staff');
+        return 'Staff';
+      default:
+        console.log('🟡 Returning User fallback');
+        return 'User';
+    }
+  }, [sidebarUserTypeDetection, roles, user?.user_type, user?.role]);
+
+  // Stabilize client user state similar to dashboard logic
+  React.useEffect(() => {
+    if (stableIsClientUserState === null && roles.length > 0) {
+      setStableIsClientUserState(currentIsClientUser);
+    } else if (currentIsClientUser && stableIsClientUserState === false) {
+      setStableIsClientUserState(true);
+    } else if (!currentIsClientUser && stableIsClientUserState === true && roles.length > 0) {
+      const hasOtherRoles = roles.some(role => 
+        ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
+      );
+      if (hasOtherRoles) {
+        setStableIsClientUserState(false);
+      }
+    }
+  }, [currentIsClientUser, roles, stableIsClientUserState]);
+
+  // COMPREHENSIVE SIDEBAR DEBUG
+  console.log('🟡 SIDEBAR DEBUG:', {
+    userObject: user,
+    userType: user?.user_type,
+    userTypeDisplay: user?.user_type_display,
+    rolesArray: roles,
+    rolesAsString: JSON.stringify(roles),
+    hasClientUserRole: roles?.includes('Client User'),
+    isAdminStable,
+    currentIsClientUser,
+    stableIsClientUserState,
+    isClientUserStable,
+    roleDisplay,
+    stableRoleDisplay,
+    isAuthenticated,
+    condition1: roles?.includes('Client User'),
+    condition2: user?.user_type === 'CLIENT_USER',
+    condition3: user?.user_type_display === 'Client User',
+    shouldShowClientUser: (roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User')
+  });
+
+  // Update stable role display - always use computed role when available
+  React.useEffect(() => {
+    if (isAuthenticated && sidebarUserTypeDetection.type !== 'GUEST') {
+      console.log('🟡 UPDATING stableRoleDisplay to:', roleDisplay);
+      setStableRoleDisplay(roleDisplay);
+    }
+  }, [isAuthenticated, roleDisplay, sidebarUserTypeDetection]);
+
 
   const navItems: NavItem[] = useMemo(() => [
     {
@@ -176,13 +317,13 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
 
   const SidebarProfilePicture = memo(() => {
     const getRoleColor = () => {
-      if (isAdmin) return "from-red-500 to-pink-600";
+      if (isAdminStable) return "from-red-500 to-pink-600";
       if (isStaff) return "from-blue-500 to-indigo-600";
       return "from-green-500 to-emerald-600";
     };
 
     const getRoleIndicator = () => {
-      if (isAdmin) return "Admin";
+      if (isAdminStable) return "Admin";
       if (isStaff) return "Staff";
       return "User";
     };
@@ -210,7 +351,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
           animate={{ scale: [1, 1.2, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
           className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 shadow-sm ${
-            isAdmin ? "bg-red-500" : isStaff ? "bg-blue-500" : "bg-emerald-500"
+            isAdminStable ? "bg-red-500" : isStaff ? "bg-blue-500" : "bg-emerald-500"
           }`}
           title={getRoleIndicator()}
         />
@@ -399,16 +540,24 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
               className="flex items-center space-x-2"
             >
               <Logo />
-              {/* Role badge */}
-              {isAdmin && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              {/* Role badge - stable display */}
+              {isAdminStable && (
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                >
                   Admin
-                </span>
+                </motion.span>
               )}
-              {isStaff && !isAdmin && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              {isStaff && !isAdminStable && (
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                >
                   Staff
-                </span>
+                </motion.span>
               )}
             </motion.div>
           )}
@@ -486,12 +635,10 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {typeof user.user_type === 'string' ? user.user_type : user.user_type_display || 'USER'}
                   </p>
-                  {roles.length > 0 && (
-                    <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-                      • {roles.filter(role => typeof role === 'string').slice(0, 2).join(", ")}
-                      {roles.filter(role => typeof role === 'string').length > 2 && ` +${roles.filter(role => typeof role === 'string').length - 2}`}
-                    </span>
-                  )}
+                  {/* Stable role display - prevents disappearing text */}
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                    • {roleDisplay}
+                  </span>
                 </div>
               </div>
             </div>

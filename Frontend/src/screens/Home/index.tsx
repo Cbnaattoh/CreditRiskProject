@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   RiskDistributionChart,
@@ -20,15 +20,71 @@ import { PermissionUsageChart } from "./components/PermissionUsageChart";
 
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const { isAdmin, roles, permissions } = usePermissions();
+  const [stableIsClientUser, setStableIsClientUser] = useState<boolean | null>(null);
+  const { isAdmin, roles, permissions, isAuthenticated } = usePermissions();
   const user = useSelector(selectCurrentUser);
   const isClientUser = useIsClientUser();
   const highestRole = useHighestRole();
 
+  // COMPREHENSIVE USER TYPE DETECTION
+  const userTypeDetection = useMemo(() => {
+    if (!user || !isAuthenticated) {
+      return { type: 'GUEST', isAdmin: false, isClient: false, isStaff: false };
+    }
+
+    console.log('🔥 COMPREHENSIVE USER DETECTION:', {
+      userObject: user,
+      rolesArray: roles,
+      isAdminHook: isAdmin,
+      userType: user?.user_type,
+      userRole: user?.role
+    });
+
+    // Admin detection - multiple ways
+    const adminChecks = [
+      isAdmin,
+      roles?.includes('Administrator'),
+      user?.user_type === 'ADMIN',
+      user?.role === 'ADMIN',
+      user?.user_type?.toLowerCase() === 'admin',
+      user?.role?.toLowerCase() === 'admin'
+    ];
+    const isDefinitelyAdmin = adminChecks.some(check => check === true);
+
+    // Client detection - multiple ways  
+    const clientChecks = [
+      roles?.includes('Client User'),
+      user?.user_type === 'CLIENT_USER',
+      user?.user_type === 'Client User',
+      user?.user_type_display === 'Client User',
+      user?.role === 'CLIENT',
+      user?.user_type === 'CLIENT',
+      user?.user_type?.toLowerCase().includes('client'),
+      user?.role?.toLowerCase() === 'client'
+    ];
+    const isDefinitelyClient = clientChecks.some(check => check === true);
+
+    // Staff detection
+    const staffRoles = ['Risk Analyst', 'Compliance Auditor', 'Manager'];
+    const isDefinitelyStaff = roles?.some(r => staffRoles.includes(r)) || false;
+
+    const result = {
+      type: isDefinitelyAdmin ? 'ADMIN' : isDefinitelyClient ? 'CLIENT' : isDefinitelyStaff ? 'STAFF' : 'USER',
+      isAdmin: isDefinitelyAdmin,
+      isClient: isDefinitelyClient,
+      isStaff: isDefinitelyStaff,
+      adminChecks,
+      clientChecks
+    };
+
+    console.log('🔥 USER TYPE RESULT:', result);
+    return result;
+  }, [user, roles, isAdmin, isAuthenticated]);
+
   // Permission checks - role-based
   const canViewRisk = useHasAnyPermission(['risk_view', 'risk_edit']);
   const canViewUsers = useHasAnyPermission(['user_view_all', 'user_manage', 'role_view']) || isAdmin;
-  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !isClientUser; // Explicitly exclude Client Users
+  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !userTypeDetection.isClient; // Explicitly exclude Client Users
   const canViewCompliance = useHasPermission('compliance_view');
   
   // RBAC data fetching
@@ -67,17 +123,64 @@ const Dashboard: React.FC = () => {
     }
   ];
 
-  // Debug logging
-  console.log('🔵 Dashboard Debug:', {
-    canViewUsers,
+  // COMPREHENSIVE DEBUG LOGGING
+  console.log('🔴 FULL DEBUG - Dashboard:', {
+    // User object inspection
+    userObject: user,
+    userEmail: user?.email,
+    userType: user?.user_type,
+    userTypeDisplay: user?.user_type_display,
+    userName: user?.name,
+    userId: user?.id,
+    
+    // Roles array inspection
+    rolesArray: roles,
+    rolesLength: roles?.length,
+    rolesAsString: JSON.stringify(roles),
+    hasClientUserRole: roles?.includes('Client User'),
+    hasClientUserRoleExact: roles?.some(r => r === 'Client User'),
+    
+    // Permission checks
     isAdmin,
-    permissions,
-    roles,
-    usersData: usersData?.results?.length || 0,
-    usersLoading,
-    usersError,
-    user: user?.email
+    isAuthenticated,
+    permissions: permissions?.slice(0, 5), // First 5 permissions
+    
+    // Hook results
+    isClientUserHook: isClientUser,
+    stableIsClientUser,
+    
+    // Computed conditions
+    condition1: roles?.includes('Client User'),
+    condition2: user?.user_type === 'CLIENT_USER',
+    condition3: user?.user_type_display === 'Client User',
+    finalClientCheck: (roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User'),
+    
+    // Authentication state
+    authLoading: !user || !roles,
+    canShowClientActions: !!(roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User'),
+    
+    // NEW COMPREHENSIVE CHECK
+    userTypeDetection: userTypeDetection
   });
+
+  // Stabilize client user state to prevent flickering
+  useEffect(() => {
+    // Initialize stable state when we have role information
+    if (stableIsClientUser === null && roles.length > 0) {
+      setStableIsClientUser(isClientUser);
+    } else if (isClientUser && stableIsClientUser === false) {
+      // If we were not client user but now we are, update
+      setStableIsClientUser(true);
+    } else if (!isClientUser && stableIsClientUser === true && roles.length > 0) {
+      // Only change from client user to non-client if we have other roles
+      const hasOtherRoles = roles.some(role => 
+        ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
+      );
+      if (hasOtherRoles) {
+        setStableIsClientUser(false);
+      }
+    }
+  }, [isClientUser, roles, stableIsClientUser]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -98,7 +201,7 @@ const Dashboard: React.FC = () => {
             Welcome back, {user?.name || user?.first_name || 'User'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            {isClientUser 
+            {userTypeDetection.isClient
               ? "Monitor your credit applications and risk assessments"
               : `${highestRole} Dashboard - Overview of system metrics and activities`
             }
@@ -106,7 +209,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* CLIENT USER DASHBOARD */}
-        {isClientUser && (
+        {userTypeDetection.isClient && (
           <>
             {/* Client User Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -208,8 +311,9 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* ADMIN DASHBOARD */}
-        <AdminOnly>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        {userTypeDetection.isAdmin && (
+          <AdminOnly>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <RBACStatsCard
               title="Total Users"
               value={rbacData?.summary.total_users || 0}
@@ -257,11 +361,12 @@ const Dashboard: React.FC = () => {
               color="yellow"
             />
           </div>
-        </AdminOnly>
+          </AdminOnly>
+        )}
 
         {/* ANALYST/MANAGER DASHBOARD */}
         <ProtectedComponent roles={["Risk Analyst", "Compliance Auditor", "Manager"]} requireAuth={true}>
-          {!isAdmin && !isClientUser && (
+          {userTypeDetection.isStaff && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <RBACStatsCard
                 title="Risk Assessments"
@@ -320,7 +425,7 @@ const Dashboard: React.FC = () => {
         </ProtectedComponent>
 
         {/* Charts and Activities Section */}
-        {!isClientUser && (
+        {!userTypeDetection.isClient && (
           <div className="space-y-8 mb-8">
             {/* First Row - Main Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -372,7 +477,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Client User Charts */}
-        {isClientUser && (
+        {userTypeDetection.isClient && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <ChartContainer title="Your Risk Profile">
               <div className="h-64 flex items-center justify-center text-gray-500">
@@ -421,10 +526,10 @@ const Dashboard: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {isClientUser ? "Your Notifications" : "System Alerts"}
+                  {userTypeDetection.isClient ? "Your Notifications" : "System Alerts"}
                 </h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {isClientUser ? "Personal" : "System-wide"}
+                  {userTypeDetection.isClient ? "Personal" : "System-wide"}
                 </span>
               </div>
               <div className="space-y-4">
@@ -443,7 +548,7 @@ const Dashboard: React.FC = () => {
                       time="24 hours ago"
                     />
                   </>
-                ) : canViewRisk && !isClientUser ? (
+                ) : canViewRisk && !userTypeDetection.isClient ? (
                   <>
                     <AlertCard
                       severity="high"

@@ -384,10 +384,24 @@ export const useAccessibleFeatures = (): string[] => {
  * Check if user is a Client User (lowest privilege level)
  */
 export const useIsClientUser = (): boolean => {
-  const { roles } = usePermissions();
+  const { roles, isAuthenticated } = usePermissions();
+  const currentUser = useSelector((state: any) => state.auth.user);
+  
   return useMemo(() => {
-    return roles.includes('Client User') && roles.length === 1; // Only Client User role
-  }, [roles]);
+    // Don't return false during loading - be conservative
+    if (!isAuthenticated) return false;
+    
+    // Check multiple sources for client user status
+    const hasClientUserRole = roles.includes('Client User');
+    const userTypeIsClient = currentUser?.user_type === 'CLIENT_USER' || 
+                            currentUser?.user_type === 'Client User' ||
+                            currentUser?.user_type_display === 'Client User';
+    
+    // Check if user has only Client User role or is marked as client in user_type
+    return hasClientUserRole || (userTypeIsClient && !roles.some(role => 
+      ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
+    ));
+  }, [roles, isAuthenticated, currentUser?.user_type, currentUser?.user_type_display]);
 };
 
 /**
