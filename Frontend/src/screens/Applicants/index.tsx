@@ -68,6 +68,11 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     ...(statusFilter !== "ALL" && { status: statusFilter }),
   });
 
+  // API data received successfully
+  if (applicationsData) {
+    console.log('✅ Applicants: Loaded', applicationsData.length || applicationsData.count || 0, 'applications');
+  }
+
   // Fetch risk analysis for selected applicant
   const { data: riskAnalysis, isLoading: riskLoading } =
     useGetRiskAnalysisQuery(selectedApplicant?.id || "", {
@@ -76,9 +81,11 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
 
   // Enhanced applications with computed fields
   const enhancedApplications = useMemo(() => {
-    if (!applicationsData?.results) return [];
+    // Handle both paginated response and direct array
+    const applications = applicationsData?.results || applicationsData || [];
+    if (!Array.isArray(applications)) return [];
 
-    return applicationsData.results.map((app): EnhancedApplication => {
+    return applications.map((app): EnhancedApplication => {
       const applicantInfo = app.applicant_info;
       const riskAssessment = app.risk_assessment;
       const documents = app.documents || [];
@@ -140,11 +147,11 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   };
 
   const handleNavigateToRisk = (applicationId: string) => {
-    navigate(`/home/loan-applications/${applicationId}/risk`);
+    navigate(`/home/risk-analysis/${applicationId}`);
   };
 
   const handleNavigateToExplainability = (applicationId: string) => {
-    navigate(`/home/loan-applications/${applicationId}/explainability`);
+    navigate(`/home/explainability/${applicationId}`);
   };
 
   const getRiskColor = (score?: number) => {
@@ -323,7 +330,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                     Total Applications
                   </p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {applicationsData?.count || 0}
+                    {applicationsData?.count || (Array.isArray(applicationsData) ? applicationsData.length : 0)}
                   </p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
@@ -583,7 +590,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
           </motion.div>
 
           {/* Pagination */}
-          {applicationsData && applicationsData.count > 20 && (
+          {applicationsData && ((applicationsData.count || (Array.isArray(applicationsData) ? applicationsData.length : 0)) > 20) && (
             <div className="flex items-center justify-center mt-8">
               <div className="flex items-center space-x-2">
                 <motion.button
@@ -596,7 +603,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                   Previous
                 </motion.button>
                 <span className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                  Page {currentPage} of {Math.ceil(applicationsData.count / 20)}
+                  Page {currentPage} of {Math.ceil((applicationsData.count || (Array.isArray(applicationsData) ? applicationsData.length : 0)) / 20)}
                 </span>
                 <motion.button
                   onClick={() => setCurrentPage(currentPage + 1)}

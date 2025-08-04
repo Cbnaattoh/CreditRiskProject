@@ -109,6 +109,11 @@ const Header: React.FC = () => {
         subtitle: "Account Settings",
         icon: "🔧",
       },
+      "/home/help": {
+        title: "Risk Dashboard",
+        subtitle: "Help Center",
+        icon: "❓",
+      },
     };
 
     return (
@@ -260,9 +265,11 @@ const Header: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 shadow-sm"
+              onClick={() => navigate("/home/help")}
+              className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200 shadow-sm group"
+              title="Help Center"
             >
-              <FiHelpCircle className="h-5 w-5" />
+              <FiHelpCircle className="h-5 w-5 group-hover:rotate-12 transition-transform duration-200" />
             </motion.button>
 
             {/* Profile dropdown */}

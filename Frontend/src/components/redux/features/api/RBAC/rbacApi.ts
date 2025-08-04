@@ -138,17 +138,12 @@ export const rbacApi = apiSlice.injectEndpoints({
         const filteredParams = Object.fromEntries(
           Object.entries(params).filter(([_, value]) => value !== undefined)
         );
-        console.log('🔵 getAdminUsersList API call:', {
-          url: "auth/rbac/users/",
-          params: filteredParams
-        });
         return {
           url: "auth/rbac/users/",
           params: filteredParams,
         };
       },
       transformErrorResponse: (response, meta, arg) => {
-        console.error('🔴 getAdminUsersList API error:', response);
         return response;
       },
       providesTags: ["User"],

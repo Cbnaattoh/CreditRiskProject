@@ -17,6 +17,7 @@ import { RBACStatsCard } from "./components/RBACStatsCard";
 import { UserActivityWidget } from "./components/UserActivityWidget";
 import { RoleDistributionChart } from "./components/RoleDistributionChart";
 import { PermissionUsageChart } from "./components/PermissionUsageChart";
+import { SystemAlertsWidget } from "./components/SystemAlertsWidget";
 
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -101,9 +102,10 @@ const Dashboard: React.FC = () => {
     isLoading: usersLoading,
     error: usersError 
   } = useGetAdminUsersListQuery(
-    { page: 1, page_size: 5, sort_by: 'last_login' },
+    { page: 1, page_size: 10, sort_by: 'last_login' },
     { skip: !canViewUsers }
   );
+
 
   // Create basic user activity data for non-admin users
   const basicUserActivity = canViewUsers ? [] : [
@@ -120,6 +122,7 @@ const Dashboard: React.FC = () => {
       }],
       is_active: true,
       mfa_enabled: user?.mfa_enabled || false,
+      status: "active",
     }
   ];
 
@@ -465,11 +468,17 @@ const Dashboard: React.FC = () => {
             <AdminOnly>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <ChartContainer title="Role Distribution">
-                  <RoleDistributionChart />
+                  <RoleDistributionChart 
+                    data={rbacData?.popular_roles || []}
+                    isLoading={rbacLoading}
+                  />
                 </ChartContainer>
 
                 <ChartContainer title="Permission Usage">
-                  <PermissionUsageChart />
+                  <PermissionUsageChart 
+                    data={rbacData?.recent_activity}
+                    isLoading={rbacLoading}
+                  />
                 </ChartContainer>
               </div>
             </AdminOnly>
@@ -504,84 +513,25 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Recent Activity & Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* User Activity Widget - Admin Only */}
+        <div className="space-y-8">
+          {/* User Activity Widget - Admin Only - FULL WIDTH */}
           <AdminOnly>
-            <div className="lg:col-span-2">
-              <UserActivityWidget 
-                users={usersData?.results || basicUserActivity}
-                isLoading={usersLoading}
-                title="Recent User Activity"
-              />
-            </div>
+            <UserActivityWidget 
+              users={usersData?.results || (Array.isArray(usersData) ? usersData : basicUserActivity)}
+              isLoading={usersLoading}
+              title="Recent User Activity"
+            />
           </AdminOnly>
 
-          {/* Alerts Section - Role-based content */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className={isAdmin ? "lg:col-span-1" : "lg:col-span-3"}
-          >
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {userTypeDetection.isClient ? "Your Notifications" : "System Alerts"}
-                </h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {userTypeDetection.isClient ? "Personal" : "System-wide"}
-                </span>
-              </div>
-              <div className="space-y-4">
-                {isAdmin ? (
-                  <>
-                    <AlertCard
-                      severity="high"
-                      title="System Maintenance Required"
-                      description="Database backup scheduled for tonight at 2 AM"
-                      time="System notification"
-                    />
-                    <AlertCard
-                      severity="medium"
-                      title="New User Registrations"
-                      description="5 new users registered in the last 24 hours"
-                      time="24 hours ago"
-                    />
-                  </>
-                ) : canViewRisk && !userTypeDetection.isClient ? (
-                  <>
-                    <AlertCard
-                      severity="high"
-                      title="High-Risk Application Flagged"
-                      description="Application exceeds risk threshold by 25%"
-                      time="5 minutes ago"
-                    />
-                    <AlertCard
-                      severity="medium"
-                      title="Unusual Activity Detected"
-                      description="Multiple applications from same region"
-                      time="32 minutes ago"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <AlertCard
-                      severity="medium"
-                      title="Application Under Review"
-                      description="Your application APP-001245 is being reviewed"
-                      time="2 hours ago"
-                    />
-                    <AlertCard
-                      severity="info"
-                      title="Profile Complete"
-                      description="Your profile is 100% complete - great job!"
-                      time="1 day ago"
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </motion.div>
+          {/* Enhanced System Alerts Widget - FULL WIDTH */}
+          <SystemAlertsWidget 
+            userType={
+              userTypeDetection.isAdmin ? 'admin' : 
+              userTypeDetection.isStaff ? 'staff' : 
+              'client'
+            }
+            isLoading={rbacLoading}
+          />
         </div>
       </main>
     </div>

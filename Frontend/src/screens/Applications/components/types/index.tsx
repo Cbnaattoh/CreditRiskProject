@@ -260,7 +260,25 @@ export class FormDataTransformer {
       },
       status: 'SUBMITTED' as const,
       is_priority: false,
-      notes: `Application submitted by ${formData.firstName} ${formData.lastName}`
+      notes: `Application submitted by ${formData.firstName} ${formData.lastName}`,
+      
+      // Loan Application Fields
+      loan_amount: formData.loanAmount,
+      interest_rate: formData.interestRate,
+      credit_history_length: formData.creditHistoryLength,
+      revolving_utilization: formData.revolvingUtilization,
+      max_bankcard_balance: formData.maxBankcardBalance,
+      delinquencies_2yr: formData.delinquencies2yr,
+      total_accounts: formData.totalAccounts,
+      inquiries_6mo: formData.inquiries6mo,
+      revolving_accounts_12mo: formData.revolvingAccounts12mo,
+      employment_length: formData.employmentLength,
+      public_records: formData.publicRecords,
+      open_accounts: formData.openAccounts,
+      home_ownership: formData.homeOwnership,
+      collections_12mo: formData.collections12mo,
+      annual_income: formData.annualIncome,
+      debt_to_income_ratio: formData.dti
     };
   }
   

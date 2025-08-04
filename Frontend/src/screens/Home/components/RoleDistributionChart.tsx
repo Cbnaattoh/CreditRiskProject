@@ -42,7 +42,10 @@ export const RoleDistributionChart: React.FC<RoleDistributionChartProps> = ({
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-8zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <p className="mt-2">No role data available</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Role Assignments</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No active role assignments found in your system
+          </p>
         </div>
       </div>
     );
@@ -57,17 +60,24 @@ export const RoleDistributionChart: React.FC<RoleDistributionChartProps> = ({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
+      const percentage = ((data.value / data.payload.total) * 100).toFixed(1);
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {data.payload.name}
           </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Users: <span className="font-medium text-indigo-600 dark:text-indigo-400">{data.value}</span>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Active Users: <span className="font-medium text-indigo-600 dark:text-indigo-400">{data.value.toLocaleString()}</span>
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">
-            {((data.value / data.payload.total) * 100).toFixed(1)}% of total
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {percentage}% of all role assignments
           </p>
+          <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+            <div 
+              className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" 
+              style={{ width: `${percentage}%` }}
+            ></div>
+          </div>
         </div>
       );
     }
@@ -76,18 +86,26 @@ export const RoleDistributionChart: React.FC<RoleDistributionChartProps> = ({
 
   const CustomLegend = ({ payload }: any) => {
     return (
-      <div className="flex flex-wrap justify-center gap-4 mt-4">
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center space-x-2">
-            <div 
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            ></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {entry.value} ({entry.payload.value})
-            </span>
-          </div>
-        ))}
+      <div className="flex flex-wrap justify-center gap-6 mt-6">
+        {payload.map((entry: any, index: number) => {
+          const percentage = total > 0 ? ((entry.payload.value / total) * 100).toFixed(1) : '0.0';
+          return (
+            <div key={index} className="flex items-center space-x-2 text-center">
+              <div 
+                className="w-3 h-3 rounded-full shadow-sm"
+                style={{ backgroundColor: entry.color }}
+              ></div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {entry.value}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-500">
+                  {entry.payload.value} users ({percentage}%)
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };

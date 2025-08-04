@@ -25,12 +25,14 @@ export const PermissionUsageChart: React.FC<PermissionUsageChartProps> = ({
     {
       name: 'Role Assignments',
       value: data?.assignments_24h || 0,
-      color: '#6366f1'
+      color: '#6366f1',
+      description: 'New role assignments in the last 24 hours'
     },
     {
       name: 'Permission Checks',
       value: data?.permission_checks_24h || 0,
-      color: '#8b5cf6'
+      color: '#8b5cf6',
+      description: 'Permission verifications performed'
     }
   ];
 
@@ -38,14 +40,17 @@ export const PermissionUsageChart: React.FC<PermissionUsageChartProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-w-xs">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {data.payload.name}
           </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Count: <span className="font-medium text-indigo-600 dark:text-indigo-400">{data.value}</span>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Count: <span className="font-medium text-indigo-600 dark:text-indigo-400">{data.value.toLocaleString()}</span>
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {data.payload.description}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
             Last 24 hours
           </p>
         </div>
@@ -91,21 +96,33 @@ export const PermissionUsageChart: React.FC<PermissionUsageChartProps> = ({
       </ResponsiveContainer>
       
       {/* Summary */}
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="mt-6 grid grid-cols-2 gap-6">
+        <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <div className="w-3 h-3 bg-indigo-600 rounded-full mr-2"></div>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              Role Assignments
+            </p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {data.assignments_24h.toLocaleString()}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Role Assignments
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            New assignments today
           </p>
         </div>
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <div className="flex items-center justify-center mb-2">
+            <div className="w-3 h-3 bg-violet-600 rounded-full mr-2"></div>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              Permission Checks
+            </p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {data.permission_checks_24h.toLocaleString()}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Permission Checks
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Security verifications
           </p>
         </div>
       </div>

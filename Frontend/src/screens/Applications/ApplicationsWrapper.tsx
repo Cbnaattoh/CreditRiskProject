@@ -6,6 +6,9 @@ import Applications from "./index"; // This is the form component
 const ApplicationsWrapper: React.FC = () => {
   const isClientUser = useIsClientUser();
   
+  // RBAC working correctly
+  console.log('✅ ApplicationsWrapper: Showing client applications view');
+  
   // For client users, show their applications list (filtered view)
   // For admin/staff, this component shouldn't be used (they use loan-applications route)
   if (isClientUser) {

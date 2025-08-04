@@ -3,8 +3,8 @@ import Dashboard from "../../../../screens/Home";
 import MainLayout from "../../../../screens/components/layouts/MainLayout";
 import LoanApplications from "../../../../screens/Applications";
 import ApplicationsWrapper from "../../../../screens/Applications/ApplicationsWrapper";
-import ApplicationRisk from "../../../../screens/Risk-Analysis";
-import ApplicationExplainability from "../../../../screens/Explainability";
+import ApplicationRisk from "../../../../screens/Risk-Analysis/ApplicationRisk";
+import ApplicationExplainability from "../../../../screens/Explainability/ApplicationExplainability";
 import RiskAnalysisWrapper from "../../../../screens/Risk-Analysis/RiskAnalysisWrapper";
 import ExplainabilityWrapper from "../../../../screens/Explainability/ExplainabilityWrapper";
 import AdminPanel from "../../../../screens/Admin-Panel";
@@ -14,6 +14,7 @@ import CustomerManagement from "../../../../screens/Applicants/CustomerManagemen
 import Reports from "../../../../screens/Reports";
 import NotificationsPage from "../../../../screens/Notifications";
 import WebSocketTest from "../../../../screens/WebSocketTest";
+import Help from "../../../../screens/Help";
 import ProtectedRoute from "../../ProtectedRoute";
 
 const dashboardRoutes: RouteObject[] = [
@@ -47,20 +48,18 @@ const dashboardRoutes: RouteObject[] = [
           // WebSocket Test - temporary for debugging
           { path: "websocket-test", element: <WebSocketTest /> },
           
-          // Application-specific routes
-          {
-            path: "loan-applications/:applicationId",
-            children: [
-              { path: "risk", element: <ApplicationRisk /> },
-              { path: "explainability", element: <ApplicationExplainability /> },
-            ],
-          },
+          // Application-specific risk analysis and explainability routes
+          { path: "risk-analysis/:applicationId", element: <ApplicationRisk /> },
+          { path: "explainability/:applicationId", element: <ApplicationExplainability /> },
           
           // Admin Panel - accessible to all authenticated users (RBAC handled in component)
           { path: "admin", element: <AdminPanel /> },
           
           // Settings - accessible to all authenticated users
           { path: "settings", element: <AccountSettings /> },
+          
+          // Help Center - accessible to all authenticated users
+          { path: "help", element: <Help /> },
         ],
       },
     ],

@@ -389,18 +389,28 @@ export const useIsClientUser = (): boolean => {
   
   return useMemo(() => {
     // Don't return false during loading - be conservative
-    if (!isAuthenticated) return false;
+    if (!isAuthenticated) {
+      console.log('🟢 useIsClientUser: NOT AUTHENTICATED');
+      return false;
+    }
     
     // Check multiple sources for client user status
     const hasClientUserRole = roles.includes('Client User');
-    const userTypeIsClient = currentUser?.user_type === 'CLIENT_USER' || 
+    const userTypeIsClient = currentUser?.user_type === 'CLIENT' ||
+                            currentUser?.user_type === 'CLIENT_USER' || 
                             currentUser?.user_type === 'Client User' ||
-                            currentUser?.user_type_display === 'Client User';
+                            currentUser?.user_type_display === 'Client User' ||
+                            currentUser?.role === 'CLIENT';
     
-    // Check if user has only Client User role or is marked as client in user_type
-    return hasClientUserRole || (userTypeIsClient && !roles.some(role => 
-      ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
-    ));
+    // Simple logic: if has Client User role, they are a client user
+    const result = hasClientUserRole || userTypeIsClient;
+    
+    // Success! RBAC detection is working
+    if (result) {
+      console.log('✅ useIsClientUser: Detected client user successfully');
+    }
+    
+    return result;
   }, [roles, isAuthenticated, currentUser?.user_type, currentUser?.user_type_display]);
 };
 
