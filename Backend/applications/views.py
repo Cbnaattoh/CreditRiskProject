@@ -23,6 +23,10 @@ class ApplicationListView(generics.ListCreateAPIView):
         return user.applications.all().order_by('-last_updated')
 
     def perform_create(self, serializer):
+        """
+        INDUSTRY STANDARD FIX: Override perform_create for additional safety
+        """
+        # Ensure authenticated user is set as applicant
         serializer.save(applicant=self.request.user)
 
 class ApplicationDetailView(generics.RetrieveUpdateDestroyAPIView):

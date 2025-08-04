@@ -174,7 +174,139 @@ class UserWithRolesSerializer(serializers.ModelSerializer):
     def get_active_role_count(self, obj):
         """Get count of active roles"""
         return obj.get_roles().count()
+
+
+class AdminUsersListSerializer(serializers.ModelSerializer):
+    """Serializer for admin users list matching frontend expectations"""
+    full_name = serializers.SerializerMethodField()
+    user_type_display = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    active_roles = serializers.SerializerMethodField()
+    days_since_joined = serializers.SerializerMethodField()
+    days_since_last_login = serializers.SerializerMethodField()
+    profile = serializers.SerializerMethodField()
     
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'full_name', 'user_type', 'user_type_display',
+            'status', 'is_active', 'is_verified', 'mfa_enabled',
+            'active_roles', 'last_login', 'date_joined',
+            'days_since_joined', 'days_since_last_login', 'profile'
+        ]
+        read_only_fields = ['id', 'date_joined', 'last_login']
+    
+    def get_full_name(self, obj):
+        """Get user's full name"""
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.email
+    
+    def get_user_type_display(self, obj):
+        """Get user type display name"""
+        return obj.get_user_type_display()
+    
+    def get_status(self, obj):
+        """Get user status based on activity with proper priority"""
+        # First check if user account is deactivated
+        if not obj.is_active:
+            return 'inactive'
+        
+        # Check if user has never logged in (highest priority for new users)
+        if not obj.last_login:
+            # If never logged in, check verification status
+            if not obj.is_verified:
+                return 'unverified'  # Never logged in AND not verified
+            else:
+                return 'never_logged_in'  # Never logged in but verified
+        
+        # User has logged in before - check their activity level
+        days_since_login = (timezone.now() - obj.last_login).days
+        if days_since_login <= 1:
+            return 'active'  # Very recent activity (≤1 day)
+        elif days_since_login <= 7:
+            return 'dormant'  # Recent but not very active (2-7 days)
+        else:
+            return 'inactive'  # Not active for more than a week (>7 days)
+    
+    def get_active_roles(self, obj):
+        """Get user's active roles with detailed information"""
+        user_roles = UserRole.objects.filter(
+            user=obj,
+            is_active=True
+        ).select_related('role', 'assigned_by')
+        
+        roles_data = []
+        for user_role in user_roles:
+            # Check if role is expired
+            if user_role.expires_at and user_role.expires_at <= timezone.now():
+                continue
+                
+            role_data = {
+                'id': user_role.role.id,
+                'name': user_role.role.name,
+                'assigned_at': user_role.assigned_at.isoformat() if user_role.assigned_at else None,
+            }
+            
+            if user_role.assigned_by:
+                role_data['assigned_by'] = user_role.assigned_by.email
+            
+            if user_role.expires_at:
+                role_data['expires_at'] = user_role.expires_at.isoformat()
+            
+            roles_data.append(role_data)
+        
+        # If no formal roles assigned, fall back to user_type as a role
+        if not roles_data:
+            if obj.user_type:
+                # Map user_type codes to display names
+                user_type_display_map = {
+                    'ADMIN': 'Administrator',
+                    'ANALYST': 'Risk Analyst', 
+                    'AUDITOR': 'Compliance Auditor',
+                    'CLIENT': 'Client User',
+                }
+                user_type_display = user_type_display_map.get(obj.user_type, obj.user_type)
+                
+                roles_data.append({
+                    'id': 0,  # Fake ID for user_type
+                    'name': user_type_display,
+                    'assigned_at': obj.date_joined.isoformat() if obj.date_joined else None,
+                })
+            else:
+                # Last fallback for users with no user_type set
+                roles_data.append({
+                    'id': 0,
+                    'name': 'User',
+                    'assigned_at': obj.date_joined.isoformat() if obj.date_joined else None,
+                })
+        
+        return roles_data
+    
+    def get_days_since_joined(self, obj):
+        """Get days since user joined"""
+        return (timezone.now() - obj.date_joined).days
+    
+    def get_days_since_last_login(self, obj):
+        """Get days since last login"""
+        if obj.last_login:
+            return (timezone.now() - obj.last_login).days
+        return None
+    
+    def get_profile(self, obj):
+        """Get user profile information"""
+        try:
+            profile = obj.profile
+            return {
+                'company': profile.company,
+                'job_title': profile.job_title,
+                'department': profile.department,
+            }
+        except:
+            return {
+                'company': None,
+                'job_title': None,
+                'department': None,
+            }
+
 
 class RoleAssignmentSerializer(serializers.Serializer):
     """Serializer for bulk role assignments with RBAC validation"""

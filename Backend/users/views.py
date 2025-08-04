@@ -52,6 +52,7 @@ from .serializers import (
     RoleSerializer,
     UserRoleSerializer,
     UserWithRolesSerializer,
+    AdminUsersListSerializer,
     RoleAssignmentSerializer,
     PermissionLogSerializer,
     UserPermissionCheckSerializer,
@@ -362,14 +363,15 @@ class UserRoleViewSet(viewsets.ModelViewSet):
 class UserManagementViewSet(viewsets.ModelViewSet):
     """User management with RBAC functionality"""
     queryset = User.objects.prefetch_related(
-        Prefetch('user_roles', queryset=UserRole.objects.filter(is_active=True))
+        Prefetch('user_roles', queryset=UserRole.objects.filter(is_active=True).select_related('role', 'assigned_by')),
+        'profile'
     )
     serializer_class = UserWithRolesSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['is_active', 'is_staff']
     search_fields = ['email', 'first_name', 'last_name']
-    ordering_fields = ['email', 'date_joined']
-    ordering = ['email']
+    ordering_fields = ['email', 'date_joined', 'last_login']
+    ordering = ['-last_login']  # Default sort by most recent login
 
     def get_permissions(self):
         """Apply RBAC permissions based on action"""
@@ -380,9 +382,11 @@ class UserManagementViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), IsAdminUser()]
     
     def get_serializer_class(self):
-        """Use AdminUserCreateSerializer for user creation"""
+        """Use appropriate serializer based on action"""
         if self.action == 'create':
             return AdminUserCreateSerializer
+        elif self.action == 'list':
+            return AdminUsersListSerializer
         return super().get_serializer_class()
     
     def get_serializer_context(self):
@@ -390,6 +394,105 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
+    def list(self, request, *args, **kwargs):
+        """Custom list method with enhanced response format for frontend"""
+        # Get filtered queryset
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get pagination parameters
+        page_size = int(request.query_params.get('page_size', 10))
+        page_num = int(request.query_params.get('page', 1))
+        
+        # Calculate pagination
+        total_count = queryset.count()
+        start_index = (page_num - 1) * page_size
+        end_index = start_index + page_size
+        
+        # Get the page data
+        page_data = queryset[start_index:end_index]
+        serializer = self.get_serializer(page_data, many=True)
+        
+        # Calculate next/previous URLs
+        has_next = end_index < total_count
+        has_previous = page_num > 1
+        
+        next_url = None
+        previous_url = None
+        if has_next:
+            next_url = f"?page={page_num + 1}&page_size={page_size}"
+        if has_previous:
+            previous_url = f"?page={page_num - 1}&page_size={page_size}"
+        
+        # Get summary data
+        summary_data = self._get_summary_data(queryset, request)
+        
+        return Response({
+            'count': total_count,
+            'next': next_url,
+            'previous': previous_url,
+            'results': serializer.data,
+            **summary_data
+        })
+
+    def _get_summary_data(self, queryset, request):
+        """Generate summary statistics and filter information"""
+        total_users = queryset.count()
+        active_users = queryset.filter(is_active=True).count()
+        inactive_users = total_users - active_users
+        
+        # User type counts
+        user_type_counts = queryset.values('user_type').annotate(
+            count=Count('id')
+        )
+        user_types = {}
+        for item in user_type_counts:
+            user_type = item['user_type']
+            if user_type:
+                user_types[user_type] = {
+                    'code': user_type,
+                    'display': dict(User.USER_TYPES).get(user_type, user_type),
+                    'count': item['count']
+                }
+        
+        # Login activity stats
+        never_logged_in = queryset.filter(last_login__isnull=True).count()
+        logged_in_week = queryset.filter(
+            last_login__gte=timezone.now() - timezone.timedelta(days=7)
+        ).count()
+        activity_rate_week = (logged_in_week / total_users * 100) if total_users > 0 else 0
+        
+        # Security stats
+        mfa_enabled = queryset.filter(mfa_enabled=True).count()
+        mfa_adoption_rate = (mfa_enabled / total_users * 100) if total_users > 0 else 0
+        unverified_users = queryset.filter(is_verified=False).count()
+        
+        # Applied filters
+        filters_applied = {}
+        for key in ['search', 'user_type', 'status', 'role', 'is_active', 'has_mfa', 'sort_by']:
+            value = request.query_params.get(key)
+            if value:
+                filters_applied[key] = value
+        
+        return {
+            'summary': {
+                'total_users': total_users,
+                'active_users': active_users,
+                'inactive_users': inactive_users,
+                'user_types': user_types,
+                'login_activity': {
+                    'never_logged_in': never_logged_in,
+                    'logged_in_week': logged_in_week,
+                    'activity_rate_week': round(activity_rate_week, 2)
+                },
+                'security': {
+                    'mfa_enabled': mfa_enabled,
+                    'mfa_adoption_rate': round(mfa_adoption_rate, 2),
+                    'unverified_users': unverified_users
+                }
+            },
+            'filters_applied': filters_applied
+        }
 
     @action(detail=True, methods=['post'])
     def assign_role(self, request, pk=None):

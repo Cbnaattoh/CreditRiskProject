@@ -89,7 +89,7 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 class FinancialInfoSerializer(serializers.ModelSerializer):
     bank_accounts = BankAccountSerializer(many=True, required=False)
-    net_worth = serializers.ReadOnlyField()
+    net_worth = serializers.SerializerMethodField()  # Use SerializerMethodField for better control
     debt_to_income_ratio = serializers.SerializerMethodField()
     
     class Meta:
@@ -100,6 +100,19 @@ class FinancialInfoSerializer(serializers.ModelSerializer):
             'bankruptcy_details': {'required': False}
         }
     
+    def get_net_worth(self, obj):
+        """
+        Safe net worth calculation that handles string/decimal conversion
+        """
+        from decimal import Decimal, InvalidOperation
+        
+        try:
+            assets = Decimal(str(obj.total_assets)) if obj.total_assets else Decimal('0')
+            liabilities = Decimal(str(obj.total_liabilities)) if obj.total_liabilities else Decimal('0')
+            return float(assets - liabilities)
+        except (InvalidOperation, TypeError, ValueError):
+            return 0.0
+    
     def get_debt_to_income_ratio(self, obj):
         # This would need to be calculated based on employment info
         # For now, return a default or calculated value
@@ -107,6 +120,8 @@ class FinancialInfoSerializer(serializers.ModelSerializer):
     
     def validate_total_assets(self, value):
         try:
+            if value is None or value == '':
+                return '0.00'
             assets = Decimal(str(value))
             if assets < 0:
                 raise serializers.ValidationError("Total assets cannot be negative")
@@ -116,6 +131,8 @@ class FinancialInfoSerializer(serializers.ModelSerializer):
     
     def validate_total_liabilities(self, value):
         try:
+            if value is None or value == '':
+                return '0.00'
             liabilities = Decimal(str(value))
             if liabilities < 0:
                 raise serializers.ValidationError("Total liabilities cannot be negative")
@@ -125,6 +142,8 @@ class FinancialInfoSerializer(serializers.ModelSerializer):
     
     def validate_monthly_expenses(self, value):
         try:
+            if value is None or value == '':
+                return '0.00'
             expenses = Decimal(str(value))
             if expenses < 0:
                 raise serializers.ValidationError("Monthly expenses cannot be negative")
@@ -222,6 +241,9 @@ class ApplicantSerializer(serializers.ModelSerializer):
             'O': 'O',
             'P': 'P'
         }
+        # Direct backend values should pass through
+        if value in ['M', 'F', 'O', 'P']:
+            return value
         mapped_value = gender_map.get(value.lower() if isinstance(value, str) else value)
         if not mapped_value:
             raise serializers.ValidationError("Invalid gender value")
@@ -239,6 +261,9 @@ class ApplicantSerializer(serializers.ModelSerializer):
             'D': 'D',
             'W': 'W'
         }
+        # Direct backend values should pass through
+        if value in ['S', 'M', 'D', 'W']:
+            return value
         mapped_value = status_map.get(value.lower() if isinstance(value, str) else value)
         if not mapped_value:
             raise serializers.ValidationError("Invalid marital status value")
@@ -428,6 +453,9 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
     additional_notes = ApplicationNoteSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
+    # INDUSTRY STANDARD FIX: Override applicant field to prevent validation
+    applicant = serializers.HiddenField(default=None)
+    
     # Computed fields
     completion_percentage = serializers.SerializerMethodField()
     days_since_submission = serializers.SerializerMethodField()
@@ -436,10 +464,10 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = CreditApplication
         fields = '__all__'
+        read_only_fields = ['reference_number', 'submission_date', 'assigned_analyst']
         extra_kwargs = {
-            'applicant': {'required': False, 'allow_null': True},
+            'applicant': {'required': False, 'allow_null': True, 'write_only': True}
         }
-        read_only_fields = ['reference_number', 'submission_date', 'assigned_analyst', 'applicant']
     
     def get_completion_percentage(self, obj):
         total_fields = 4  # Basic sections: personal, employment, financial, documents
@@ -469,7 +497,74 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
             return obj.risk_assessment.risk_rating
         return None
     
+    def to_internal_value(self, data):
+        """
+        INDUSTRY STANDARD FIX: Comprehensive data transformation and validation override
+        """
+        if isinstance(data, dict):
+            data = data.copy()  # Don't modify original
+            
+            # DEFENSIVE LAYER 1: Remove any applicant data that might cause validation errors
+            data.pop('applicant', None)
+            
+            # DEFENSIVE LAYER 2: Ensure applicant field is set to None for HiddenField
+            data['applicant'] = None
+            
+            # Handle nested applicant_info frontend field mapping
+            if 'applicant_info' in data and isinstance(data['applicant_info'], dict):
+                applicant_data = data['applicant_info'].copy()
+                
+                # Transform frontend fields to backend fields
+                field_mapping = {
+                    'firstName': 'first_name',
+                    'lastName': 'last_name', 
+                    'otherNames': 'middle_name',
+                    'phone': 'phone_number',
+                    'dob': 'date_of_birth',
+                    'nationalIDNumber': 'national_id',
+                    'ssnitNumber': 'tax_id'
+                }
+                
+                for frontend_field, backend_field in field_mapping.items():
+                    if frontend_field in applicant_data:
+                        applicant_data[backend_field] = applicant_data.pop(frontend_field)
+                
+                # Transform frontend gender values to backend values
+                if 'gender' in applicant_data:
+                    gender_map = {
+                        'male': 'M', 'female': 'F', 'other': 'O', 'prefer_not_to_say': 'P'
+                    }
+                    if applicant_data['gender'] in gender_map:
+                        applicant_data['gender'] = gender_map[applicant_data['gender']]
+                
+                # Transform frontend marital status values to backend values  
+                if 'maritalStatus' in applicant_data:
+                    status_map = {
+                        'single': 'S', 'married': 'M', 'divorced': 'D', 'widowed': 'W'
+                    }
+                    if applicant_data['maritalStatus'] in status_map:
+                        applicant_data['marital_status'] = status_map[applicant_data['maritalStatus']]
+                    del applicant_data['maritalStatus']
+                
+                # Ensure financial data has proper defaults
+                if 'financial_info' in applicant_data:
+                    financial_data = applicant_data['financial_info']
+                    # Set defaults for financial fields to prevent string math errors
+                    financial_data.setdefault('total_assets', '0.00')
+                    financial_data.setdefault('total_liabilities', '0.00')
+                    financial_data.setdefault('monthly_expenses', '0.00')
+                
+                data['applicant_info'] = applicant_data
+        
+        return super().to_internal_value(data)
+    
     def validate(self, attrs):
+        """
+        INDUSTRY STANDARD FIX: Final validation layer with applicant field safety
+        """
+        # DEFENSIVE LAYER 3: Ultimate safety - remove applicant from validated data
+        attrs.pop('applicant', None)
+        
         # Ensure logical status transitions
         if self.instance:
             current_status = self.instance.status
@@ -491,13 +586,48 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
         return attrs
         
     def create(self, validated_data):
+        """
+        INDUSTRY STANDARD FIX: Robust create method with comprehensive safety layers
+        """
+        # DEFENSIVE LAYER 4: Final cleanup of applicant field
         applicant_data = validated_data.pop('applicant_info', None)
-        application = CreditApplication.objects.create(**validated_data)
+        validated_data.pop('applicant', None)  # Remove any lingering applicant field
+        
+        # Get authenticated user from request context
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Authentication required")
+        
+        if not request.user.is_authenticated:
+            raise serializers.ValidationError("User must be authenticated")
+        
+        # DEFENSIVE LAYER 5: Explicitly set applicant to authenticated user
+        # This bypasses any field validation issues
+        try:
+            application = CreditApplication.objects.create(
+                applicant=request.user, 
+                **validated_data
+            )
+        except Exception as e:
+            raise serializers.ValidationError(f"Failed to create application: {str(e)}")
         
         if applicant_data:
+            # Ensure financial info has proper defaults before validation
+            if 'financial_info' in applicant_data:
+                financial_data = applicant_data['financial_info']
+                financial_data.setdefault('total_assets', '0.00')
+                financial_data.setdefault('total_liabilities', '0.00')
+                financial_data.setdefault('monthly_expenses', '0.00')
+                financial_data.setdefault('has_bankruptcy', False)
+            
             applicant_serializer = ApplicantSerializer(data=applicant_data)
             if applicant_serializer.is_valid():
-                applicant_serializer.save(application=application)
+                try:
+                    applicant_serializer.save(application=application)
+                except Exception as e:
+                    # If saving fails, delete the application and raise error
+                    application.delete()
+                    raise serializers.ValidationError(f"Failed to save applicant info: {str(e)}")
             else:
                 # If applicant data is invalid, delete the application and raise error
                 application.delete()

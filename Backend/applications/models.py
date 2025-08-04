@@ -16,7 +16,7 @@ class CreditApplication(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reference_number = models.CharField(max_length=20, unique=True, editable=False)
-    applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications')
+    applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications', null=True, blank=True)
     status = models.CharField(max_length=15, choices=APPLICATION_STATUS, default='DRAFT')
     submission_date = models.DateTimeField(null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -31,6 +31,24 @@ class CreditApplication(models.Model):
     is_priority = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
     
+    # Loan Application Fields
+    loan_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    credit_history_length = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    revolving_utilization = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    max_bankcard_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    delinquencies_2yr = models.IntegerField(null=True, blank=True)
+    total_accounts = models.IntegerField(null=True, blank=True)
+    inquiries_6mo = models.IntegerField(null=True, blank=True)
+    revolving_accounts_12mo = models.IntegerField(null=True, blank=True)
+    employment_length = models.CharField(max_length=50, blank=True)
+    public_records = models.IntegerField(null=True, blank=True)
+    open_accounts = models.IntegerField(null=True, blank=True)
+    home_ownership = models.CharField(max_length=20, blank=True)
+    collections_12mo = models.IntegerField(null=True, blank=True)
+    annual_income = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    debt_to_income_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    
     class Meta:
         ordering = ['-submission_date']
         permissions = [
@@ -44,6 +62,14 @@ class CreditApplication(models.Model):
         if self.status == 'SUBMITTED' and not self.submission_date:
             self.submission_date = timezone.now()
         super().save(*args, **kwargs)
+    
+    @classmethod
+    def create_for_user(cls, user, **kwargs):
+        """
+        INDUSTRY STANDARD: Safe creation method that ensures applicant is always set
+        """
+        kwargs['applicant'] = user
+        return cls.objects.create(**kwargs)
     
     def _generate_reference_number(self):
         # Generate a unique reference number like RG-2023-0001
@@ -166,7 +192,17 @@ class FinancialInfo(models.Model):
     
     @property
     def net_worth(self):
-        return self.total_assets - self.total_liabilities
+        """
+        Calculate net worth with proper decimal handling
+        """
+        from decimal import Decimal, InvalidOperation
+        
+        try:
+            assets = Decimal(str(self.total_assets)) if self.total_assets else Decimal('0')
+            liabilities = Decimal(str(self.total_liabilities)) if self.total_liabilities else Decimal('0')
+            return assets - liabilities
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0')
     
     def __str__(self):
         return f"Financial Info - {self.applicant.full_name()}"
