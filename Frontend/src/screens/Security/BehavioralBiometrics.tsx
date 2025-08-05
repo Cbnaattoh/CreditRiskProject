@@ -16,8 +16,8 @@ import {
   useGetBehavioralBiometricsQuery,
   useGetHighRiskUsersQuery,
   useUpdateConfidenceScoreMutation,
-  BehavioralBiometric,
 } from '../../components/redux/features/api/security/securityApi';
+import type { BehavioralBiometric } from '../../components/redux/features/api/security/securityApi';
 import { formatDistanceToNow } from 'date-fns';
 
 interface EditConfidenceModalProps {

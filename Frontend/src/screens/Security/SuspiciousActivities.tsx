@@ -19,8 +19,8 @@ import {
   useGetCriticalAlertsQuery,
   useGetActivitySummaryQuery,
   useMarkActivityChallengedMutation,
-  SuspiciousActivity,
 } from '../../components/redux/features/api/security/securityApi';
+import type { SuspiciousActivity } from '../../components/redux/features/api/security/securityApi';
 import { formatDistanceToNow, format } from 'date-fns';
 
 interface ActivityDetailModalProps {
