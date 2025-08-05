@@ -58,13 +58,50 @@ class PasswordExpirationMiddleware:
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not request.user.is_authenticated:
             return None
-            
-        # Skip for password change views and logout
-        if view_func.__name__ in ['PasswordChangeView', 'LogoutView']:
+        
+        # Skip for authentication-related views and logout
+        exempt_views = [
+            'PasswordChangeView', 
+            'PasswordChangeRequiredView',
+            'LogoutView',
+            'LoginView',
+            'TokenRefreshView'
+        ]
+        
+        if view_func.__name__ in exempt_views:
             return None
+        
+        # CRITICAL SECURITY: Block ALL API access for users with temporary passwords
+        if (hasattr(request.user, 'is_temp_password') and request.user.is_temp_password) or \
+           (hasattr(request.user, 'password_change_required') and request.user.password_change_required):
             
-        if request.user.is_password_expired():
+            # For API requests, return 403 Forbidden with clear message
+            if request.path.startswith('/api/') and request.path not in ['/api/auth/password-change-required/', '/api/auth/logout/']:
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'detail': 'Password change required. You must change your temporary password before accessing the system.',
+                    'code': 'PASSWORD_CHANGE_REQUIRED',
+                    'redirect_to': '/change-password'
+                }, status=403)
+            
+            # For regular requests, redirect to password change page
+            from django.shortcuts import redirect
             from django.urls import reverse
-            return redirect(reverse('password_change_required'))
+            return redirect('/change-password')
+        
+        # Check for expired passwords
+        if hasattr(request.user, 'is_password_expired') and request.user.is_password_expired():
+            # For API requests, return 403 Forbidden
+            if request.path.startswith('/api/') and request.path not in ['/api/auth/password-change-required/', '/api/auth/logout/']:
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'detail': 'Password expired. You must change your password before accessing the system.',
+                    'code': 'PASSWORD_EXPIRED',
+                    'redirect_to': '/change-password'
+                }, status=403)
+            
+            # For regular requests, redirect to password change page
+            from django.shortcuts import redirect
+            return redirect('/change-password')
             
         return None

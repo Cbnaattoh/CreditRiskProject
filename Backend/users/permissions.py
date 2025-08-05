@@ -379,6 +379,11 @@ class IsStaffUser(RequireAnyRole(['Administrator', 'Risk Analyst', 'Compliance A
     pass
 
 
+class IsAdminOrStaff(RequireAnyRole(['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'])):
+    """Permission class for admin or staff users (alias for IsStaffUser)"""
+    pass
+
+
 class CanViewUsers(RequirePermission('user_view_all')):
     """Permission class for viewing users"""
     pass
