@@ -39,11 +39,13 @@ const ProtectedRoute = () => {
       return;
     }
 
-    // Check if user needs to change password (temporary or expired)
+    // CRITICAL SECURITY: Users with temporary passwords or expired passwords 
+    // MUST change their password and cannot navigate anywhere else
     if (isAuthenticated && (requiresPasswordChange || passwordExpired || temporaryPassword)) {
-      // Don't redirect if already on password change page
+      // Force redirect to password change page from ANY other location
       if (location.pathname !== "/change-password") {
-        navigate("/change-password");
+        // Replace instead of push to prevent back button bypass
+        navigate("/change-password", { replace: true });
         return;
       }
     }
@@ -52,6 +54,16 @@ const ProtectedRoute = () => {
       setShouldVerify(true);
     }
   }, [isAuthenticated, user, requiresPasswordChange, passwordExpired, temporaryPassword, navigate, location.pathname]);
+
+  // Additional security layer: Prevent rendering protected content for users who need password change
+  const needsPasswordChange = requiresPasswordChange || passwordExpired || temporaryPassword;
+  
+  // Block all access except password change page for users with temporary/expired passwords
+  if (isAuthenticated && needsPasswordChange && location.pathname !== "/change-password") {
+    // Force immediate redirect
+    navigate("/change-password", { replace: true });
+    return null;
+  }
 
   useEffect(() => {
     if (error) {

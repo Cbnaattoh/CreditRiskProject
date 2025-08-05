@@ -189,15 +189,6 @@ const AdminPanel: React.FC = () => {
   const canAssignRoles = useHasAnyPermission(["role_view", "user_manage_roles"]);
   const canViewAuditLogs = useHasAnyPermission(["view_audit_logs", "security_logs_view"]);
 
-  // Debug logging
-  console.log('🔵 Admin Panel Permissions Debug:', {
-    canManageUsers,
-    canAssignRoles, 
-    canViewAuditLogs,
-    isAdmin,
-    permissions,
-    roles
-  });
 
   // Get current active tab from URL parameters
   const getCurrentTab = () => {
@@ -550,7 +541,6 @@ const AdminPanel: React.FC = () => {
         isOpen={isUserCreationModalOpen}
         onClose={() => setIsUserCreationModalOpen(false)}
         onUserCreated={(userData) => {
-          console.log("User created:", userData);
           // Optionally refresh user list or show success message
           setIsUserCreationModalOpen(false);
         }}

@@ -81,6 +81,29 @@ const baseQueryWithReauth = async (
   const error = result?.error as FetchBaseQueryError | undefined;
   console.log("🔵 API response:", { error: error?.status, data: result?.data });
 
+  // SECURITY: Handle password change requirement responses
+  if (error?.status === 403) {
+    const errorData = error.data as any;
+    if (errorData?.code === 'PASSWORD_CHANGE_REQUIRED' || errorData?.code === 'PASSWORD_EXPIRED') {
+      console.warn("🔴 Password change required. Forcing user to change password page.");
+      
+      // Force navigation to password change page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/change-password';
+      }
+      
+      return {
+        error: {
+          status: 403,
+          data: { 
+            detail: "Password change required. Redirecting to password change page.",
+            code: errorData.code
+          },
+        },
+      };
+    }
+  }
+
   if (error?.status === 401) {
     console.warn("🟡 Received 401. Attempting token refresh...");
 

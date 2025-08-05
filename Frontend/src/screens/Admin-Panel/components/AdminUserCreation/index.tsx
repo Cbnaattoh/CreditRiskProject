@@ -11,8 +11,11 @@ import {
   FiCheck,
   FiAlertCircle,
   FiUserPlus,
+  FiInfo,
+  FiCopy,
 } from "react-icons/fi";
 import { useGetUsersFiltersQuery } from "../../../../components/redux/features/api/RBAC/rbacApi";
+import { useToast } from "../../../../components/utils/Toast";
 
 interface Role {
   id: number;
@@ -26,13 +29,30 @@ interface AdminUserCreationProps {
   onUserCreated?: (userData: any) => void;
 }
 
+// Role to user_type mapping based on backend logic
+const ROLE_TO_USER_TYPE_MAPPING: { [key: string]: string } = {
+  "Administrator": "ADMIN",
+  "Risk Analyst": "ANALYST", 
+  "Compliance Auditor": "AUDITOR",
+  "Client User": "CLIENT",
+  "Manager": "ADMIN", // Manager role maps to ADMIN user_type as fallback
+};
+
+// User type descriptions for better UX
+const USER_TYPE_DESCRIPTIONS: { [key: string]: string } = {
+  "ADMIN": "Full system access with administrative privileges and ability to manage all users and system settings",
+  "ANALYST": "Specialized access for risk analysis, credit assessment, and financial modeling capabilities", 
+  "AUDITOR": "Compliance-focused access for auditing activities, regulatory reporting, and compliance monitoring",
+  "CLIENT": "Limited access for client users to view their own applications and basic reporting features"
+};
+
 // Default roles - these will be loaded from API
 const defaultRoles: Role[] = [
-  { id: 1, name: "Client User", description: "Basic client access with limited permissions" },
+  { id: 1, name: "Administrator", description: "Full system access and administration" },
   { id: 2, name: "Risk Analyst", description: "Analyze and assess credit risk for applications" },
   { id: 3, name: "Compliance Auditor", description: "Review compliance and audit activities" },
   { id: 4, name: "Manager", description: "Manage team operations and oversee processes" },
-  { id: 5, name: "Administrator", description: "Full system access and administration" },
+  { id: 5, name: "Client User", description: "Basic client access with limited permissions" },
 ];
 
 const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
@@ -45,14 +65,17 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
     last_name: "",
     email: "",
     role_id: "",
+    user_type: "",
     send_email_notification: true,
   });
   const [availableRoles, setAvailableRoles] = useState<Role[]>(defaultRoles);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState("");
+  
+  // Toast system
+  const { success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
 
   // Get roles from RBAC API
   const { data: filtersData, isLoading: isLoadingRoles } = useGetUsersFiltersQuery();
@@ -69,6 +92,13 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
     }
   }, [filtersData]);
 
+  // Show warning if no roles are available
+  useEffect(() => {
+    if (!isLoadingRoles && (!filtersData?.roles || filtersData.roles.length === 0)) {
+      showWarning("No active roles found. Please ensure roles are properly configured in the system.");
+    }
+  }, [isLoadingRoles, filtersData, showWarning]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
@@ -78,10 +108,10 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
           last_name: "",
           email: "",
           role_id: "",
+          user_type: "",
           send_email_notification: true,
         });
         setSuccess(false);
-        setError("");
         setShowTempPassword(false);
         setTempPassword("");
       }, 300);
@@ -90,33 +120,43 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
 
   const getRoleDescription = (roleName: string): string => {
     const descriptions: { [key: string]: string } = {
-      "Client User": "Basic client access with limited permissions",
-      "Risk Analyst": "Analyze and assess credit risk for applications",
-      "Compliance Auditor": "Review compliance and audit activities",
-      "Manager": "Manage team operations and oversee processes",
-      "Administrator": "Full system access and administration",
+      "Client User": "Basic client access for viewing personal applications and limited reporting features. Cannot access administrative functions.",
+      "Risk Analyst": "Specialized role for credit risk assessment, financial modeling, and risk analysis. Can evaluate applications and generate risk reports.",
+      "Compliance Auditor": "Focused on regulatory compliance, audit activities, and compliance monitoring. Access to audit logs and compliance reports.",
+      "Manager": "Management role with elevated permissions for team oversight, process management, and departmental reporting capabilities.",
+      "Administrator": "Complete system access including user management, system configuration, and all administrative functions.",
     };
-    return descriptions[roleName] || "Standard role permissions";
+    return descriptions[roleName] || "Standard role with specific permission set";
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-    }));
-    // Clear error when user starts typing
-    if (error) setError("");
+    
+    // Auto-derive user_type when role changes
+    if (name === "role_id" && value) {
+      const selectedRole = availableRoles.find(role => role.id.toString() === value);
+      const userType = selectedRole ? ROLE_TO_USER_TYPE_MAPPING[selectedRole.name] || "CLIENT" : "";
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        user_type: userType,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     // Validate form
-    if (!formData.first_name || !formData.last_name || !formData.email || !formData.role_id) {
-      setError("Please fill in all required fields.");
+    if (!formData.first_name || !formData.last_name || !formData.email || !formData.role_id || !formData.user_type) {
+      showError("Please fill in all required fields.");
       setIsLoading(false);
       return;
     }
@@ -124,7 +164,7 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address.");
+      showError("Please enter a valid email address.");
       setIsLoading(false);
       return;
     }
@@ -142,12 +182,29 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.message || "Failed to create user");
+        const errorMessage = errorData.detail || errorData.message || "Failed to create user";
+        
+        // Handle specific validation errors
+        if (errorData.errors) {
+          const validationErrors = Object.entries(errorData.errors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          showError(`Validation failed: ${validationErrors}`);
+        } else {
+          showError(errorMessage);
+        }
+        
+        setIsLoading(false);
+        return;
       }
 
       const data = await response.json();
       setTempPassword(data.temporary_password);
       setSuccess(true);
+      
+      // Show success message with user details
+      const selectedRole = availableRoles.find(role => role.id.toString() === formData.role_id);
+      showSuccess(`User "${formData.first_name} ${formData.last_name}" created successfully with ${selectedRole?.name} role!`);
       
       // Call success callback
       if (onUserCreated) {
@@ -155,9 +212,20 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
       }
 
     } catch (err: any) {
-      setError(err.message || "Failed to create user. Please try again.");
+      showError(err.message || "Failed to create user. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const copyPasswordToClipboard = async () => {
+    if (tempPassword) {
+      try {
+        await navigator.clipboard.writeText(tempPassword);
+        showInfo("Temporary password copied to clipboard!");
+      } catch (err) {
+        showError("Failed to copy password to clipboard. Please copy manually.");
+      }
     }
   };
 
@@ -256,17 +324,29 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
                           </h4>
                           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-3">
                             <div className="flex items-center justify-between">
-                              <code className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                              <code className="text-sm font-mono text-gray-900 dark:text-gray-100 flex-1 mr-2">
                                 {showTempPassword ? tempPassword : "••••••••••••"}
                               </code>
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setShowTempPassword(!showTempPassword)}
-                                className="ml-3 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                              >
-                                {showTempPassword ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
-                              </motion.button>
+                              <div className="flex items-center space-x-1">
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={copyPasswordToClipboard}
+                                  className="p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200"
+                                  title="Copy to clipboard"
+                                >
+                                  <FiCopy className="h-4 w-4" />
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowTempPassword(!showTempPassword)}
+                                  className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                  title={showTempPassword ? "Hide password" : "Show password"}
+                                >
+                                  {showTempPassword ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                                </motion.button>
+                              </div>
                             </div>
                           </div>
                           <p className="text-sm text-amber-700 dark:text-amber-300">
@@ -307,20 +387,6 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
                 onSubmit={handleSubmit}
                 className="space-y-6"
               >
-                <AnimatePresence>
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, height: "auto", scale: 1 }}
-                      exit={{ opacity: 0, height: 0, scale: 0.9 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 rounded-2xl flex items-start border bg-red-50/80 dark:bg-red-900/30 text-red-600 dark:text-red-300 border-red-200/50 dark:border-red-700/30"
-                    >
-                      <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-                      <div className="font-medium">{error}</div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -388,9 +454,19 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
 
                 {/* Role Selection */}
                 <div>
-                  <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">
-                    Role Assignment *
-                  </label>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      Role Assignment *
+                    </label>
+                    <div className="group relative">
+                      <FiInfo className="h-4 w-4 text-gray-400 hover:text-blue-500 cursor-help transition-colors" />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                        <div className="font-semibold mb-1">Role-Based Access Control (RBAC)</div>
+                        <div>Each role automatically determines the user's access level and permissions. The system follows industry-standard security practices where roles define what actions a user can perform.</div>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
+                  </div>
                   <motion.div whileFocus={{ scale: 1.02 }} className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                       <FiShield className="text-gray-400" />
@@ -423,6 +499,34 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
                     </motion.div>
                   )}
                 </div>
+
+{/* User Type Information - Auto-derived from Role */}
+                {formData.user_type && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200/50 dark:border-blue-700/30"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-800/50 rounded-xl">
+                        <FiShield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                          User Access Level: {formData.user_type}
+                        </h4>
+                        <p className="text-sm text-blue-700 dark:text-blue-200 leading-relaxed">
+                          {USER_TYPE_DESCRIPTIONS[formData.user_type]}
+                        </p>
+                        <div className="mt-3 flex items-center text-xs text-blue-600 dark:text-blue-300">
+                          <FiCheck className="h-3 w-3 mr-1" />
+                          <span>Automatically assigned based on selected role</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Email Notification Toggle */}
                 <div className="flex items-center space-x-3">

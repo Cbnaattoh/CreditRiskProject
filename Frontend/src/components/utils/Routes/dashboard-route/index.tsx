@@ -15,6 +15,7 @@ import Reports from "../../../../screens/Reports";
 import NotificationsPage from "../../../../screens/Notifications";
 import WebSocketTest from "../../../../screens/WebSocketTest";
 import Help from "../../../../screens/Help";
+import SecurityPage from "../../../../screens/Security";
 import ProtectedRoute from "../../ProtectedRoute";
 
 const dashboardRoutes: RouteObject[] = [
@@ -54,6 +55,9 @@ const dashboardRoutes: RouteObject[] = [
           
           // Admin Panel - accessible to all authenticated users (RBAC handled in component)
           { path: "admin", element: <AdminPanel /> },
+          
+          // Security Center - accessible to admin/staff users (RBAC handled in component)
+          { path: "security", element: <SecurityPage /> },
           
           // Settings - accessible to all authenticated users
           { path: "settings", element: <AccountSettings /> },

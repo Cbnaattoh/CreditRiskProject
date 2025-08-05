@@ -37,12 +37,10 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
 
   const connect = () => {
     if (!isAuthenticated || !token) {
-      console.log('WebSocket: Not authenticated, skipping connection');
       return;
     }
 
     if (ws.current?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket: Already connected');
       return;
     }
 
@@ -59,11 +57,9 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
         wsUrl.searchParams.set('token', token);
       }
 
-      console.log('WebSocket: Connecting to', wsUrl.toString());
       ws.current = new WebSocket(wsUrl.toString());
 
       ws.current.onopen = () => {
-        console.log('WebSocket: Connected');
         setIsConnected(true);
         setConnectionError(null);
         setReconnectCount(0);
@@ -73,15 +69,12 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
       ws.current.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('WebSocket: Message received', message);
           onMessage?.(message);
         } catch (error) {
-          console.error('WebSocket: Failed to parse message', error);
         }
       };
 
       ws.current.onclose = (event) => {
-        console.log('WebSocket: Disconnected', event.code, event.reason);
         setIsConnected(false);
         ws.current = null;
         onDisconnect?.();
@@ -90,20 +83,17 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
         if (event.code !== 1000 && reconnectCount < reconnectAttempts) {
           setReconnectCount(prev => prev + 1);
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`WebSocket: Reconnecting... (${reconnectCount + 1}/${reconnectAttempts})`);
             connect();
           }, reconnectInterval);
         }
       };
 
       ws.current.onerror = (error) => {
-        console.error('WebSocket: Error', error);
         setConnectionError('Connection failed');
         onError?.(error);
       };
 
     } catch (error) {
-      console.error('WebSocket: Failed to create connection', error);
       setConnectionError('Failed to create connection');
     }
   };
@@ -115,7 +105,6 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
     }
 
     if (ws.current) {
-      console.log('WebSocket: Disconnecting');
       ws.current.close(1000, 'User disconnected');
     }
   };
@@ -125,7 +114,6 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
       ws.current.send(JSON.stringify(message));
       return true;
     } else {
-      console.warn('WebSocket: Cannot send message, not connected');
       return false;
     }
   };

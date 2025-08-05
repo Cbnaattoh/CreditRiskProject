@@ -20,6 +20,8 @@ import {
   selectPasswordExpired,
   selectCreatedByAdmin,
 } from "../../../components/redux/features/auth/authSlice";
+import { useToast } from "../../../components/utils/Toast";
+import { usePasswordSecurityGuard } from "../../../components/utils/hooks/usePasswordSecurityGuard";
 
 const PasswordChangeRequired: React.FC = () => {
   const navigate = useNavigate();
@@ -36,11 +38,65 @@ const PasswordChangeRequired: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState("");
 
   const [changePasswordRequired, { isLoading }] = useChangePasswordRequiredMutation();
+  
+  // Toast system
+  const { success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
+  
+  // Security guard to prevent bypass attempts
+  const { securityLevel } = usePasswordSecurityGuard();
 
-  // Password strength calculator
+  // Show welcome message for admin-created users
+  useEffect(() => {
+    if (isTemporary && createdByAdmin) {
+      setTimeout(() => {
+        showInfo("Welcome! Please create a secure password to access your account.");
+      }, 1000);
+    } else if (isExpired) {
+      setTimeout(() => {
+        showWarning("Your password has expired. Please create a new one for security.");
+      }, 1000);
+    }
+  }, [isTemporary, createdByAdmin, isExpired, showInfo, showWarning]);
+
+  // SECURITY: Prevent browser back button bypass
+  useEffect(() => {
+    // Push a state to prevent going back
+    const preventBack = () => {
+      window.history.pushState(null, "", window.location.href);
+      showWarning("You must change your password before accessing the system.");
+    };
+    
+    // Push an initial state
+    window.history.pushState(null, "", window.location.href);
+    
+    // Listen for back button
+    window.addEventListener("popstate", preventBack);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener("popstate", preventBack);
+    };
+  }, [showWarning]);
+
+  // SECURITY: Prevent users from leaving the page without changing password
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isSuccess) {
+        e.preventDefault();
+        e.returnValue = "You must change your password before leaving this page.";
+        return "You must change your password before leaving this page.";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isSuccess]);
+
+  // Password strength calculator with toast feedback
   useEffect(() => {
     let strength = 0;
     if (newPassword.length > 0) strength += 20;
@@ -49,8 +105,16 @@ const PasswordChangeRequired: React.FC = () => {
     if (/[a-z]/.test(newPassword)) strength += 15;
     if (/[0-9]/.test(newPassword)) strength += 10;
     if (/[^A-Za-z0-9]/.test(newPassword)) strength += 10;
-    setPasswordStrength(Math.min(strength, 100));
-  }, [newPassword]);
+    
+    const newStrength = Math.min(strength, 100);
+    
+    // Show feedback when password reaches strong level
+    if (passwordStrength < 70 && newStrength >= 70 && newPassword.length > 0) {
+      showInfo("Great! Your password is now strong.");
+    }
+    
+    setPasswordStrength(newStrength);
+  }, [newPassword, passwordStrength, showInfo]);
 
   const getPasswordStrengthColor = () => {
     if (passwordStrength < 40) return "from-red-400 to-red-500";
@@ -82,47 +146,56 @@ const PasswordChangeRequired: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("Please fill in all fields");
+      showError("Please fill in all fields");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      showError("New passwords do not match");
       return;
     }
 
     if (passwordStrength < 40) {
-      setError("Password is too weak. Please choose a stronger password.");
+      showWarning("Password is too weak. Please choose a stronger password with uppercase, lowercase, numbers, and special characters.");
       return;
     }
 
     if (newPassword === currentPassword) {
-      setError("New password must be different from current password");
+      showError("New password must be different from current password");
       return;
     }
 
     try {
       await changePasswordRequired({
-        current_password: currentPassword,
+        old_password: currentPassword,
         new_password: newPassword,
+        confirm_password: confirmPassword,
       }).unwrap();
+      
       setIsSuccess(true);
-      setError("");
+      showSuccess("Password updated successfully! Redirecting to dashboard...");
       
       // Redirect to dashboard after successful change
       setTimeout(() => {
         navigate("/dashboard");
       }, 2000);
     } catch (err: any) {
-      const errorMessage = err?.data?.detail || 
-                          err?.data?.current_password?.[0] || 
-                          err?.data?.new_password?.[0] ||
-                          err?.data?.non_field_errors?.[0] ||
-                          "Failed to change password. Please try again.";
-      setError(errorMessage);
+      let errorMessage = "Failed to change password. Please try again.";
+      
+      // Handle specific API errors
+      if (err?.data?.detail) {
+        errorMessage = err.data.detail;
+      } else if (err?.data?.current_password?.[0]) {
+        errorMessage = `Current password: ${err.data.current_password[0]}`;
+      } else if (err?.data?.new_password?.[0]) {
+        errorMessage = `New password: ${err.data.new_password[0]}`;
+      } else if (err?.data?.non_field_errors?.[0]) {
+        errorMessage = err.data.non_field_errors[0];
+      }
+      
+      showError(errorMessage);
     }
   };
 
@@ -255,20 +328,6 @@ const PasswordChangeRequired: React.FC = () => {
                   </div>
                 )}
 
-                <AnimatePresence>
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, height: "auto", scale: 1 }}
-                      exit={{ opacity: 0, height: 0, scale: 0.9 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 rounded-2xl flex items-start border bg-red-50/80 dark:bg-red-900/30 text-red-600 dark:text-red-300 border-red-200/50 dark:border-red-700/30"
-                    >
-                      <FiAlertCircle className="mt-0.5 mr-3 flex-shrink-0" />
-                      <div className="font-medium">{error}</div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 <div>
                   <label

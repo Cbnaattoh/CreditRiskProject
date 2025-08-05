@@ -118,25 +118,17 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       isStaff: isDefinitelyStaff
     };
 
-    console.log('🟡 SIDEBAR USER TYPE RESULT:', result);
     return result;
   }, [user, roles, isAdmin, isAuthenticated]);
 
   // COMPREHENSIVE role display logic
   const roleDisplay = useMemo(() => {
-    console.log('🟡 SIDEBAR roleDisplay computation:', {
-      sidebarUserTypeDetection,
-      userType: user?.user_type,
-      userRole: user?.role
-    });
 
     // Use comprehensive detection
     switch (sidebarUserTypeDetection.type) {
       case 'ADMIN':
-        console.log('🟡 Returning Administrator');
         return 'Administrator';
       case 'CLIENT':
-        console.log('🟡 Returning Client User');
         return 'Client User';
       case 'STAFF':
         // Return specific staff role if available
@@ -144,13 +136,10 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
           ['Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
         ) || [];
         if (staffRoles.length > 0) {
-          console.log('🟡 Returning staff role:', staffRoles[0]);
           return staffRoles[0];
         }
-        console.log('🟡 Returning Staff');
         return 'Staff';
       default:
-        console.log('🟡 Returning User fallback');
         return 'User';
     }
   }, [sidebarUserTypeDetection, roles, user?.user_type, user?.role]);
@@ -171,31 +160,10 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
     }
   }, [currentIsClientUser, roles, stableIsClientUserState]);
 
-  // COMPREHENSIVE SIDEBAR DEBUG
-  console.log('🟡 SIDEBAR DEBUG:', {
-    userObject: user,
-    userType: user?.user_type,
-    userTypeDisplay: user?.user_type_display,
-    rolesArray: roles,
-    rolesAsString: JSON.stringify(roles),
-    hasClientUserRole: roles?.includes('Client User'),
-    isAdminStable,
-    currentIsClientUser,
-    stableIsClientUserState,
-    isClientUserStable,
-    roleDisplay,
-    stableRoleDisplay,
-    isAuthenticated,
-    condition1: roles?.includes('Client User'),
-    condition2: user?.user_type === 'CLIENT_USER',
-    condition3: user?.user_type_display === 'Client User',
-    shouldShowClientUser: (roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User')
-  });
 
   // Update stable role display - always use computed role when available
   React.useEffect(() => {
     if (isAuthenticated && sidebarUserTypeDetection.type !== 'GUEST') {
-      console.log('🟡 UPDATING stableRoleDisplay to:', roleDisplay);
       setStableRoleDisplay(roleDisplay);
     }
   }, [isAuthenticated, roleDisplay, sidebarUserTypeDetection]);
@@ -272,6 +240,16 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
       roles: ["Administrator", "Manager"],
       requireAll: false,
       featureFlag: "admin_panel",
+    },
+    {
+      path: "/home/security",
+      icon: <FiShield />,
+      label: "Security Center",
+      description: "Security Monitoring",
+      permissions: ["view_audit_logs", "security_logs_view"],
+      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
+      requireAll: false,
+      featureFlag: "security_monitoring",
     },
     {
       path: "/home/settings",
@@ -632,11 +610,24 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
                   {user.name}
                 </p>
                 <div className="flex items-center space-x-2">
+                  {/* User Type Display with proper mapping */}
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {typeof user.user_type === 'string' ? user.user_type : user.user_type_display || 'USER'}
+                    {/* {(() => {
+                      const userType = user.user_type;
+                      switch(userType) {
+                        case 'ADMIN': return 'Administrator';
+                        case 'ANALYST': return 'Risk Analyst';
+                        case 'AUDITOR': return 'Compliance Auditor';
+                        case 'MANAGER': return 'Manager';
+                        case 'CLIENT': return 'Client User';
+                        default: return userType || 'User';
+                      }
+                    })()} */}
                   </p>
-                  {/* Stable role display - prevents disappearing text */}
+                  {/* Role Display - specific role name */}
                   <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                    {/* • {stableRoleDisplay} */}
                     • {roleDisplay}
                   </span>
                 </div>

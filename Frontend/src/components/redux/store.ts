@@ -3,6 +3,7 @@ import { apiSlice } from "./features/api/baseApi";
 import { applicationsApi } from "./features/api/applications/applicationsApi";
 import { riskApi } from "./features/api/risk/riskApi";
 import { notificationsApi } from "./features/api/notifications/notificationsApi";
+import { securityApi } from "./features/api/security/securityApi";
 import authReducer from "./features/auth/authSlice";
 import userReducer from "./features/user/userSlice";
 import { loadAuthState, saveAuthState } from "../utils/services/authPersist";
@@ -18,7 +19,6 @@ import {
 
 const { issues, clearedAll } = validateAndFixPersistedState();
 if (clearedAll) {
-  console.warn("All persisted state was cleared due to inconsistencies");
 }
 
 const preloadedState = {
@@ -32,6 +32,7 @@ export const store = configureStore({
     [applicationsApi.reducerPath]: applicationsApi.reducer,
     [riskApi.reducerPath]: riskApi.reducer,
     [notificationsApi.reducerPath]: notificationsApi.reducer,
+    [securityApi.reducerPath]: securityApi.reducer,
     auth: authReducer,
     user: userReducer,
   },
@@ -59,6 +60,7 @@ export const store = configureStore({
       .concat(applicationsApi.middleware)
       .concat(riskApi.middleware)
       .concat(notificationsApi.middleware)
+      .concat(securityApi.middleware)
       .concat(authUserSyncMiddleware),
   devTools: process.env.NODE_ENV !== "production",
 });
@@ -104,6 +106,7 @@ export const resetApplicationState = () => {
   store.dispatch(applicationsApi.util.resetApiState());
   store.dispatch(riskApi.util.resetApiState());
   store.dispatch(notificationsApi.util.resetApiState());
+  store.dispatch(securityApi.util.resetApiState());
 };
 
 // Function to check and log current state consistency
@@ -111,36 +114,12 @@ export const debugStateConsistency = () => {
   const state = store.getState();
   const { auth, user } = state;
 
-  console.group("State Consistency Check");
-  console.log("Auth State:", {
-    hasUser: !!auth.user,
-    userId: auth.user?.id,
-    isAuthenticated: auth.isAuthenticated,
-    hasToken: !!auth.token,
-    tokenExpired: auth.tokenExpired,
-  });
 
-  console.log("User State:", {
-    hasProfile: !!user.profile,
-    userId: user.profile?.id,
-    syncedWithAuth: user.syncedWithAuth,
-    lastAuthSync: user.lastAuthSync,
-  });
 
-  console.log("Consistency Issues:", {
-    authUserWithoutProfile: !!auth.user && !user.profile,
-    profileWithoutAuthUser: !!user.profile && !auth.user,
-    userIdMismatch: auth.user?.id !== user.profile?.id,
-    authenticatedWithoutUser: auth.isAuthenticated && !auth.user,
-    profileWithoutAuthentication: !!user.profile && !auth.isAuthenticated,
-    outOfSync: !user.syncedWithAuth,
-  });
 
-  console.groupEnd();
 };
 
 export const handleStoreError = (error: any, context: string) => {
-  console.error(`Store error in ${context}:`, error);
   debugStateConsistency();
 
   // You might want to dispatch an error action or show a user notification

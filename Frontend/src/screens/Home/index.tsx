@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   RiskDistributionChart,
   ApplicationTrendChart,
@@ -26,6 +27,7 @@ const Dashboard: React.FC = () => {
   const user = useSelector(selectCurrentUser);
   const isClientUser = useIsClientUser();
   const highestRole = useHighestRole();
+  const navigate = useNavigate();
 
   // COMPREHENSIVE USER TYPE DETECTION
   const userTypeDetection = useMemo(() => {
@@ -33,13 +35,6 @@ const Dashboard: React.FC = () => {
       return { type: 'GUEST', isAdmin: false, isClient: false, isStaff: false };
     }
 
-    console.log('🔥 COMPREHENSIVE USER DETECTION:', {
-      userObject: user,
-      rolesArray: roles,
-      isAdminHook: isAdmin,
-      userType: user?.user_type,
-      userRole: user?.role
-    });
 
     // Admin detection - multiple ways
     const adminChecks = [
@@ -78,7 +73,6 @@ const Dashboard: React.FC = () => {
       clientChecks
     };
 
-    console.log('🔥 USER TYPE RESULT:', result);
     return result;
   }, [user, roles, isAdmin, isAuthenticated]);
 
@@ -126,45 +120,6 @@ const Dashboard: React.FC = () => {
     }
   ];
 
-  // COMPREHENSIVE DEBUG LOGGING
-  console.log('🔴 FULL DEBUG - Dashboard:', {
-    // User object inspection
-    userObject: user,
-    userEmail: user?.email,
-    userType: user?.user_type,
-    userTypeDisplay: user?.user_type_display,
-    userName: user?.name,
-    userId: user?.id,
-    
-    // Roles array inspection
-    rolesArray: roles,
-    rolesLength: roles?.length,
-    rolesAsString: JSON.stringify(roles),
-    hasClientUserRole: roles?.includes('Client User'),
-    hasClientUserRoleExact: roles?.some(r => r === 'Client User'),
-    
-    // Permission checks
-    isAdmin,
-    isAuthenticated,
-    permissions: permissions?.slice(0, 5), // First 5 permissions
-    
-    // Hook results
-    isClientUserHook: isClientUser,
-    stableIsClientUser,
-    
-    // Computed conditions
-    condition1: roles?.includes('Client User'),
-    condition2: user?.user_type === 'CLIENT_USER',
-    condition3: user?.user_type_display === 'Client User',
-    finalClientCheck: (roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User'),
-    
-    // Authentication state
-    authLoading: !user || !roles,
-    canShowClientActions: !!(roles?.includes('Client User') || user?.user_type === 'CLIENT_USER' || user?.user_type_display === 'Client User'),
-    
-    // NEW COMPREHENSIVE CHECK
-    userTypeDetection: userTypeDetection
-  });
 
   // Stabilize client user state to prevent flickering
   useEffect(() => {
@@ -367,10 +322,18 @@ const Dashboard: React.FC = () => {
           </AdminOnly>
         )}
 
-        {/* ANALYST/MANAGER DASHBOARD */}
-        <ProtectedComponent roles={["Risk Analyst", "Compliance Auditor", "Manager"]} requireAuth={true}>
-          {userTypeDetection.isStaff && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        {/* STAFF DASHBOARDS - FOR ALL NON-CLIENT USERS */}
+        {!userTypeDetection.isClient && (
+          <>
+            {/* RISK ANALYSIS DASHBOARD */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Risk Analysis Dashboard
+              </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <RBACStatsCard
                 title="Risk Assessments"
                 value="1,248"
@@ -381,109 +344,449 @@ const Dashboard: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 }
-                color="indigo"
+                color="blue"
               />
-              {canViewReports && (
-                <RBACStatsCard
-                  title="Reports Generated"
-                  value="342"
-                  change="+8%"
-                  trend="up"
-                  icon={
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  }
-                  color="green"
-                />
-              )}
-              {canViewCompliance && (
-                <RBACStatsCard
-                  title="Compliance Score"
-                  value="94%"
-                  change="+2%"
-                  trend="up"
-                  icon={
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  }
-                  color="green"
-                />
-              )}
               <RBACStatsCard
-                title="Active Cases"
-                value="87"
-                change="+5"
+                title="High Risk Cases"
+                value="23"
+                change="-8%"
+                trend="down"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                }
+                color="red"
+              />
+              <RBACStatsCard
+                title="Model Accuracy"
+                value="94.2%"
+                change="+1.3%"
                 trend="up"
                 icon={
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="green"
+              />
+              <RBACStatsCard
+                title="Pending Reviews"
+                value="47"
+                change="+15"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="yellow"
+              />
+            </div>
+            </div>
+
+            {/* COMPLIANCE & AUDIT DASHBOARD */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Compliance & Audit Dashboard
+              </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <RBACStatsCard
+                title="Compliance Score"
+                value="96.7%"
+                change="+2.1%"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="green"
+              />
+              <RBACStatsCard
+                title="Audit Findings"
+                value="12"
+                change="-33%"
+                trend="down"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="orange"
+              />
+              <RBACStatsCard
+                title="Policy Violations"
+                value="3"
+                change="-75%"
+                trend="down"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                }
+                color="red"
+              />
+              <RBACStatsCard
+                title="Regulatory Reports"
+                value="18"
+                change="+6"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 }
                 color="blue"
               />
             </div>
-          )}
-        </ProtectedComponent>
+            </div>
 
-        {/* Charts and Activities Section */}
-        {!userTypeDetection.isClient && (
-          <div className="space-y-8 mb-8">
-            {/* First Row - Main Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Risk Charts - Admin & Analysts Only */}
-              <ProtectedComponent roles={["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"]} requireAuth={true}>
-                <ChartContainer title="Risk Distribution">
+            {/* MANAGEMENT DASHBOARD */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Management Dashboard
+              </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <RBACStatsCard
+                title="Team Performance"
+                value="91.4%"
+                change="+5.2%"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                }
+                color="green"
+              />
+              <RBACStatsCard
+                title="Active Projects"
+                value="14"
+                change="+3"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                }
+                color="blue"
+              />
+              <RBACStatsCard
+                title="Resource Utilization"
+                value="87%"
+                change="+12%"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                }
+                color="purple"
+              />
+              <RBACStatsCard
+                title="Pending Approvals"
+                value="28"
+                change="+7"
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="yellow"
+              />
+            </div>
+            </div>
+
+            {/* CHARTS SECTION FOR ALL STAFF */}
+            <div className="space-y-8 mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ChartContainer title="Risk Model Performance">
                   <RiskDistributionChart />
                 </ChartContainer>
-              </ProtectedComponent>
-
-              {/* Application Trends - Admin & Analysts Only */}
-              <ProtectedComponent roles={["Administrator", "Risk Analyst", "Manager"]} requireAuth={true}>
-                <ChartContainer title="Application Trends">
+                <ChartContainer title="Credit Score Distribution">
                   <ApplicationTrendChart />
                 </ChartContainer>
-              </ProtectedComponent>
-            </div>
-
-            {/* Second Row - Additional Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Risk Factors Radar - Admin & Analysts Only */}
-              <ProtectedComponent roles={["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"]} requireAuth={true}>
-                <ChartContainer title="Risk Factors Analysis">
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ChartContainer title="Risk Factors Radar Analysis">
                   <RiskFactorsRadar />
                 </ChartContainer>
-              </ProtectedComponent>
-
-              {/* Approval Rate Chart - Admin & Analysts Only */}
-              <ProtectedComponent roles={["Administrator", "Risk Analyst", "Manager"]} requireAuth={true}>
-                <ChartContainer title="Approval Rate Trends">
-                  <ApprovalRateChart />
-                </ChartContainer>
-              </ProtectedComponent>
-            </div>
-
-            {/* Third Row - RBAC Charts (Admin Only) */}
-            <AdminOnly>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <ChartContainer title="Role Distribution">
-                  <RoleDistributionChart 
-                    data={rbacData?.popular_roles || []}
-                    isLoading={rbacLoading}
-                  />
-                </ChartContainer>
-
-                <ChartContainer title="Permission Usage">
-                  <PermissionUsageChart 
-                    data={rbacData?.recent_activity}
-                    isLoading={rbacLoading}
-                  />
+                <ChartContainer title="Compliance Violations Trend">
+                  <RiskDistributionChart />
                 </ChartContainer>
               </div>
-            </AdminOnly>
-          </div>
+            </div>
+          </>
         )}
+
+        {/* REMOVED ROLE-SPECIFIC PROTECTED COMPONENTS FOR NOW - CAN BE RESTORED LATER */}
+        {/*
+
+        {/* COMPLIANCE AUDITOR CHARTS - ONLY FOR COMPLIANCE AUDITORS */}
+        <ProtectedComponent roles={["Compliance Auditor"]} requireAuth={true}>
+          <div className="space-y-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="Compliance Violations Trend">
+                <RiskDistributionChart />
+              </ChartContainer>
+              <ChartContainer title="Audit Coverage Analysis">
+                <ApplicationTrendChart />
+              </ChartContainer>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="Policy Compliance Matrix">
+                <RiskFactorsRadar />
+              </ChartContainer>
+            </div>
+          </div>
+        </ProtectedComponent>
+
+        {/* MANAGER CHARTS - ONLY FOR MANAGERS */}
+        <ProtectedComponent roles={["Manager"]} requireAuth={true}>
+          <div className="space-y-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="Team Productivity Metrics">
+                <RiskDistributionChart />
+              </ChartContainer>
+              <ChartContainer title="Resource Allocation Overview">
+                <ApplicationTrendChart />
+              </ChartContainer>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="Team Performance Radar">
+                <RiskFactorsRadar />
+              </ChartContainer>
+              <ChartContainer title="Approval Rate Trends">
+                <ApprovalRateChart />
+              </ChartContainer>
+            </div>
+          </div>
+        </ProtectedComponent>
+
+        {/* ADMIN CHARTS - ONLY FOR ADMINISTRATORS */}
+        <ProtectedComponent roles={["Administrator"]} requireAuth={true}>
+          <div className="space-y-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="System-wide Risk Distribution">
+                <RiskDistributionChart />
+              </ChartContainer>
+              <ChartContainer title="Overall Application Trends">
+                <ApplicationTrendChart />
+              </ChartContainer>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="System-wide Risk Factors">
+                <RiskFactorsRadar />
+              </ChartContainer>
+              <ChartContainer title="Approval Rate Trends">
+                <ApprovalRateChart />
+              </ChartContainer>
+            </div>
+            {/* RBAC Charts (Admin Only) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ChartContainer title="Role Distribution">
+                <RoleDistributionChart 
+                  data={rbacData?.popular_roles || []}
+                  isLoading={rbacLoading}
+                />
+              </ChartContainer>
+              <ChartContainer title="Permission Usage">
+                <PermissionUsageChart 
+                  data={rbacData?.recent_activity}
+                  isLoading={rbacLoading}
+                />
+              </ChartContainer>
+            </div>
+          </div>
+        </ProtectedComponent>
+
+        {/* Role-Specific Quick Actions */}
+        <div className="mb-8">
+          {/* Risk Analyst Quick Actions */}
+          <ProtectedComponent roles={["Risk Analyst"]} requireAuth={true}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Risk Analysis Tools
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 cursor-pointer"
+                  onClick={() => navigate('/home/risk-analysis')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">🎯</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Risk Model Tuning</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Adjust ML model parameters</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 cursor-pointer"
+                  onClick={() => navigate('/home/loan-applications?filter=high-risk')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">⚠️</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">High-Risk Review</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Review flagged applications</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 cursor-pointer"
+                  onClick={() => navigate('/home/reports?type=risk')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">📊</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Risk Reports</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Generate risk analysis reports</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </ProtectedComponent>
+
+          {/* Compliance Auditor Quick Actions */}
+          <ProtectedComponent roles={["Compliance Auditor"]} requireAuth={true}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Compliance & Audit Tools
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 cursor-pointer"
+                  onClick={() => navigate('/home/admin?tab=logs')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">🔍</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Audit Trail Review</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Review system audit logs</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 cursor-pointer"
+                  onClick={() => navigate('/home/compliance/violations')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">🚨</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Policy Violations</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Review compliance violations</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 cursor-pointer"
+                  onClick={() => navigate('/home/reports?type=compliance')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">📋</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Regulatory Reports</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Generate compliance reports</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </ProtectedComponent>
+
+          {/* Manager Quick Actions */}
+          <ProtectedComponent roles={["Manager"]} requireAuth={true}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Management Tools
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 cursor-pointer"
+                  onClick={() => navigate('/home/admin')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">👥</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Team Management</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Manage team members</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800 cursor-pointer"
+                  onClick={() => navigate('/home/loan-applications?status=pending-approval')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">✅</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Approval Queue</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Review pending approvals</p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 cursor-pointer"
+                  onClick={() => navigate('/home/reports?type=management')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">📈</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Strategic Reports</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Generate management reports</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </ProtectedComponent>
+        </div>
 
         {/* Client User Charts */}
         {userTypeDetection.isClient && (
@@ -511,6 +814,7 @@ const Dashboard: React.FC = () => {
             </ChartContainer>
           </div>
         )}
+
 
         {/* Recent Activity & Alerts */}
         <div className="space-y-8">

@@ -390,7 +390,6 @@ export const useIsClientUser = (): boolean => {
   return useMemo(() => {
     // Don't return false during loading - be conservative
     if (!isAuthenticated) {
-      console.log('🟢 useIsClientUser: NOT AUTHENTICATED');
       return false;
     }
     
@@ -407,7 +406,6 @@ export const useIsClientUser = (): boolean => {
     
     // Success! RBAC detection is working
     if (result) {
-      console.log('✅ useIsClientUser: Detected client user successfully');
     }
     
     return result;

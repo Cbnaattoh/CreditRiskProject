@@ -44,36 +44,24 @@ export const useAuthSync = () => {
   // Update user data when fetched
   useEffect(() => {
     if (userSuccess && userData && !currentUser) {
-      console.log('🔵 Setting user data from getCurrentUser:', userData);
       dispatch(setUser(userData));
     }
   }, [userSuccess, userData, currentUser, dispatch]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('🔵 Auth sync - authenticated user detected:', {
-        hasUser: !!currentUser,
-        hasPermissions: currentPermissions.length > 0,
-        hasRoles: currentRoles.length > 0,
-        userLoading,
-        permissionsLoading,
-        permissionsSuccess
-      });
     }
   }, [isAuthenticated, currentUser, currentPermissions.length, currentRoles.length, userLoading, permissionsLoading, permissionsSuccess]);
 
   useEffect(() => {
     if (userError) {
-      console.error('🔴 Failed to fetch user data:', userError);
     }
     if (permissionsError) {
-      console.error('🔴 Failed to fetch user permissions:', permissionsError);
     }
   }, [userError, permissionsError]);
 
   useEffect(() => {
     if (permissionsSuccess && permissionsData) {
-      console.log('🔵 Permissions fetched successfully:', permissionsData);
     }
   }, [permissionsSuccess, permissionsData]);
 

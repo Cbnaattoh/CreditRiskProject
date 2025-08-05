@@ -212,8 +212,6 @@ const Applications: React.FC = () => {
       // Transform form data to backend API structure using the transformer
       const applicationData = FormDataTransformer.toBackendFormat(data);
       
-      // Debug: log the payload being sent
-      console.log('Sending application data:', JSON.stringify(applicationData, null, 2));
       
       const result = await createApplication(applicationData).unwrap();
       setApplicationId(result.id!);
@@ -295,7 +293,6 @@ const Applications: React.FC = () => {
       
       // Show more detailed error for debugging
       if (process.env.NODE_ENV === 'development') {
-        console.log('Showing detailed error for debugging');
         errorMessage += ` (Debug: ${JSON.stringify(apiError || error)})`;
       }
       

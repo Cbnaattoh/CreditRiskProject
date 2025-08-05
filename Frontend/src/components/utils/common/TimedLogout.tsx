@@ -119,7 +119,6 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
   // Session timer management
   const resetSessionTimer = useCallback(() => {
-    console.log('🔵 Resetting session timer');
     if (sessionTimerRef.current) {
       clearInterval(sessionTimerRef.current);
     }
@@ -193,7 +192,6 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
       // Reset session timer on any activity
       if (isActive && !isSessionPaused) {
-        console.log(`🔵 Activity detected: ${eventType}, resetting session timer`);
         
         // Clear existing timer
         if (sessionTimerRef.current) {
@@ -233,11 +231,9 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
   // Setup activity listeners
   useEffect(() => {
     if (!enableActivityDetection || !isActive) {
-      console.log('🔵 Activity detection disabled or user not active');
       return;
     }
 
-    console.log('🔵 Setting up activity listeners');
 
     const events = [
       ["mousemove", handleMouseMove],
@@ -260,10 +256,8 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
     });
 
     // Test initial activity detection
-    console.log('🔵 Activity listeners attached successfully');
 
     return () => {
-      console.log('🔵 Cleaning up activity listeners');
       events.forEach(([event, handler]) => {
         if (event === "visibilitychange") {
           document.removeEventListener(event, handler);
@@ -332,18 +326,14 @@ const TimedLogout: React.FC<TimedLogoutProps> = ({
 
   // Initialize session timer
   useEffect(() => {
-    console.log('🔵 Session timer effect:', { isActive, isSessionPaused });
     
     if (isActive && !isSessionPaused) {
-      console.log('🔵 Starting session timer');
       startSessionTimer();
     } else {
-      console.log('🔵 Session timer not started - conditions not met');
     }
 
     return () => {
       if (sessionTimerRef.current) {
-        console.log('🔵 Cleaning up session timer');
         clearInterval(sessionTimerRef.current);
       }
     };

@@ -28,13 +28,6 @@ export const usePermissions = (): PermissionCheck => {
   const permissionChecks = useMemo((): PermissionCheck => {
     const isAuthenticated = user !== null;
     
-    console.log('🔵 usePermissions - current state:', {
-      isAuthenticated,
-      permissionsCount: permissions?.length || 0,
-      rolesCount: roles?.length || 0,
-      permissions: permissions,
-      roles: roles
-    });
     
     // Fallback permissions for development/demo when API is unavailable
     const fallbackPermissions = isAuthenticated ? [
@@ -49,11 +42,6 @@ export const usePermissions = (): PermissionCheck => {
     const effectivePermissions = (permissions && permissions.length > 0) ? permissions : fallbackPermissions;
     const effectiveRoles = (roles && roles.length > 0) ? roles : fallbackRoles;
     
-    console.log('🔵 usePermissions - effective state:', {
-      effectivePermissions: effectivePermissions.length,
-      effectiveRoles: effectiveRoles.length,
-      usingFallback: !(permissions && permissions.length > 0)
-    });
 
     const hasPermission = (permission: string): boolean => {
       return effectivePermissions?.includes(permission) || false;
