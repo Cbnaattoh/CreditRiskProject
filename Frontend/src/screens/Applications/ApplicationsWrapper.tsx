@@ -9,15 +9,15 @@ const ApplicationsWrapper: React.FC = () => {
   // RBAC working correctly
   console.log('✅ ApplicationsWrapper: Showing client applications view');
   
-  // For client users, show their applications list (filtered view)
-  // For admin/staff, this component shouldn't be used (they use loan-applications route)
+  // For client users, show the application form (so they can create new applications)
+  // For admin/staff users, show the applicants list
   if (isClientUser) {
-    // Show the Applicants component but with client user filtering
-    return <Applicants showClientView={true} />;
+    // Show the Applications form component for client users to create applications
+    return <Applications />;
   }
   
-  // For non-client users who somehow access this route, show the form
-  return <Applications />;
+  // For admin/staff users who access this route, show the filtered applicants list
+  return <Applicants showClientView={true} />;
 };
 
 export default ApplicationsWrapper;

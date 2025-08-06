@@ -24,6 +24,9 @@ urlpatterns = [
     # AI services endpoints
     path('ai/', include('ai.urls')),
     
+    # ML Model API endpoints
+    path('ml/', include('ml_api.urls')),
+    
     # Integration endpoints
     # path('integrations/', include('integrations.urls')),
     
