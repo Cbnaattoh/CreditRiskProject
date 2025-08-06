@@ -30,6 +30,12 @@ export const FinancialsStep = ({
           type="number"
           register={register}
           error={errors.collections12mo}
+          min="0"
+          max="10"
+          step="1"
+          placeholder="0"
+          tooltip="Accounts sent to collections in the last 12 months (not including medical bills)"
+          helperText="Collections seriously hurt credit scores - 0 is strongly preferred"
         />
         <FormInput
           label="Debt-to-Income Ratio (%)"
@@ -84,18 +90,30 @@ export const FinancialsStep = ({
           example="5 years of using loans or credit cards"
         />
         <FormInput
-          label="Revolving Utilization Rate (%)"
+          label="Credit Utilization Rate (%)"
           name="revolvingUtilization"
           type="number"
           register={register}
           error={errors.revolvingUtilization}
+          min="0"
+          max="150"
+          step="0.1"
+          placeholder="30.0"
+          tooltip="Percentage of your available credit limit that you're currently using"
+          helperText="Lower utilization (below 30%) indicates better credit management"
+          example="If you have GHS 10,000 credit limit and owe GHS 3,000, your utilization is 30%"
         />
         <FormInput
-          label="Maximum Balance on Bankcards (GHC)"
+          label="Maximum Balance on Bankcards (GHS)"
           name="maxBankcardBalance"
           type="number"
           register={register}
           error={errors.maxBankcardBalance}
+          min="0"
+          step="100"
+          placeholder="5000"
+          tooltip="The highest balance you've ever had on any bankcard or credit card"
+          helperText="This helps assess your credit usage patterns and financial management"
         />
         <FormInput
           label="Number of Delinquencies in Past 2 Years"
@@ -103,6 +121,12 @@ export const FinancialsStep = ({
           type="number"
           register={register}
           error={errors.delinquencies2yr}
+          min="0"
+          max="20"
+          step="1"
+          placeholder="0"
+          tooltip="Times you were 30+ days late on loan or credit card payments in the last 2 years"
+          helperText="Lower is better - 0 delinquencies shows reliable payment history"
         />
         <FormInput
           label="Total Number of Accounts"
@@ -111,28 +135,108 @@ export const FinancialsStep = ({
           register={register}
           error={errors.totalAccounts}
           required
+          min="0"
+          max="100"
+          step="1"
+          placeholder="15"
+          tooltip="Total number of credit accounts you've ever had (loans, credit cards, hire purchase)"
+          helperText="This includes both current and closed accounts - shows your credit experience"
         />
         <FormInput
-          label="Number of Inquiries in Last 6 Months"
+          label="Credit Inquiries in Last 6 Months"
           name="inquiries6mo"
           type="number"
           register={register}
           error={errors.inquiries6mo}
+          min="0"
+          max="20"
+          step="1"
+          placeholder="1"
+          tooltip="Number of times lenders checked your credit report in the last 6 months"
+          helperText="Too many inquiries (>6) may indicate credit seeking behavior and affect your score"
         />
         <FormInput
-          label="Number of Revolving Accounts Opened in Last 12 Months"
+          label="New Revolving Accounts (Last 12 Months)"
           name="revolvingAccounts12mo"
           type="number"
           register={register}
           error={errors.revolvingAccounts12mo}
+          min="0"
+          max="20"
+          step="1"
+          placeholder="1"
+          tooltip="Credit cards or revolving credit accounts opened in the last 12 months"
+          helperText="Opening too many new accounts quickly may indicate financial stress"
         />
         <FormInput
-          label="Employment Length (e.g., '5 years', '10+ years', '< 1 year')"
+          label="Employment Length"
           name="employmentLength"
-          type="text"
+          type="select"
           register={register}
           error={errors.employmentLength}
           required
+          options={[
+            { value: "< 1 year", label: "< 1 year" },
+            { value: "1 year", label: "1 year" },
+            { value: "2 years", label: "2 years" },
+            { value: "3 years", label: "3 years" },
+            { value: "4 years", label: "4 years" },
+            { value: "5 years", label: "5 years" },
+            { value: "6 years", label: "6 years" },
+            { value: "7 years", label: "7 years" },
+            { value: "8 years", label: "8 years" },
+            { value: "9 years", label: "9 years" },
+            { value: "10+ years", label: "10+ years" }
+          ]}
+          tooltip="How long you have been employed at your current job"
+          helperText="This affects your employment stability score in Ghana"
+        />
+        <FormInput
+          label="Job Title"
+          name="jobTitle"
+          type="select"
+          register={register}
+          error={errors.jobTitle}
+          required
+          options={[
+            { value: "Software Engineer", label: "Software Engineer" },
+            { value: "Teacher", label: "Teacher" },
+            { value: "Nurse", label: "Nurse" },
+            { value: "Doctor", label: "Doctor" },
+            { value: "Banker", label: "Banker" },
+            { value: "Trader", label: "Trader" },
+            { value: "Farmer", label: "Farmer" },
+            { value: "Driver", label: "Driver" },
+            { value: "Mechanic", label: "Mechanic" },
+            { value: "Electrician", label: "Electrician" },
+            { value: "Accountant", label: "Accountant" },
+            { value: "Manager", label: "Manager" },
+            { value: "Sales Person", label: "Sales Person" },
+            { value: "Secretary", label: "Secretary" },
+            { value: "Security Guard", label: "Security Guard" },
+            { value: "Government Worker", label: "Government Worker" },
+            { value: "Business Owner", label: "Business Owner" },
+            { value: "Mining Engineer", label: "Mining Engineer" },
+            { value: "Oil Worker", label: "Oil Worker" },
+            { value: "Bank Manager", label: "Bank Manager" },
+            { value: "Financial Analyst", label: "Financial Analyst" },
+            { value: "Pharmacist", label: "Pharmacist" },
+            { value: "Lawyer", label: "Lawyer" },
+            { value: "Architect", label: "Architect" },
+            { value: "Civil Servant", label: "Civil Servant" },
+            { value: "Lecturer", label: "Lecturer" },
+            { value: "Hotel Worker", label: "Hotel Worker" },
+            { value: "Restaurant Worker", label: "Restaurant Worker" },
+            { value: "Market Trader", label: "Market Trader" },
+            { value: "Shop Owner", label: "Shop Owner" },
+            { value: "Cocoa Farmer", label: "Cocoa Farmer" },
+            { value: "Fisherman", label: "Fisherman" },
+            { value: "House Help", label: "House Help" },
+            { value: "Cleaner", label: "Cleaner" },
+            { value: "Other", label: "Other" }
+          ]}
+          tooltip="Your current job title - important for Ghana employment analysis"
+          helperText="This helps assess job stability and income expectations in Ghana's job market"
         />
         <FormInput
           label="Number of Public Records"
@@ -140,6 +244,12 @@ export const FinancialsStep = ({
           type="number"
           register={register}
           error={errors.publicRecords}
+          min="0"
+          max="10"
+          step="1"
+          placeholder="0"
+          tooltip="Bankruptcies, liens, judgments, and other public financial records"
+          helperText="Public records negatively impact credit scores - 0 is ideal"
         />
         <FormInput
           label="Number of Open Accounts"
@@ -147,6 +257,12 @@ export const FinancialsStep = ({
           type="number"
           register={register}
           error={errors.openAccounts}
+          min="0"
+          max="50"
+          step="1"
+          placeholder="8"
+          tooltip="Currently active credit accounts (loans, credit cards you're still paying)"
+          helperText="This shows your current credit obligations - consider both usage and management"
         />
         <FormInput
           label="Home Ownership"
@@ -155,13 +271,15 @@ export const FinancialsStep = ({
           register={register}
           error={errors.homeOwnership}
           required
-        options={[
-          { value: "own", label: "Own" },
-          { value: "rent", label: "Rent" },
-          { value: "mortgage", label: "Mortgage" },
-          { value: "other", label: "Other" }
-        ]}
-      />
+          options={[
+            { value: "OWN", label: "Own" },
+            { value: "RENT", label: "Rent" },
+            { value: "MORTGAGE", label: "Mortgage" },
+            { value: "OTHER", label: "Other" }
+          ]}
+          tooltip="Your current housing situation"
+          helperText="Home ownership status affects your financial stability assessment"
+        />
       </div>
     </FormSection>
     

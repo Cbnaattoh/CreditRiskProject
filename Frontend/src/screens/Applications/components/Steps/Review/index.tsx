@@ -27,7 +27,7 @@ import {
   FiCheckCircle
 } from "react-icons/fi";
 
-// Mock data for demonstration
+// Mock data for demonstration - Updated to match new form structure
 const mockFormValues = {
   firstName: "John",
   lastName: "Doe",
@@ -37,6 +37,7 @@ const mockFormValues = {
   address: "123 Main St, Kumasi, Ghana",
   employmentStatus: "Full-time",
   occupation: "Software Engineer",
+  jobTitle: "Software Engineer",  // NEW: Ghana employment analysis field
   employer: "Tech Solutions Ltd",
   yearsEmployed: "3",
   annualIncome: "120000",
@@ -51,10 +52,10 @@ const mockFormValues = {
   totalAccounts: "8",
   inquiries6mo: "1",
   revolvingAccounts12mo: "2",
-  employmentLength: "3+ years",
+  employmentLength: "5 years",  // Updated format
   publicRecords: "0",
   openAccounts: "6",
-  homeOwnership: "Rent"
+  homeOwnership: "RENT"  // Updated to match ML model format
 };
 
 const mockUploadedFiles = [
@@ -89,7 +90,7 @@ export default function ReviewStep({
   };
 
   const formatCurrency = (amount: string | number) => {
-    if (!amount) return "Not specified";
+    if (amount === null || amount === undefined || amount === "" || isNaN(Number(amount))) return "Not provided";
     return `GHC ${Number(amount).toLocaleString()}`;
   };
 
@@ -154,9 +155,10 @@ export default function ReviewStep({
       color: "from-green-500 to-emerald-500",
       items: [
         { label: "Employment Status", value: formValues.employmentStatus || "Not provided", icon: FiActivity },
+        { label: "Job Title", value: formValues.jobTitle || "Not provided", icon: FiBriefcase },
         { label: "Occupation", value: formValues.occupation || "Not provided", icon: FiBriefcase },
         { label: "Employer", value: formValues.employer || "Not provided", icon: FiBriefcase },
-        { label: "Years at Current Job", value: formValues.yearsEmployed ? `${formValues.yearsEmployed} years` : "Not provided", icon: FiClock },
+        { label: "Years at Current Job", value: formValues.yearsEmployed != null && formValues.yearsEmployed !== "" && !isNaN(Number(formValues.yearsEmployed)) ? `${formValues.yearsEmployed} years` : "Not provided", icon: FiClock },
         { label: "Employment Length", value: formValues.employmentLength || "Not provided", icon: FiClock }
       ]
     },
@@ -168,18 +170,18 @@ export default function ReviewStep({
       items: [
         { label: "Annual Income", value: formatCurrency(formValues.annualIncome), icon: FiDollarSign },
         { label: "Requested Loan Amount", value: formatCurrency(formValues.loanAmount), icon: FiTarget },
-        { label: "Interest Rate", value: formValues.interestRate ? `${formValues.interestRate}%` : "Not provided", icon: FiTrendingUp },
-        { label: "Debt-to-Income Ratio", value: formValues.dti ? `${formValues.dti}%` : "Not provided", icon: FiPieChart },
-        { label: "Credit History Length", value: formValues.creditHistoryLength ? `${formValues.creditHistoryLength} years` : "Not provided", icon: FiClock },
-        { label: "Revolving Utilization Rate", value: formValues.revolvingUtilization ? `${formValues.revolvingUtilization}%` : "Not provided", icon: FiBarChart },
-        { label: "Maximum Bankcard Balance", value: formatCurrency(formValues.maxBankcardBalance), icon: FiCreditCard },
-        { label: "Collections (12 months)", value: formValues.collections12mo || "Not provided", icon: FiActivity },
-        { label: "Delinquencies (2 years)", value: formValues.delinquencies2yr || "Not provided", icon: FiActivity },
-        { label: "Total Accounts", value: formValues.totalAccounts || "Not provided", icon: FiBarChart },
-        { label: "Open Accounts", value: formValues.openAccounts || "Not provided", icon: FiBarChart },
-        { label: "Recent Inquiries (6 months)", value: formValues.inquiries6mo || "Not provided", icon: FiActivity },
-        { label: "New Revolving Accounts (12 months)", value: formValues.revolvingAccounts12mo || "Not provided", icon: FiActivity },
-        { label: "Public Records", value: formValues.publicRecords || "Not provided", icon: FiFileText },
+        { label: "Interest Rate", value: formValues.interestRate != null && formValues.interestRate !== "" && !isNaN(Number(formValues.interestRate)) ? `${formValues.interestRate}%` : "Not provided", icon: FiTrendingUp },
+        { label: "Debt-to-Income Ratio", value: formValues.dti != null && formValues.dti !== "" && !isNaN(Number(formValues.dti)) ? `${formValues.dti}%` : "Not provided", icon: FiPieChart },
+        { label: "Credit History Length", value: formValues.creditHistoryLength != null && formValues.creditHistoryLength !== "" && !isNaN(Number(formValues.creditHistoryLength)) ? `${formValues.creditHistoryLength} years` : "Not provided", icon: FiClock },
+        { label: "Credit Utilization Rate", value: formValues.revolvingUtilization != null && formValues.revolvingUtilization !== "" && !isNaN(Number(formValues.revolvingUtilization)) ? `${formValues.revolvingUtilization}%` : "Not provided", icon: FiBarChart },
+        { label: "Maximum Balance on Bankcards", value: formatCurrency(formValues.maxBankcardBalance), icon: FiCreditCard },
+        { label: "Collections in Past 12 Months", value: formValues.collections12mo != null && formValues.collections12mo !== "" && !isNaN(Number(formValues.collections12mo)) ? formValues.collections12mo : "Not provided", icon: FiActivity },
+        { label: "Delinquencies in Past 2 Years", value: formValues.delinquencies2yr != null && formValues.delinquencies2yr !== "" && !isNaN(Number(formValues.delinquencies2yr)) ? formValues.delinquencies2yr : "Not provided", icon: FiActivity },
+        { label: "Total Number of Accounts", value: formValues.totalAccounts != null && formValues.totalAccounts !== "" && !isNaN(Number(formValues.totalAccounts)) ? formValues.totalAccounts : "Not provided", icon: FiBarChart },
+        { label: "Number of Open Accounts", value: formValues.openAccounts != null && formValues.openAccounts !== "" && !isNaN(Number(formValues.openAccounts)) ? formValues.openAccounts : "Not provided", icon: FiBarChart },
+        { label: "Credit Inquiries in Last 6 Months", value: formValues.inquiries6mo != null && formValues.inquiries6mo !== "" && !isNaN(Number(formValues.inquiries6mo)) ? formValues.inquiries6mo : "Not provided", icon: FiActivity },
+        { label: "New Revolving Accounts (Last 12 Months)", value: formValues.revolvingAccounts12mo != null && formValues.revolvingAccounts12mo !== "" && !isNaN(Number(formValues.revolvingAccounts12mo)) ? formValues.revolvingAccounts12mo : "Not provided", icon: FiActivity },
+        { label: "Public Records", value: formValues.publicRecords != null && formValues.publicRecords !== "" && !isNaN(Number(formValues.publicRecords)) ? formValues.publicRecords : "Not provided", icon: FiFileText },
         { label: "Home Ownership", value: formValues.homeOwnership || "Not provided", icon: FiHome }
       ]
     }
@@ -439,6 +441,41 @@ export default function ReviewStep({
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Ghana ML Model Features */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200/50 dark:border-blue-700/50">
+        <div className="flex items-start space-x-3">
+          <FiTarget className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <div>
+            <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+              🇬🇭 Ghana-Specific Credit Analysis
+            </h4>
+            <p className="text-blue-700 dark:text-blue-300 text-sm mb-3">
+              Your application will be analyzed using our advanced ML model trained specifically for Ghana's 
+              economic landscape. Your job title "{formValues.jobTitle || 'Not specified'}" will be assessed 
+              for employment stability and income expectations within Ghana's job market.
+            </p>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center text-blue-600 dark:text-blue-400">
+                <FiCheck className="h-4 w-4 mr-2" />
+                <span>18 Ghana Job Categories</span>
+              </div>
+              <div className="flex items-center text-blue-600 dark:text-blue-400">
+                <FiCheck className="h-4 w-4 mr-2" />
+                <span>98.4% Model Accuracy</span>
+              </div>
+              <div className="flex items-center text-blue-600 dark:text-blue-400">
+                <FiCheck className="h-4 w-4 mr-2" />
+                <span>Sector-Specific Income Validation</span>
+              </div>
+              <div className="flex items-center text-blue-600 dark:text-blue-400">
+                <FiCheck className="h-4 w-4 mr-2" />
+                <span>Employment Stability Scoring</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Security Notice */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200/50 dark:border-green-700/50">

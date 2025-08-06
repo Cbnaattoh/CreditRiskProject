@@ -39,6 +39,7 @@ export type FormData = {
   // Employment Information
   employmentStatus: 'employed' | 'unemployed' | 'self_employed' | 'retired';
   occupation?: string;     // Maps to job_title
+  jobTitle: string;        // NEW: Required for Ghana employment analysis (maps to emp_title)
   employer?: string;       // Maps to employer_name
   yearsEmployed?: number;
   employmentType?: 'FULL_TIME' | 'PART_TIME' | 'SELF_EMPLOYED' | 'UNEMPLOYED' | 'RETIRED';
@@ -67,7 +68,7 @@ export type FormData = {
   employmentLength: string;
   publicRecords?: number;
   openAccounts?: number;
-  homeOwnership: 'own' | 'rent' | 'mortgage' | 'other';
+  homeOwnership: 'OWN' | 'RENT' | 'MORTGAGE' | 'OTHER';
   
   // Bankruptcy Information
   hasBankruptcy?: boolean;
@@ -235,7 +236,7 @@ export class FormDataTransformer {
         }],
         employment_history: formData.employmentStatus ? [{
           employer_name: formData.employer || '',
-          job_title: formData.occupation || '',
+          job_title: formData.jobTitle || formData.occupation || '',
           employment_type: employmentTypeMap[formData.employmentStatus] || 'UNEMPLOYED',
           start_date: formData.employmentStartDate || new Date().toISOString().split('T')[0],
           is_current: formData.isCurrentEmployment ?? true,
@@ -262,7 +263,7 @@ export class FormDataTransformer {
       is_priority: false,
       notes: `Application submitted by ${formData.firstName} ${formData.lastName}`,
       
-      // Loan Application Fields
+      // ML Model Specific Fields (for RiskGuard ML integration)
       loan_amount: formData.loanAmount,
       interest_rate: formData.interestRate,
       credit_history_length: formData.creditHistoryLength,
@@ -273,6 +274,7 @@ export class FormDataTransformer {
       inquiries_6mo: formData.inquiries6mo,
       revolving_accounts_12mo: formData.revolvingAccounts12mo,
       employment_length: formData.employmentLength,
+      emp_title: formData.jobTitle, // Ghana employment analysis field
       public_records: formData.publicRecords,
       open_accounts: formData.openAccounts,
       home_ownership: formData.homeOwnership,
@@ -321,6 +323,7 @@ export class FormDataTransformer {
       postalCode: address?.postal_code,
       employer: employment?.employer_name,
       occupation: employment?.job_title,
+      jobTitle: employment?.job_title || '', // Map to jobTitle field
       monthlyIncome: employment ? parseFloat(employment.monthly_income) : 0,
       annualIncome: employment ? parseFloat(employment.monthly_income) * 12 : 0,
       totalAssets: financial ? parseFloat(financial.total_assets) : 0,

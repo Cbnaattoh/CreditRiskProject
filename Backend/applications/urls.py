@@ -6,6 +6,8 @@ from .views import (
     DocumentListView,
     DocumentDetailView,
     ApplicationNoteListView,
+    predict_credit_score,
+    ml_model_health,
 )
 
 app_name = 'applications'
@@ -22,4 +24,8 @@ urlpatterns = [
     
     # Application notes
     path('<uuid:pk>/notes/', ApplicationNoteListView.as_view(), name='notes'),
+    
+    # ML Credit Scoring
+    path('<uuid:pk>/predict-credit-score/', predict_credit_score, name='predict-credit-score'),
+    path('ml-model/health/', ml_model_health, name='ml-model-health'),
 ]

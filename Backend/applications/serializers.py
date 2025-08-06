@@ -192,6 +192,7 @@ class ApplicantSerializer(serializers.ModelSerializer):
     dob = serializers.CharField(write_only=True, required=False)
     nationalIDNumber = serializers.CharField(write_only=True, required=False)
     ssnitNumber = serializers.CharField(write_only=True, required=False)
+    jobTitle = serializers.CharField(write_only=True, required=False)
     
     class Meta:
         model = Applicant
@@ -305,6 +306,9 @@ class ApplicantSerializer(serializers.ModelSerializer):
             data['national_id'] = data.pop('nationalIDNumber')
         if 'ssnitNumber' in data:
             data['tax_id'] = data.pop('ssnitNumber')
+        if 'jobTitle' in data:
+            # Store jobTitle for employment history creation
+            data['_job_title'] = data.pop('jobTitle')
         
         return super().to_internal_value(data)
 
@@ -522,7 +526,8 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                     'phone': 'phone_number',
                     'dob': 'date_of_birth',
                     'nationalIDNumber': 'national_id',
-                    'ssnitNumber': 'tax_id'
+                    'ssnitNumber': 'tax_id',
+                    'jobTitle': '_job_title'  # Handle jobTitle for employment
                 }
                 
                 for frontend_field, backend_field in field_mapping.items():
@@ -555,6 +560,31 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                     financial_data.setdefault('monthly_expenses', '0.00')
                 
                 data['applicant_info'] = applicant_data
+            
+            # Handle direct ML model fields mapping from frontend form
+            ml_field_mapping = {
+                'annualIncome': 'annual_income',
+                'loanAmount': 'loan_amount', 
+                'interestRate': 'interest_rate',
+                'dti': 'debt_to_income_ratio',
+                'creditHistoryLength': 'credit_history_length',
+                'revolvingUtilization': 'revolving_utilization',
+                'maxBankcardBalance': 'max_bankcard_balance',
+                'delinquencies2yr': 'delinquencies_2yr',
+                'totalAccounts': 'total_accounts',
+                'inquiries6mo': 'inquiries_6mo', 
+                'revolvingAccounts12mo': 'revolving_accounts_12mo',
+                'employmentLength': 'employment_length',
+                'publicRecords': 'public_records',
+                'openAccounts': 'open_accounts',
+                'homeOwnership': 'home_ownership',
+                'collections12mo': 'collections_12mo',
+                'jobTitle': 'job_title'  # Ghana employment analysis field
+            }
+            
+            for frontend_field, backend_field in ml_field_mapping.items():
+                if frontend_field in data:
+                    data[backend_field] = data.pop(frontend_field)
         
         return super().to_internal_value(data)
     

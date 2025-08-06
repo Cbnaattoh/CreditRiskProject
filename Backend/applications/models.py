@@ -49,6 +49,9 @@ class CreditApplication(models.Model):
     annual_income = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     debt_to_income_ratio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     
+    # Ghana-specific ML model fields
+    job_title = models.CharField(max_length=100, blank=True, help_text="Job title for Ghana employment analysis (emp_title field)")
+    
     class Meta:
         ordering = ['-submission_date']
         permissions = [
@@ -162,7 +165,7 @@ class EmploymentInfo(models.Model):
     
     applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, related_name='employment_history')
     employer_name = models.CharField(max_length=100)
-    job_title = models.CharField(max_length=100)
+    job_title = models.CharField(max_length=100, help_text="Job title for employment record")
     employment_type = models.CharField(max_length=15, choices=EMPLOYMENT_TYPES)
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
@@ -257,3 +260,57 @@ class ApplicationNote(models.Model):
     
     def __str__(self):
         return f"Note by {self.author.email} on {self.created_at}"
+
+class MLCreditAssessment(models.Model):
+    """
+    Store ML model predictions alongside applications
+    Integrates with Ghana employment analysis
+    """
+    application = models.OneToOneField(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='ml_assessment'
+    )
+    
+    # ML Prediction Results
+    credit_score = models.IntegerField(help_text="Predicted credit score (300-850)")
+    category = models.CharField(max_length=20, help_text="Poor, Fair, Good, Very Good, Exceptional")
+    risk_level = models.CharField(max_length=20, help_text="Very High Risk, High Risk, Medium Risk, Low Risk")
+    confidence = models.FloatField(help_text="Prediction confidence percentage")
+    
+    # Ghana Employment Analysis
+    ghana_job_category = models.CharField(max_length=50, null=True, blank=True, help_text="Categorized job type")
+    ghana_employment_score = models.FloatField(null=True, blank=True, help_text="Employment stability score")
+    ghana_job_stability_score = models.IntegerField(null=True, blank=True, help_text="Job stability score (20-85/100)")
+    
+    # Model Metadata
+    model_version = models.CharField(max_length=20, default='2.0.0')
+    prediction_timestamp = models.DateTimeField(auto_now_add=True)
+    model_accuracy = models.FloatField(default=98.4, help_text="Model R² accuracy")
+    
+    # Confidence Factors (JSON field for detailed breakdown)
+    confidence_factors = models.JSONField(null=True, blank=True, help_text="Detailed confidence analysis")
+    
+    # Processing metadata
+    processing_time_ms = models.IntegerField(null=True, blank=True, help_text="Prediction processing time in milliseconds")
+    features_used = models.JSONField(null=True, blank=True, help_text="Features used for prediction")
+    
+    class Meta:
+        db_table = 'ml_credit_assessments'
+        verbose_name = 'ML Credit Assessment'
+        verbose_name_plural = 'ML Credit Assessments'
+        ordering = ['-prediction_timestamp']
+    
+    def __str__(self):
+        return f"ML Assessment for {self.application.reference_number} - Score: {self.credit_score}"
+    
+    @property
+    def risk_color(self):
+        """Return color code for risk level display"""
+        colors = {
+            'Low Risk': 'green',
+            'Medium Risk': 'yellow', 
+            'High Risk': 'orange',
+            'Very High Risk': 'red'
+        }
+        return colors.get(self.risk_level, 'gray')
