@@ -59,8 +59,8 @@ const validateFormData = (data: FormData): { isValid: boolean; errors: string[] 
     errors.push("Annual income cannot be negative");
   }
   
-  if (data.dti && (data.dti < 0 || data.dti > 1)) {
-    errors.push("Debt-to-income ratio must be between 0 and 1");
+  if (data.dti && (data.dti < 0 || data.dti > 100)) {
+    errors.push("Debt-to-income ratio must be between 0% and 100%");
   }
   
   return {
@@ -92,6 +92,7 @@ const Applications: React.FC = () => {
   } = useForm<FormData>();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [prefilledFields, setPrefilledFields] = useState<Record<string, boolean>>({});
@@ -154,42 +155,81 @@ const Applications: React.FC = () => {
 
   const handleSaveDraft = async () => {
     const formData = watch();
+    
+    setIsSavingDraft(true);
+    
     try {
-      // Create a minimal draft structure for saving
+      // Create comprehensive draft structure including financial data
       const draftData = {
+        // Personal info (required fields with safe defaults)
         applicant_info: {
-          first_name: formData.firstName || '',
-          last_name: formData.lastName || '',
-          middle_name: formData.otherNames,
-          email: formData.email || user?.email || '',
-          phone_number: formData.phone || user?.phone_number || '',
-          // Add minimal required fields
+          first_name: formData.firstName || 'Draft',
+          last_name: formData.lastName || 'User',
+          middle_name: formData.otherNames || '',
+          email: formData.email || user?.email || 'draft@example.com',
+          phone_number: formData.phone || user?.phone_number || '+233200000000',
           date_of_birth: formData.dob || '1990-01-01',
-          gender: 'O' as const,
-          marital_status: 'S' as const,
-          national_id: formData.nationalIDNumber || 'TEMP'
+          gender: formData.gender || 'O' as const,
+          marital_status: formData.maritalStatus || 'S' as const,
+          national_id: formData.nationalIDNumber || `DRAFT-${Date.now()}-TEMP`,
+          // Include financial info if provided
+          financial_info: {
+            total_assets: formData.totalAssets || '0.00',
+            total_liabilities: formData.totalLiabilities || '0.00',
+            monthly_expenses: formData.monthlyExpenses || '0.00',
+            has_bankruptcy: formData.hasBankruptcy === 'true' || false
+          }
         },
+        // Financial/ML model fields (save whatever user has entered)
+        annual_income: formData.annualIncome || null,
+        loan_amount: formData.loanAmount || null,
+        interest_rate: formData.interestRate || null,
+        debt_to_income_ratio: formData.dti || null,
+        credit_history_length: formData.creditHistoryLength || null,
+        revolving_utilization: formData.revolvingUtilization || null,
+        max_bankcard_balance: formData.maxBankcardBalance || null,
+        delinquencies_2yr: formData.delinquencies2yr || 0,
+        total_accounts: formData.totalAccounts || null,
+        inquiries_6mo: formData.inquiries6mo || 0,
+        revolving_accounts_12mo: formData.revolvingAccounts12mo || 0,
+        employment_length: formData.employmentLength || '',
+        job_title: formData.jobTitle || '',
+        public_records: formData.publicRecords || 0,
+        open_accounts: formData.openAccounts || null,
+        home_ownership: formData.homeOwnership || '',
+        collections_12mo: formData.collections12mo || 0,
+        // Application metadata
         status: 'DRAFT' as const,
         is_priority: false,
-        notes: 'Draft saved automatically'
+        notes: `Draft saved on ${new Date().toLocaleString()} - Step ${currentStep + 1}/${STEPS.length}`
       };
       
       const result = await createApplication(draftData).unwrap();
       setApplicationId(result.id!);
       
-      toast.success('Draft saved successfully!', {
-        duration: 3000,
+      toast.success('Draft saved successfully! 📝', {
+        duration: 4000,
         position: 'top-right',
       });
     } catch (error: any) {
       console.error('Draft save error:', error);
       const apiError = error?.data as ApiError;
-      const errorMessage = apiError?.detail || apiError?.message || 'Failed to save draft';
+      let errorMessage = 'Failed to save draft';
       
-      toast.error(errorMessage, {
-        duration: 3000,
+      if (apiError?.detail) {
+        errorMessage = apiError.detail;
+      } else if (apiError?.message) {
+        errorMessage = apiError.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(`❌ ${errorMessage}`, {
+        duration: 5000,
         position: 'top-right',
       });
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -505,6 +545,7 @@ const Applications: React.FC = () => {
             onSubmit={handleSubmit(onSubmit)}
             onSaveDraft={handleSaveDraft}
             isSubmitting={isSubmitting || isCreating}
+            isSavingDraft={isSavingDraft}
             currentStep={currentStep}
             totalSteps={STEPS.length}
           />

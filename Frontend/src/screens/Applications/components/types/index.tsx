@@ -246,7 +246,7 @@ export class FormDataTransformer {
         financial_info: {
           total_assets: String(formData.totalAssets || formData.annualIncome || 0),
           total_liabilities: String(formData.totalLiabilities || 0),
-          monthly_expenses: String(formData.monthlyExpenses || ((formData.annualIncome || 0) * (formData.dti || 0.3) / 12)),
+          monthly_expenses: String(formData.monthlyExpenses || ((formData.annualIncome || 0) * ((formData.dti || 30) / 100) / 12)),
           has_bankruptcy: formData.hasBankruptcy || false,
           bankruptcy_details: formData.bankruptcyDetails,
           // credit_score will be calculated by the AI system

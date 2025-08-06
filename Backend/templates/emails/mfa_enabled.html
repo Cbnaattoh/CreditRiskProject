@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Factor Authentication Enabled</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: #ffffff;
+            padding: 30px 20px;
+            border: 1px solid #e1e1e1;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e1e1e1;
+            border-top: none;
+        }
+        .security-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="security-icon">[Security]</div>
+        <h1>MFA Enabled Successfully</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ user.first_name }}!</h2>
+        
+        <p>Multi-Factor Authentication (MFA) has been successfully enabled for your {{ app_name }} account.</p>
+        
+        <p>Your account is now more secure with two-factor authentication. You'll need your authenticator app to log in going forward.</p>
+        
+        <p><strong>Important:</strong> Make sure to save your backup codes in a secure location. You can use these codes to access your account if you lose access to your authenticator device.</p>
+        
+        <p>If you did not enable MFA yourself, please contact our support team immediately.</p>
+        
+        <p>Best regards,<br>
+        The {{ app_name }} Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>
+            <strong>{{ app_name }} Security Team</strong><br>
+            Questions? Contact us for immediate assistance.
+        </p>
+    </div>
+</body>
+</html>

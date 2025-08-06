@@ -34,7 +34,20 @@ const mockFormValues = {
   dob: "1990-05-15",
   email: "john.doe@example.com",
   phone: "+233 24 123 4567",
+  // Legacy string format for backward compatibility
   address: "123 Main St, Kumasi, Ghana",
+  // New structured address format
+  addresses: [
+    {
+      address_type: "HOME",
+      street_address: "123 Main Street, Tech Valley",
+      city: "Kumasi",
+      state_province: "Ashanti Region",
+      postal_code: "00233",
+      country: "Ghana",
+      is_primary: true
+    }
+  ],
   employmentStatus: "Full-time",
   occupation: "Software Engineer",
   jobTitle: "Software Engineer",  // NEW: Ghana employment analysis field
@@ -94,6 +107,112 @@ export default function ReviewStep({
     return `GHC ${Number(amount).toLocaleString()}`;
   };
 
+  const formatAddress = (addressData: any) => {
+    // Handle case where address is a simple string (legacy format)
+    if (typeof addressData === 'string') {
+      return addressData || "Not provided";
+    }
+
+    // Handle case where address is an array of address objects
+    if (Array.isArray(addressData) && addressData.length > 0) {
+      const primaryAddress = addressData.find(addr => addr.is_primary) || addressData[0];
+      return formatSingleAddress(primaryAddress);
+    }
+
+    // Handle case where address is a single address object
+    if (addressData && typeof addressData === 'object') {
+      return formatSingleAddress(addressData);
+    }
+
+    return "Not provided";
+  };
+
+  const formatSingleAddress = (address: any) => {
+    if (!address) return "Not provided";
+    
+    const parts = [];
+    if (address.street_address || address.streetAddress) parts.push(address.street_address || address.streetAddress);
+    if (address.city) parts.push(address.city);
+    if (address.state_province || address.stateProvince || address.state) {
+      parts.push(address.state_province || address.stateProvince || address.state);
+    }
+    if (address.postal_code || address.postalCode) parts.push(address.postal_code || address.postalCode);
+    if (address.country) parts.push(address.country);
+
+    return parts.length > 0 ? parts.join(", ") : "Not provided";
+  };
+
+  const renderDetailedAddress = (addressData: any) => {
+    // Handle string address - no detailed breakdown available
+    if (typeof addressData === 'string') {
+      return null;
+    }
+
+    let address = addressData;
+    // Handle array of addresses - use primary or first
+    if (Array.isArray(addressData) && addressData.length > 0) {
+      address = addressData.find(addr => addr.is_primary) || addressData[0];
+    }
+
+    // Only show detailed breakdown if we have structured address data
+    if (!address || typeof address !== 'object') {
+      return null;
+    }
+
+    const hasDetailedInfo = address.street_address || address.streetAddress || 
+                           address.city || address.state_province || address.stateProvince || 
+                           address.postal_code || address.postalCode || address.country;
+
+    if (!hasDetailedInfo) return null;
+
+    return (
+      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
+        {address.address_type && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">Type:</span>
+            <span>{address.address_type === 'HOME' ? 'Home' : address.address_type === 'WORK' ? 'Work' : 'Other'}</span>
+          </div>
+        )}
+        {(address.street_address || address.streetAddress) && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">Street:</span>
+            <span>{address.street_address || address.streetAddress}</span>
+          </div>
+        )}
+        {address.city && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">City:</span>
+            <span>{address.city}</span>
+          </div>
+        )}
+        {(address.state_province || address.stateProvince || address.state) && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">State:</span>
+            <span>{address.state_province || address.stateProvince || address.state}</span>
+          </div>
+        )}
+        {(address.postal_code || address.postalCode) && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">Postal:</span>
+            <span>{address.postal_code || address.postalCode}</span>
+          </div>
+        )}
+        {address.country && (
+          <div className="flex items-center">
+            <span className="font-medium w-16">Country:</span>
+            <span>{address.country}</span>
+          </div>
+        )}
+        {address.is_primary && (
+          <div className="flex items-center text-green-600 dark:text-green-400">
+            <FiCheckCircle className="h-3 w-3 mr-1" />
+            <span className="text-xs">Primary Address</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -145,7 +264,13 @@ export default function ReviewStep({
         { label: "Date of Birth", value: formValues.dob ? new Date(formValues.dob).toLocaleDateString() : "Not provided", icon: FiCalendar },
         { label: "Email Address", value: formValues.email || "Not provided", icon: FiMail },
         { label: "Phone Number", value: formValues.phone || "Not provided", icon: FiPhone },
-        { label: "Address", value: formValues.address || "Not provided", icon: FiMapPin }
+        { 
+          label: "Address", 
+          value: formatAddress(formValues.address || formValues.addresses), 
+          icon: FiMapPin,
+          isAddress: true,
+          fullAddress: formValues.address || formValues.addresses
+        }
       ]
     },
     {
@@ -310,7 +435,7 @@ export default function ReviewStep({
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.05 }}
-                            className="group p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200"
+                            className={`group p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 ${item.isAddress ? 'md:col-span-2' : ''}`}
                           >
                             <div className="flex items-start space-x-3">
                               <div className="flex-shrink-0 mt-1">
@@ -320,9 +445,18 @@ export default function ReviewStep({
                                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                   {item.label}
                                 </p>
-                                <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                  {item.value}
-                                </p>
+                                {item.isAddress && item.fullAddress ? (
+                                  <div className="space-y-2">
+                                    <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                      {item.value}
+                                    </p>
+                                    {renderDetailedAddress(item.fullAddress)}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                    {item.value}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </motion.div>

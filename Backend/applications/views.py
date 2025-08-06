@@ -2,6 +2,9 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
+import logging
+
+logger = logging.getLogger(__name__)
 from .models import CreditApplication, Document, ApplicationNote, MLCreditAssessment
 from .serializers import (
     CreditApplicationSerializer,
@@ -29,6 +32,26 @@ class ApplicationListView(generics.ListCreateAPIView):
         if user.user_type in ['ADMIN', 'ANALYST']:
             return CreditApplication.objects.all().order_by('-last_updated')
         return user.applications.all().order_by('-last_updated')
+
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to add detailed error logging
+        """
+        logger.info(f"Draft save attempt from user: {request.user}")
+        logger.info(f"Request data: {request.data}")
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"Validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.error(f"Create error: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
         """
@@ -73,14 +96,116 @@ class ApplicationSubmitView(generics.GenericAPIView):
         application.status = 'SUBMITTED'
         application.save()
         
+        # Automatically trigger ML credit score prediction
+        ml_prediction_result = self._generate_credit_score(application, request)
+        
         # Trigger risk assessment
         risk_engine = RiskEngine()
         risk_engine.calculate_risk(application)
         
-        return Response(
-            {'status': 'Application submitted successfully'},
-            status=status.HTTP_200_OK
-        )
+        return Response({
+            'status': 'Application submitted successfully',
+            'ml_prediction': ml_prediction_result,
+            'application_id': str(application.id),
+            'reference_number': application.reference_number
+        }, status=status.HTTP_200_OK)
+    
+    def _generate_credit_score(self, application, request):
+        """Generate credit score using ML model during submission"""
+        try:
+            # Import ML model components
+            try:
+                from src.credit_scorer import get_credit_scorer
+            except ImportError:
+                logger.warning('ML model not available during submission')
+                return {'success': False, 'error': 'ML model not available'}
+            
+            # Prepare data for ML model
+            ml_data = {
+                'annual_inc': float(application.annual_income or 0),
+                'dti': float(application.debt_to_income_ratio or 0),
+                'int_rate': float(application.interest_rate or 0),
+                'revol_util': float(application.revolving_utilization or 0),
+                'delinq_2yrs': int(application.delinquencies_2yr or 0),
+                'inq_last_6mths': int(application.inquiries_6mo or 0),
+                'emp_length': application.employment_length or '< 1 year',
+                'emp_title': application.job_title or 'Other',
+                'open_acc': int(application.open_accounts or 0),
+                'collections_12_mths_ex_med': int(application.collections_12mo or 0),
+                'loan_amnt': float(application.loan_amount or 0),
+                'credit_history_length': float(application.credit_history_length or 0),
+                'max_bal_bc': float(application.max_bankcard_balance or 0),
+                'total_acc': int(application.total_accounts or 0),
+                'open_rv_12m': int(application.revolving_accounts_12mo or 0),
+                'pub_rec': int(application.public_records or 0),
+                'home_ownership': application.home_ownership or 'RENT'
+            }
+            
+            # Get ML prediction
+            scorer = get_credit_scorer()
+            result = scorer.predict_credit_score(ml_data)
+            
+            if result['success']:
+                # Store prediction result in MLCreditAssessment model
+                import time
+                processing_time = int(time.time() * 1000) % 1000
+                
+                ml_assessment, created = MLCreditAssessment.objects.update_or_create(
+                    application=application,
+                    defaults={
+                        'credit_score': result['credit_score'],
+                        'category': result['category'],
+                        'risk_level': result['risk_level'],
+                        'confidence': result['confidence'],
+                        'ghana_job_category': result.get('job_category', 'N/A'),
+                        'ghana_employment_score': result.get('employment_score'),
+                        'ghana_job_stability_score': result.get('job_stability_score'),
+                        'model_version': result.get('model_version', '2.0.0'),
+                        'confidence_factors': result.get('confidence_factors', {}),
+                        'processing_time_ms': processing_time,
+                        'features_used': list(ml_data.keys())
+                    }
+                )
+                
+                # Create audit trail note
+                note_content = f"""Automatic ML Credit Score Generation:
+- Credit Score: {result['credit_score']} ({result['category']})
+- Risk Level: {result['risk_level']}
+- Confidence: {result['confidence']}%
+- Model Version: {result.get('model_version', '2.0.0')}
+- Processing Time: {processing_time}ms
+- Generated automatically upon application submission"""
+                
+                ApplicationNote.objects.create(
+                    application=application,
+                    author=getattr(request, 'user', application.applicant),
+                    note=note_content,
+                    is_internal=True
+                )
+                
+                logger.info(f"ML credit score generated for application {application.id}: {result['credit_score']}")
+                
+                return {
+                    'success': True,
+                    'credit_score': result['credit_score'],
+                    'category': result['category'],
+                    'risk_level': result['risk_level'],
+                    'confidence': result['confidence'],
+                    'model_version': result.get('model_version', '2.0.0')
+                }
+            else:
+                logger.error(f"ML prediction failed for application {application.id}: {result.get('error')}")
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Prediction failed')
+                }
+        
+        except Exception as e:
+            logger.error(f"Error generating credit score for application {application.id}: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Credit score generation failed: {str(e)}'
+            }
 
 class DocumentListView(generics.ListCreateAPIView):
     serializer_class = DocumentSerializer

@@ -15,7 +15,7 @@ class CreditApplication(models.Model):
     )
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    reference_number = models.CharField(max_length=20, unique=True, editable=False)
+    reference_number = models.CharField(max_length=20, unique=True, editable=False, null=True, blank=True)
     applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications', null=True, blank=True)
     status = models.CharField(max_length=15, choices=APPLICATION_STATUS, default='DRAFT')
     submission_date = models.DateTimeField(null=True, blank=True)

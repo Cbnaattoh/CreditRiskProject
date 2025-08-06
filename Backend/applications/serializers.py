@@ -213,21 +213,25 @@ class ApplicantSerializer(serializers.ModelSerializer):
         return None
     
     def validate_email(self, value):
-        validate_email(value)
+        # Allow draft emails to bypass validation
+        if value and not value == 'draft@example.com':
+            validate_email(value)
         return value
     
     def validate_national_id(self, value):
-        # Ghana National ID validation
-        if value and not re.match(r'^GHA-\d{9}-\d{1}$', value):
-            # Allow flexible format for now, but could be stricter
-            if not re.match(r'^[A-Z0-9-]{10,20}$', value):
-                raise serializers.ValidationError("Invalid National ID format")
+        # Ghana National ID validation - allow draft format
+        if value and not value.startswith('DRAFT-'):
+            if not re.match(r'^GHA-\d{9}-\d{1}$', value):
+                # Allow flexible format for now, but could be stricter
+                if not re.match(r'^[A-Z0-9-]{10,20}$', value):
+                    raise serializers.ValidationError("Invalid National ID format")
         return value
     
     def validate_phone_number(self, value):
-        # Ghana phone number validation
-        if value and not re.match(r'^(\+233|0)[2-9]\d{8}$', value):
-            raise serializers.ValidationError("Invalid Ghana phone number format")
+        # Ghana phone number validation - allow draft format
+        if value and not value.startswith('+233200000000'):
+            if not re.match(r'^(\+233|0)[2-9]\d{8}$', value):
+                raise serializers.ValidationError("Invalid Ghana phone number format")
         return value
     
     def validate_gender(self, value):
@@ -619,9 +623,15 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
         """
         INDUSTRY STANDARD FIX: Robust create method with comprehensive safety layers
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # DEFENSIVE LAYER 4: Final cleanup of applicant field
         applicant_data = validated_data.pop('applicant_info', None)
         validated_data.pop('applicant', None)  # Remove any lingering applicant field
+        
+        logger.info(f"Create method - applicant_data: {applicant_data}")
+        logger.info(f"Create method - validated_data: {validated_data}")
         
         # Get authenticated user from request context
         request = self.context.get('request')
@@ -638,7 +648,9 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                 applicant=request.user, 
                 **validated_data
             )
+            logger.info(f"Application created successfully: {application.id}")
         except Exception as e:
+            logger.error(f"Failed to create application: {str(e)}")
             raise serializers.ValidationError(f"Failed to create application: {str(e)}")
         
         if applicant_data:
@@ -650,20 +662,58 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                 financial_data.setdefault('monthly_expenses', '0.00')
                 financial_data.setdefault('has_bankruptcy', False)
             
+            logger.info(f"About to validate applicant data: {applicant_data}")
             applicant_serializer = ApplicantSerializer(data=applicant_data)
             if applicant_serializer.is_valid():
                 try:
                     applicant_serializer.save(application=application)
+                    logger.info("Applicant info saved successfully")
                 except Exception as e:
                     # If saving fails, delete the application and raise error
+                    logger.error(f"Failed to save applicant info: {str(e)}")
                     application.delete()
                     raise serializers.ValidationError(f"Failed to save applicant info: {str(e)}")
             else:
                 # If applicant data is invalid, delete the application and raise error
+                logger.error(f"Applicant validation failed: {applicant_serializer.errors}")
                 application.delete()
                 raise serializers.ValidationError({
                     'applicant_info': applicant_serializer.errors
                 })
+        
+        # JOB TITLE FIX: Ensure job_title from Financial step gets to CreditApplication.job_title
+        # Try multiple strategies to get the job title
+        if not application.job_title:
+            logger.debug(f"Attempting to fix missing job title for application {application.id}")
+            
+            # Strategy 1: From nested applicant_info
+            if hasattr(application, 'applicant_info'):
+                try:
+                    applicant = application.applicant_info
+                    employment = applicant.employment_history.first()
+                    if employment and employment.job_title:
+                        application.job_title = employment.job_title
+                        application.save()
+                        logger.info(f"Auto-fixed job title from applicant_info: '{employment.job_title}'")
+                except Exception as e:
+                    logger.debug(f"Could not get job title from applicant_info: {str(e)}")
+            
+            # Strategy 2: Direct database query
+            if not application.job_title:
+                try:
+                    from .models import Applicant, EmploymentInfo
+                    applicant = Applicant.objects.filter(application=application).first()
+                    if applicant:
+                        employment = EmploymentInfo.objects.filter(applicant=applicant).first()
+                        if employment and employment.job_title:
+                            application.job_title = employment.job_title
+                            application.save()
+                            logger.info(f"Auto-fixed job title from direct query: '{employment.job_title}'")
+                except Exception as e:
+                    logger.debug(f"Could not get job title from direct query: {str(e)}")
+            
+            if not application.job_title:
+                logger.warning(f"Could not determine job title for application {application.id} - will use 'Other' in ML model")
                 
         return application
     

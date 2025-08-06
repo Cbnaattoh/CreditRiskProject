@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 venv/
+venv_new/
 # Django
 *.log
 *.pot

@@ -92,6 +92,16 @@ LOGGING = {
         },
     },
     'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'detailed',
+        },
+        'ml_console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'detailed',
+        },
         'security_file': {
             'level': 'WARNING',
             'class': 'logging.handlers.RotatingFileHandler',
@@ -102,6 +112,26 @@ LOGGING = {
         },
     },
     'loggers': {
+        'applications.views': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'applications.signals': {
+            'handlers': ['ml_console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'ml_model': {
+            'handlers': ['ml_console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'src.credit_scorer': {
+            'handlers': ['ml_console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
         'your_app_name.views': {
             'handlers': ['security_file'],
             'level': 'INFO',
