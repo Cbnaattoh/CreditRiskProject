@@ -23,15 +23,20 @@ db.sqlite3
 *.swo
 *~
 
-
+backend/media/
 
 
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Machine Learning
-models/*.pkl
-models/*.joblib
+# Machine Learning (exclude training artifacts, keep production models)
+# models/*.pkl  # Commented out - we need the production model files
+# models/*.joblib
+
+# Temporary/problematic files
+nul
+*.tmp
+*.temp
 
 # OS generated
 .DS_Store
