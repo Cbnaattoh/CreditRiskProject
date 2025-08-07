@@ -1,5 +1,5 @@
 import { apiSlice } from "../baseApi";
-import { updatePermissions } from "../../auth/authSlice";
+import { updatePermissions, handleApiError, restorePersistedPermissions } from "../../auth/authSlice";
 import type { PermissionSummary } from "./rbac";
 
 interface DashboardResponse {
@@ -100,14 +100,26 @@ export const rbacApi = apiSlice.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          dispatch(
-            updatePermissions({
-              permissions: data.permission_codes || [],
-              roles: data.roles || [],
-            })
-          );
+          console.log('🟢 Permissions API Success:', data);
+          
+          // Only update if we have meaningful data
+          if (data && (data.permission_codes || data.roles)) {
+            dispatch(
+              updatePermissions({
+                permissions: data.permission_codes || [],
+                roles: data.roles || [],
+                permissionSummary: data,
+              })
+            );
+          } else {
+            console.warn('🟡 Permissions API returned empty data - keeping existing permissions');
+          }
         } catch (error) {
-          console.error("Get permissions failed:", error);
+          console.error("🔴 Get permissions failed:", error);
+          // Don't update permissions with empty data on API failure
+          // Just restore from localStorage
+          dispatch(handleApiError({ preserveAuth: true }));
+          dispatch(restorePersistedPermissions());
         }
       },
       providesTags: ["Auth"],

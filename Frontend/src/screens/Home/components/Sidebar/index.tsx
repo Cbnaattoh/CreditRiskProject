@@ -31,6 +31,13 @@ import {
   useCanAccessReports,
   useRobustAccessCheck,
   checkCanAccess,
+  useNavigationAccess,
+  useDashboardAccess,
+  useIsClientUser,
+  useIsAdministrator,
+  useIsAnalyst,
+  useIsAuditor,
+  useIsManager,
 } from "../../../../components/utils/hooks/useRBAC";
 import type {
   PermissionCode,
@@ -61,18 +68,29 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   const isAdmin = useIsAdmin();
   const isStaff = useIsStaff();
   
+  
+  // Enhanced role detection hooks
+  const isAdministrator = useIsAdministrator();
+  const isClientUser = useIsClientUser();
+  const isAnalyst = useIsAnalyst();
+  const isAuditor = useIsAuditor();
+  const isManager = useIsManager();
+  const navigationAccess = useNavigationAccess();
+  const dashboardAccess = useDashboardAccess();
+  
   // Additional stability checks - ensure we don't lose role status during state updates
   const isAdminStable = React.useMemo(() => {
-    return isAdmin || user?.user_type === 'ADMIN' || roles.includes('Administrator');
-  }, [isAdmin, user?.user_type, roles]);
+    return isAdministrator || isAdmin || user?.user_type === 'ADMIN' || user?.role === 'ADMIN' || roles.includes('Administrator');
+  }, [isAdministrator, isAdmin, user?.user_type, user?.role, roles]);
 
   // Stable client user detection - similar to admin logic
   const currentIsClientUser = React.useMemo(() => {
-    return roles.includes('Client User') || 
+    return isClientUser || roles.includes('Client User') || 
            user?.user_type === 'CLIENT_USER' || 
            user?.user_type === 'Client User' ||
-           user?.user_type_display === 'Client User';
-  }, [roles, user?.user_type, user?.user_type_display]);
+           user?.user_type_display === 'Client User' ||
+           user?.role === 'CLIENT';
+  }, [isClientUser, roles, user?.user_type, user?.user_type_display, user?.role]);
 
   const isClientUserStable = stableIsClientUserState ?? currentIsClientUser;
   const canAccessAdmin = useCanAccessAdmin();
@@ -123,26 +141,31 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
 
   // COMPREHENSIVE role display logic
   const roleDisplay = useMemo(() => {
-
-    // Use comprehensive detection
-    switch (sidebarUserTypeDetection.type) {
-      case 'ADMIN':
-        return 'Administrator';
-      case 'CLIENT':
-        return 'Client User';
-      case 'STAFF':
-        // Return specific staff role if available
-        const staffRoles = roles?.filter(role => 
-          ['Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
-        ) || [];
-        if (staffRoles.length > 0) {
-          return staffRoles[0];
-        }
-        return 'Staff';
-      default:
-        return 'User';
+    // Use specific role detection hooks for more accurate results
+    if (isAdministrator) return 'Administrator';
+    if (isManager) return 'Manager';
+    if (isAnalyst) return 'Risk Analyst';
+    if (isAuditor) return 'Compliance Auditor';
+    if (isClientUser) return 'Client User';
+    
+    // Fallback to role detection from roles array
+    const staffRoles = roles?.filter(role => 
+      ['Risk Analyst', 'Compliance Auditor', 'Manager', 'Administrator'].includes(role)
+    ) || [];
+    if (staffRoles.length > 0) {
+      return staffRoles[0];
     }
-  }, [sidebarUserTypeDetection, roles, user?.user_type, user?.role]);
+    
+    // Final fallback based on user type
+    switch (user?.role) {
+      case 'ADMIN': return 'Administrator';
+      case 'MANAGER': return 'Manager';
+      case 'ANALYST': return 'Risk Analyst';
+      case 'AUDITOR': return 'Compliance Auditor';
+      case 'CLIENT': return 'Client User';
+      default: return 'User';
+    }
+  }, [isAdministrator, isManager, isAnalyst, isAuditor, isClientUser, roles, user?.role]);
 
   // Stabilize client user state similar to dashboard logic
   React.useEffect(() => {
@@ -169,126 +192,175 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   }, [isAuthenticated, roleDisplay, sidebarUserTypeDetection]);
 
 
-  const navItems: NavItem[] = useMemo(() => [
-    {
-      path: "/home",
-      icon: <FiHome />,
-      label: "Dashboard",
-      description: "Overview & Analytics",
-      permissions: ["view_dashboard"],
-    },
-    {
-      path: "/home/applications",
-      icon: <FiFileText />,
-      label: "My Applications",
-      description: "Your Credit Applications",
-      permissions: ["risk_view"],
-      roles: ["Client User"],
-      featureFlag: "risk_management",
-    },
-    {
-      path: "/home/risk-analysis",
-      icon: <FiShield />,
-      label: "Risk Analysis",
-      description: "Credit Risk Insights",
-      permissions: ["risk_view"],
-      roles: ["Client User"],
-      featureFlag: "risk_management",
-    },
-    {
-      path: "/home/explainability",
-      icon: <FiEye />,
-      label: "AI Explainability",
-      description: "Understand Your Assessment",
-      permissions: ["risk_view"],
-      roles: ["Client User"],
-      featureFlag: "risk_management",
-    },
-    {
-      path: "/home/loan-applications",
-      icon: <FiFileText />,
-      label: "All Applications",
-      description: "Review All Applications", 
-      permissions: ["risk_view"],
-      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
-      featureFlag: "risk_management",
-    },
-    {
-      path: "/home/reports",
-      icon: <FiDatabase />,
-      label: "Reports",
-      description: "Analytics & Insights",
-      permissions: ["report_view"],
-      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"], // Explicitly exclude Client Users
-      featureFlag: "reporting",
-    },
-    {
-      path: "/home/notifications",
-      icon: <FiBell />,
-      label: "Notifications",
-      description: "Manage Notifications",
-      permissions: ["user_view_all", "system_settings"],
-      roles: ["Administrator", "Manager"],
-      requireAll: false,
-    },
-    {
-      path: "/home/admin",
-      icon: <FiSettings />,
-      label: "Admin Console",
-      description: "System Management",
-      permissions: ["user_view_all", "role_view", "system_settings"],
-      roles: ["Administrator", "Manager"],
-      requireAll: false,
-      featureFlag: "admin_panel",
-    },
-    {
-      path: "/home/security",
-      icon: <FiShield />,
-      label: "Security Center",
-      description: "Security Monitoring",
-      permissions: ["view_audit_logs", "security_logs_view"],
-      roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
-      requireAll: false,
-      featureFlag: "security_monitoring",
-    },
-    {
-      path: "/home/settings",
-      icon: <FiSliders />,
-      label: "Account Settings",
-      description: "Personal Preferences",
-    },
-  ], []);
+  const navItems: NavItem[] = useMemo(() => {
+    const items: NavItem[] = [
+      {
+        path: "/home",
+        icon: <FiHome />,
+        label: "Dashboard",
+        description: "Overview & Analytics",
+        permissions: ["view_dashboard"],
+      },
+      {
+        path: "/home/settings",
+        icon: <FiSliders />,
+        label: "Account Settings",
+        description: "Personal Preferences",
+      },
+    ];
+
+    // Client-specific navigation items
+    if (isClientUser) {
+      items.splice(1, 0,
+        {
+          path: "/home/applications",
+          icon: <FiFileText />,
+          label: "My Applications",
+          description: "Your Credit Applications",
+          permissions: ["risk_view"],
+          roles: ["Client User"],
+          featureFlag: "risk_management",
+        },
+        {
+          path: "/home/risk-analysis",
+          icon: <FiShield />,
+          label: "Risk Analysis",
+          description: "Credit Risk Insights",
+          permissions: ["risk_view"],
+          roles: ["Client User"],
+          featureFlag: "risk_management",
+        },
+        {
+          path: "/home/explainability",
+          icon: <FiEye />,
+          label: "AI Explainability",
+          description: "Understand Your Assessment",
+          permissions: ["risk_view"],
+          roles: ["Client User"],
+          featureFlag: "risk_management",
+        }
+      );
+    }
+
+    // Staff navigation items (non-client users)
+    if (!isClientUser && dashboardAccess.hasStaffAccess) {
+      const staffItems = [
+        {
+          path: "/home/loan-applications",
+          icon: <FiFileText />,
+          label: "All Applications",
+          description: "Review All Applications",
+          permissions: ["risk_view"],
+          roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
+          featureFlag: "risk_management",
+        }
+      ];
+      
+      if (navigationAccess.showReports) {
+        staffItems.push({
+          path: "/home/reports",
+          icon: <FiDatabase />,
+          label: "Reports",
+          description: "Analytics & Insights",
+          permissions: ["report_view"],
+          roles: ["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"],
+          featureFlag: "reports",
+        });
+      }
+      
+      if (navigationAccess.showAuditLogs) {
+        staffItems.push({
+          path: "/home/security",
+          icon: <FiShield />,
+          label: "Security Center",
+          description: "Security Monitoring",
+          permissions: ["view_audit_logs"],
+          roles: ["Administrator", "Compliance Auditor"],
+          requireAll: false,
+        });
+      }
+      
+      items.splice(-1, 0, ...staffItems);
+    }
+
+    // Admin/Manager specific items
+    if (dashboardAccess.hasElevatedAccess) {
+      const elevatedItems = [];
+      
+      if (navigationAccess.showSystemSettings) {
+        elevatedItems.push({
+          path: "/home/admin",
+          icon: <FiSettings />,
+          label: "Admin Console",
+          description: "System Management",
+          permissions: ["user_view_all", "role_view", "system_settings"],
+          roles: ["Administrator", "Manager"],
+          requireAll: false,
+          featureFlag: "admin_panel",
+        });
+      }
+      
+      elevatedItems.push({
+        path: "/home/notifications",
+        icon: <FiBell />,
+        label: "Notifications",
+        description: "Manage Notifications",
+        permissions: ["user_view_all", "system_settings"],
+        roles: ["Administrator", "Manager"],
+        requireAll: false,
+      });
+      
+      items.splice(-1, 0, ...elevatedItems);
+    }
+
+    return items;
+  }, [isClientUser, dashboardAccess, navigationAccess]);
 
   // Admin-only navigation items
-  const adminNavItems: NavItem[] = useMemo(() => [
-    {
-      path: "/home/admin",
-      icon: <FiUsers />,
-      label: "User Management",
-      description: "Manage Users & Roles",
-      permissions: ["user_view_all", "user_manage"],
-      requireAll: false,
-      featureFlag: "user_management",
-    },
-    {
-      path: "/home/admin?tab=roles",
-      icon: <FiShield />,
-      label: "Role Management", 
-      description: "Configure Permissions",
-      permissions: ["role_view", "role_manage"],
-      requireAll: false,
-      featureFlag: "role_management",
-    },
-    {
-      path: "/home/admin?tab=logs",
-      icon: <FiEye />,
-      label: "Audit Logs",
-      description: "System Activity",
-      permissions: ["audit_view", "security_logs_view"],
-      requireAll: false,
-      featureFlag: "audit_logs",
-    },
-  ], []);
+  const adminNavItems: NavItem[] = useMemo(() => {
+    const items: NavItem[] = [];
+    
+    if (navigationAccess.showUserManagement) {
+      items.push({
+        path: "/home/admin",
+        icon: <FiUsers />,
+        label: "User Management",
+        description: "Manage Users & Roles",
+        permissions: ["user_view_all"],
+        roles: ["Administrator", "Manager"],
+        requireAll: false,
+        featureFlag: "user_management",
+      });
+    }
+    
+    if (navigationAccess.showRoleManagement) {
+      items.push({
+        path: "/home/admin?tab=roles",
+        icon: <FiShield />,
+        label: "Role Management",
+        description: "Configure Permissions",
+        permissions: ["role_view"],
+        roles: ["Administrator", "Manager"],
+        requireAll: false,
+        featureFlag: "role_management",
+      });
+    }
+    
+    if (navigationAccess.showAuditLogs) {
+      items.push({
+        path: "/home/admin?tab=logs",
+        icon: <FiEye />,
+        label: "Audit Logs",
+        description: "System Activity",
+        permissions: ["view_audit_logs"],
+        roles: ["Administrator", "Compliance Auditor"],
+        requireAll: false,
+        featureFlag: "audit_logs",
+      });
+    }
+    
+    return items;
+  }, [navigationAccess]);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
@@ -566,8 +638,8 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
             {/* Admin section */}
             <FeatureFlag feature="admin_panel">
               <ProtectedComponent
-                permissions={["user_view_all", "role_view", "system_settings"]}
-                requireAll={false}
+                permissions={["system_settings"]}
+                requireAll={true}
               >
                 {!isCollapsed && (
                   <motion.li

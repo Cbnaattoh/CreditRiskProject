@@ -4,10 +4,15 @@ import type { RootState } from "../../redux/store";
 import type {
   PermissionCode,
   RoleName,
+  BackendRoleType,
 } from "../../redux/features/api/RBAC/rbac";
 import {
   ROLE_PERMISSIONS,
   ROLE_FEATURES,
+  ROLE_HIERARCHY,
+  mapBackendRoleToFrontend,
+  getUserPermissionsFromRoles,
+  userHasPermission,
 } from "../../redux/features/api/RBAC/rbac";
 import {
   selectUserPermissions,
@@ -301,6 +306,7 @@ export const useConditionalAccess = (conditions: {
 export const useFeatureAccess = (feature: string): boolean => {
   const isAdmin = useSelector(selectIsAdmin);
   const userPermissions = useSelector(selectUserPermissions);
+  const isClientUser = useIsClientUser();
 
   return useMemo(() => {
     // Feature flag mapping based on backend permissions
@@ -312,15 +318,23 @@ export const useFeatureAccess = (feature: string): boolean => {
       system_settings: ["system_settings"],
       bulk_actions: ["user_edit_all"],
       advanced_reports: ["report_admin"],
+      reports: ["report_view"],
       compliance_audit: ["compliance_audit"],
+      compliance: ["compliance_view"],
       data_export: ["data_export"],
       data_import: ["data_import"],
       risk_management: ["risk_view"],
       client_management: ["client_view"],
+      dashboard: ["view_dashboard"],
     };
 
     // Admin has access to everything
     if (isAdmin) return true;
+    
+    // Client users have restricted access - explicitly block reports
+    if (isClientUser && feature === 'reports') {
+      return false;
+    }
 
     const requiredPermissions = featurePermissions[feature];
 
@@ -331,7 +345,7 @@ export const useFeatureAccess = (feature: string): boolean => {
     return requiredPermissions.some((permission) =>
       userPermissions.includes(permission)
     );
-  }, [feature, isAdmin, userPermissions]);
+  }, [feature, isAdmin, userPermissions, isClientUser]);
 };
 
 // ========================
@@ -342,12 +356,87 @@ export const useFeatureAccess = (feature: string): boolean => {
  * Check if user can access reports (explicitly exclude Client Users)
  */
 export const useCanAccessReports = (): boolean => {
-  const { roles } = usePermissions();
+  const { roles, permissions } = usePermissions();
+  const isClientUser = useIsClientUser();
+  
   return useMemo(() => {
-    // Client Users are explicitly excluded from reports
-    return !roles.some(role => role === 'Client User') && 
-           roles.some(role => ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role));
-  }, [roles]);
+    // Explicitly exclude Client Users from reports
+    if (isClientUser) {
+      return false;
+    }
+    
+    // Check if user has report viewing permissions
+    const hasReportPermission = permissions.includes('report_view');
+    
+    // Check if user has authorized roles
+    const hasAuthorizedRole = roles.some(role => 
+      ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
+    );
+    
+    return hasReportPermission || hasAuthorizedRole;
+  }, [roles, permissions, isClientUser]);
+};
+
+/**
+ * Enhanced hook to check if user can access dashboard features based on their role
+ */
+export const useDashboardAccess = () => {
+  const isAdmin = useIsAdministrator();
+  const isClient = useIsClientUser();
+  const isAnalyst = useIsAnalyst();
+  const isAuditor = useIsAuditor();
+  const isManager = useIsManager();
+  const canAccessReports = useCanAccessReports();
+  const { permissions } = usePermissions();
+  
+  return useMemo(() => ({
+    // Dashboard sections access
+    canViewDashboard: permissions.includes('view_dashboard'),
+    canViewReports: canAccessReports,
+    canViewUsers: permissions.includes('user_view_all'),
+    canViewRoles: permissions.includes('role_view'),
+    canViewAuditLogs: permissions.includes('view_audit_logs'),
+    canViewRiskManagement: permissions.includes('risk_view'),
+    canViewCompliance: permissions.includes('compliance_view'),
+    canViewClients: permissions.includes('client_view'),
+    canViewSystemSettings: permissions.includes('system_settings'),
+    
+    // Role-based access
+    isAdmin,
+    isClient,
+    isAnalyst,
+    isAuditor,
+    isManager,
+    
+    // Combined access checks
+    hasElevatedAccess: isAdmin || isManager,
+    hasStaffAccess: isAdmin || isAnalyst || isAuditor || isManager,
+    hasLimitedAccess: isClient,
+  }), [permissions, isAdmin, isClient, isAnalyst, isAuditor, isManager, canAccessReports]);
+};
+
+/**
+ * Hook for navigation access control
+ */
+export const useNavigationAccess = () => {
+  const dashboardAccess = useDashboardAccess();
+  
+  return useMemo(() => ({
+    // Main navigation items
+    showDashboard: dashboardAccess.canViewDashboard,
+    showReports: dashboardAccess.canViewReports && !dashboardAccess.isClient,
+    showUserManagement: dashboardAccess.canViewUsers && dashboardAccess.hasElevatedAccess,
+    showRoleManagement: dashboardAccess.canViewRoles && dashboardAccess.hasElevatedAccess,
+    showAuditLogs: dashboardAccess.canViewAuditLogs,
+    showRiskManagement: dashboardAccess.canViewRiskManagement,
+    showCompliance: dashboardAccess.canViewCompliance,
+    showClientManagement: dashboardAccess.canViewClients,
+    showSystemSettings: dashboardAccess.canViewSystemSettings && dashboardAccess.isAdmin,
+    
+    // User profile access
+    canEditProfile: true, // All users can edit their own profile
+    canViewProfile: true, // All users can view their own profile
+  }), [dashboardAccess]);
 };
 
 /**
@@ -388,7 +477,6 @@ export const useIsClientUser = (): boolean => {
   const currentUser = useSelector((state: any) => state.auth.user);
   
   return useMemo(() => {
-    // Don't return false during loading - be conservative
     if (!isAuthenticated) {
       return false;
     }
@@ -396,20 +484,88 @@ export const useIsClientUser = (): boolean => {
     // Check multiple sources for client user status
     const hasClientUserRole = roles.includes('Client User');
     const userTypeIsClient = currentUser?.user_type === 'CLIENT' ||
-                            currentUser?.user_type === 'CLIENT_USER' || 
-                            currentUser?.user_type === 'Client User' ||
-                            currentUser?.user_type_display === 'Client User' ||
-                            currentUser?.role === 'CLIENT';
+                            currentUser?.role === 'CLIENT' ||
+                            currentUser?.role === 'Client User';
     
-    // Simple logic: if has Client User role, they are a client user
-    const result = hasClientUserRole || userTypeIsClient;
+    // Check if user has client role in roles array
+    const hasClientRoleInArray = currentUser?.roles?.some((role: any) => 
+      role.name === 'Client User' || role.name === 'CLIENT'
+    );
     
-    // Success! RBAC detection is working
-    if (result) {
-    }
+    return hasClientUserRole || userTypeIsClient || hasClientRoleInArray;
+  }, [roles, isAuthenticated, currentUser?.user_type, currentUser?.role, currentUser?.roles]);
+};
+
+/**
+ * Check if user is an Administrator
+ */
+export const useIsAdministrator = (): boolean => {
+  const { roles } = usePermissions();
+  const currentUser = useSelector((state: any) => state.auth.user);
+  
+  return useMemo(() => {
+    const hasAdminRole = roles.includes('Administrator');
+    const userTypeIsAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'Administrator';
+    const hasAdminRoleInArray = currentUser?.roles?.some((role: any) => 
+      role.name === 'Administrator' || role.name === 'ADMIN'
+    );
     
-    return result;
-  }, [roles, isAuthenticated, currentUser?.user_type, currentUser?.user_type_display]);
+    return hasAdminRole || userTypeIsAdmin || hasAdminRoleInArray;
+  }, [roles, currentUser?.role, currentUser?.roles]);
+};
+
+/**
+ * Check if user is a Risk Analyst
+ */
+export const useIsAnalyst = (): boolean => {
+  const { roles } = usePermissions();
+  const currentUser = useSelector((state: any) => state.auth.user);
+  
+  return useMemo(() => {
+    const hasAnalystRole = roles.includes('Risk Analyst');
+    const userTypeIsAnalyst = currentUser?.role === 'ANALYST' || currentUser?.role === 'Risk Analyst';
+    const hasAnalystRoleInArray = currentUser?.roles?.some((role: any) => 
+      role.name === 'Risk Analyst' || role.name === 'ANALYST'
+    );
+    
+    return hasAnalystRole || userTypeIsAnalyst || hasAnalystRoleInArray;
+  }, [roles, currentUser?.role, currentUser?.roles]);
+};
+
+/**
+ * Check if user is a Compliance Auditor
+ */
+export const useIsAuditor = (): boolean => {
+  const { roles } = usePermissions();
+  const currentUser = useSelector((state: any) => state.auth.user);
+  
+  return useMemo(() => {
+    const hasAuditorRole = roles.includes('Compliance Auditor');
+    const userTypeIsAuditor = currentUser?.role === 'AUDITOR' || currentUser?.role === 'Compliance Auditor';
+    const hasAuditorRoleInArray = currentUser?.roles?.some((role: any) => 
+      role.name === 'Compliance Auditor' || role.name === 'AUDITOR'
+    );
+    
+    return hasAuditorRole || userTypeIsAuditor || hasAuditorRoleInArray;
+  }, [roles, currentUser?.role, currentUser?.roles]);
+};
+
+/**
+ * Check if user is a Manager
+ */
+export const useIsManager = (): boolean => {
+  const { roles } = usePermissions();
+  const currentUser = useSelector((state: any) => state.auth.user);
+  
+  return useMemo(() => {
+    const hasManagerRole = roles.includes('Manager');
+    const userTypeIsManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'Manager';
+    const hasManagerRoleInArray = currentUser?.roles?.some((role: any) => 
+      role.name === 'Manager' || role.name === 'MANAGER'
+    );
+    
+    return hasManagerRole || userTypeIsManager || hasManagerRoleInArray;
+  }, [roles, currentUser?.role, currentUser?.roles]);
 };
 
 /**
@@ -418,12 +574,27 @@ export const useIsClientUser = (): boolean => {
 export const useHighestRole = (): RoleName | null => {
   const { roles } = usePermissions();
   return useMemo(() => {
-    const roleHierarchy: RoleName[] = ['Administrator', 'Manager', 'Compliance Auditor', 'Risk Analyst', 'Client User'];
-    for (const role of roleHierarchy) {
-      if (roles.includes(role)) return role;
-    }
-    return null;
+    let highestRole: RoleName | null = null;
+    let highestLevel = 0;
+    
+    roles.forEach(role => {
+      const level = ROLE_HIERARCHY[role as RoleName];
+      if (level && level > highestLevel) {
+        highestLevel = level;
+        highestRole = role as RoleName;
+      }
+    });
+    
+    return highestRole;
   }, [roles]);
+};
+
+/**
+ * Get user's role level (higher number = more privileges)
+ */
+export const useUserRoleLevel = (): number => {
+  const highestRole = useHighestRole();
+  return highestRole ? ROLE_HIERARCHY[highestRole] : 0;
 };
 
 /**
