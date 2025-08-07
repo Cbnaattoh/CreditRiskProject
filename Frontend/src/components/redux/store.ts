@@ -4,6 +4,7 @@ import { applicationsApi } from "./features/api/applications/applicationsApi";
 import { riskApi } from "./features/api/risk/riskApi";
 import { notificationsApi } from "./features/api/notifications/notificationsApi";
 import { securityApi } from "./features/api/security/securityApi";
+import { mlApi } from "./features/api/ml/mlApi";
 import authReducer from "./features/auth/authSlice";
 import userReducer from "./features/user/userSlice";
 import { loadAuthState, saveAuthState } from "../utils/services/authPersist";
@@ -33,6 +34,7 @@ export const store = configureStore({
     [riskApi.reducerPath]: riskApi.reducer,
     [notificationsApi.reducerPath]: notificationsApi.reducer,
     [securityApi.reducerPath]: securityApi.reducer,
+    [mlApi.reducerPath]: mlApi.reducer,
     auth: authReducer,
     user: userReducer,
   },
@@ -61,6 +63,7 @@ export const store = configureStore({
       .concat(riskApi.middleware)
       .concat(notificationsApi.middleware)
       .concat(securityApi.middleware)
+      .concat(mlApi.middleware)
       .concat(authUserSyncMiddleware),
   devTools: process.env.NODE_ENV !== "production",
 });
@@ -107,6 +110,7 @@ export const resetApplicationState = () => {
   store.dispatch(riskApi.util.resetApiState());
   store.dispatch(notificationsApi.util.resetApiState());
   store.dispatch(securityApi.util.resetApiState());
+  store.dispatch(mlApi.util.resetApiState());
 };
 
 // Function to check and log current state consistency

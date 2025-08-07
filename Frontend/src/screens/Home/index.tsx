@@ -31,6 +31,7 @@ import { UserActivityWidget } from "./components/UserActivityWidget";
 import { RoleDistributionChart } from "./components/RoleDistributionChart";
 import { PermissionUsageChart } from "./components/PermissionUsageChart";
 import { SystemAlertsWidget } from "./components/SystemAlertsWidget";
+import MLCreditScoreWidget from "./components/MLCreditScoreWidget";
 
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -289,6 +290,12 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
+            {/* ML Credit Score Widget for Client Users */}
+            <MLCreditScoreWidget 
+              userType="client" 
+              className="mb-8"
+            />
+
             {/* Client User Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
@@ -351,6 +358,11 @@ const Dashboard: React.FC = () => {
         {/* ADMIN DASHBOARD */}
         {stableRoleDetection.isAdmin && (
           <AdminOnly>
+            {/* ML Model Status for Admins */}
+            <div className="mb-6">
+              <MLCreditScoreWidget userType="admin" />
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <RBACStatsCard
                 title="Total Users"

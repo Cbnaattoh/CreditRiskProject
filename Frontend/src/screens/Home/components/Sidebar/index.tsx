@@ -14,6 +14,7 @@ import {
   FiEye,
   FiDatabase,
   FiBell,
+  FiPlus,
 } from "react-icons/fi";
 import { RiUserSearchLine } from "react-icons/ri";
 import { useAuth } from "../../../Authentication/Login-SignUp/components/hooks/useAuth";
@@ -212,6 +213,15 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
     // Client-specific navigation items
     if (isClientUser) {
       items.splice(1, 0,
+        {
+          path: "/home/apply",
+          icon: <FiPlus />,
+          label: "Apply for Credit",
+          description: "Submit New Application",
+          permissions: ["risk_view"],
+          roles: ["Client User"],
+          featureFlag: "risk_management",
+        },
         {
           path: "/home/applications",
           icon: <FiFileText />,
