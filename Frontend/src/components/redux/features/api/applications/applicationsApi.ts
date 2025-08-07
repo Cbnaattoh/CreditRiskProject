@@ -284,7 +284,7 @@ export const applicationsApi = createApi({
   }),
   tagTypes: ['Application', 'Document', 'Note', 'Risk'],
   endpoints: (builder) => ({
-    // Get all applications (paginated)
+    // Get all applications (paginated) - Backend automatically filters by user role
     getApplications: builder.query<ApplicationListResponse, { page?: number; page_size?: number; status?: string }>({
       query: (params = {}) => ({
         url: '',

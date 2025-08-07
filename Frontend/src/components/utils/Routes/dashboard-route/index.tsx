@@ -1,7 +1,7 @@
 import type { RouteObject } from "react-router-dom";
 import Dashboard from "../../../../screens/Home";
 import MainLayout from "../../../../screens/components/layouts/MainLayout";
-import LoanApplications from "../../../../screens/Applications";
+import ApplyWrapper from "../../../../screens/Applications/ApplyWrapper";
 import ApplicationsWrapper from "../../../../screens/Applications/ApplicationsWrapper";
 import ApplicationRisk from "../../../../screens/Risk-Analysis/ApplicationRisk";
 import ApplicationExplainability from "../../../../screens/Explainability/ApplicationExplainability";
@@ -30,6 +30,7 @@ const dashboardRoutes: RouteObject[] = [
           { index: true, element: <Dashboard /> },
           
           // Applications routes - different components for different purposes
+          { path: "apply", element: <ApplyWrapper /> }, // Direct application form for client users
           { path: "applications", element: <ApplicationsWrapper /> }, // My Applications (list view for client users)
           { path: "loan-applications", element: <Customers /> }, // All Applications (applications list for admin/staff)
           

@@ -21,6 +21,7 @@ import { useGetApplicationsQuery } from "../../components/redux/features/api/app
 import type { CreditApplication } from "../../components/redux/features/api/applications/applicationsApi";
 import ErrorBoundary from "../../components/utils/ErrorBoundary";
 import { useGetRiskAnalysisQuery } from "../../components/redux/features/api/risk/riskApi";
+import { useIsClientUser } from "../../components/utils/hooks/useRBAC";
 
 interface EnhancedApplication extends CreditApplication {
   full_name?: string;
@@ -47,6 +48,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
   const location = useLocation();
+  const isClientUser = useIsClientUser();
   
   // Determine the page title based on route
   const getPageTitle = () => {
@@ -56,7 +58,10 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     return "Credit Applications";
   };
 
-  // Fetch applications from API
+  // Determine if we should show client-specific UI (backend handles filtering automatically)
+  const shouldShowClientUI = showClientView || isClientUser;
+  
+  // Fetch applications from API (backend automatically filters by user role)
   const {
     data: applicationsData,
     isLoading,
@@ -71,6 +76,12 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   // API data received successfully
   if (applicationsData) {
     console.log('✅ Applicants: Loaded', applicationsData.length || applicationsData.count || 0, 'applications');
+    console.log('✅ User type for filtering:', { 
+      isClientUser, 
+      shouldShowClientUI, 
+      showClientView,
+      locationPath: location.pathname 
+    });
   }
 
   // Fetch risk analysis for selected applicant
@@ -257,8 +268,10 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                 {getPageTitle()}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">
-                Manage and review credit applications with real-time risk
-                assessment
+                {shouldShowClientUI 
+                  ? "View and track your credit applications and their status"
+                  : "Manage and review credit applications with real-time risk assessment"
+                }
               </p>
             </motion.div>
 
