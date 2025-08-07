@@ -8,7 +8,7 @@ import {
   ApprovalRateChart,
   ChartContainer,
 } from "./components/Charts";
-import AlertCard from "./components/AlertCard";
+// import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import { usePermissions, useHasPermission, useHasAnyPermission, useIsClientUser, useHighestRole } from "../../components/utils/hooks/useRBAC";
@@ -79,22 +79,22 @@ const Dashboard: React.FC = () => {
   // Permission checks - role-based
   const canViewRisk = useHasAnyPermission(['risk_view', 'risk_edit']);
   const canViewUsers = useHasAnyPermission(['user_view_all', 'user_manage', 'role_view']) || isAdmin;
-  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !userTypeDetection.isClient; // Explicitly exclude Client Users
+  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !userTypeDetection.isClient;
   const canViewCompliance = useHasPermission('compliance_view');
-  
+
   // RBAC data fetching
-  const { 
-    data: rbacData, 
-    isLoading: rbacLoading, 
-    error: rbacError 
+  const {
+    data: rbacData,
+    isLoading: rbacLoading,
+    error: rbacError
   } = useGetRBACDashboardQuery(undefined, {
     skip: !useHasAnyPermission(['view_dashboard', 'user_view_all'])
   });
-  
-  const { 
-    data: usersData, 
+
+  const {
+    data: usersData,
     isLoading: usersLoading,
-    error: usersError 
+    error: usersError
   } = useGetAdminUsersListQuery(
     { page: 1, page_size: 10, sort_by: 'last_login' },
     { skip: !canViewUsers }
@@ -108,11 +108,11 @@ const Dashboard: React.FC = () => {
       email: user?.email || "current.user@example.com",
       full_name: user?.full_name || user?.name || "Current User",
       last_login: new Date().toISOString(),
-      active_roles: [{ 
-        name: typeof user?.user_type === 'string' 
-          ? user.user_type 
-          : (user?.user_type?.name || user?.user_type_display || "User"), 
-        assigned_at: new Date().toISOString() 
+      active_roles: [{
+        name: typeof user?.user_type === 'string'
+          ? user.user_type
+          : (user?.user_type?.name || user?.user_type_display || "User"),
+        assigned_at: new Date().toISOString()
       }],
       is_active: true,
       mfa_enabled: user?.mfa_enabled || false,
@@ -131,7 +131,7 @@ const Dashboard: React.FC = () => {
       setStableIsClientUser(true);
     } else if (!isClientUser && stableIsClientUser === true && roles.length > 0) {
       // Only change from client user to non-client if we have other roles
-      const hasOtherRoles = roles.some(role => 
+      const hasOtherRoles = roles.some(role =>
         ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
       );
       if (hasOtherRoles) {
@@ -229,7 +229,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 </motion.div>
-                
+
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 cursor-pointer"
@@ -246,7 +246,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 </motion.div>
-                
+
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 cursor-pointer"
@@ -272,60 +272,60 @@ const Dashboard: React.FC = () => {
         {userTypeDetection.isAdmin && (
           <AdminOnly>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <RBACStatsCard
-              title="Total Users"
-              value={rbacData?.summary.total_users || 0}
-              icon={
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              }
-              isLoading={rbacLoading}
-              color="blue"
-            />
-            <RBACStatsCard
-              title="Active Roles"
-              value={rbacData?.summary.total_roles || 0}
-              icon={
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              }
-              isLoading={rbacLoading}
-              color="green"
-            />
-            <RBACStatsCard
-              title="Role Assignments"
-              value={rbacData?.summary.active_assignments || 0}
-              icon={
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              }
-              isLoading={rbacLoading}
-              color="purple"
-            />
-            <RBACStatsCard
-              title="Expiring Soon"
-              value={rbacData?.summary.expiring_soon || 0}
-              change={rbacData?.summary.expired ? `+${rbacData.summary.expired}` : undefined}
-              trend="up"
-              icon={
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-              isLoading={rbacLoading}
-              color="yellow"
-            />
-          </div>
+              <RBACStatsCard
+                title="Total Users"
+                value={rbacData?.summary.total_users || 0}
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg>
+                }
+                isLoading={rbacLoading}
+                color="blue"
+              />
+              <RBACStatsCard
+                title="Active Roles"
+                value={rbacData?.summary.total_roles || 0}
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                }
+                isLoading={rbacLoading}
+                color="green"
+              />
+              <RBACStatsCard
+                title="Role Assignments"
+                value={rbacData?.summary.active_assignments || 0}
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                }
+                isLoading={rbacLoading}
+                color="purple"
+              />
+              <RBACStatsCard
+                title="Expiring Soon"
+                value={rbacData?.summary.expiring_soon || 0}
+                change={rbacData?.summary.expired ? `+${rbacData.summary.expired}` : undefined}
+                trend="up"
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                isLoading={rbacLoading}
+                color="yellow"
+              />
+            </div>
           </AdminOnly>
         )}
 
-        {/* STAFF DASHBOARDS - FOR ALL NON-CLIENT USERS */}
-        {!userTypeDetection.isClient && (
-          <>
-            {/* RISK ANALYSIS DASHBOARD */}
+        {/* ROLE-SPECIFIC DASHBOARDS */}
+        
+        {/* RISK ANALYSIS DASHBOARD - Risk Analysts and Admins */}
+        {(roles?.includes('Risk Analyst')) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,59 +333,61 @@ const Dashboard: React.FC = () => {
                 </svg>
                 Risk Analysis Dashboard
               </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <RBACStatsCard
-                title="Risk Assessments"
-                value="1,248"
-                change="+12%"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                }
-                color="blue"
-              />
-              <RBACStatsCard
-                title="High Risk Cases"
-                value="23"
-                change="-8%"
-                trend="down"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                }
-                color="red"
-              />
-              <RBACStatsCard
-                title="Model Accuracy"
-                value="94.2%"
-                change="+1.3%"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
-                color="green"
-              />
-              <RBACStatsCard
-                title="Pending Reviews"
-                value="47"
-                change="+15"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
-                color="yellow"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <RBACStatsCard
+                  title="Risk Assessments"
+                  value="1,248"
+                  change="+12%"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  }
+                  color="blue"
+                />
+                <RBACStatsCard
+                  title="High Risk Cases"
+                  value="23"
+                  change="-8%"
+                  trend="down"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  }
+                  color="red"
+                />
+                <RBACStatsCard
+                  title="Model Accuracy"
+                  value="94.2%"
+                  change="+1.3%"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color="green"
+                />
+                <RBACStatsCard
+                  title="Pending Reviews"
+                  value="47"
+                  change="+15"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color="yellow"
+                />
+              </div>
             </div>
-            </div>
+        )}
 
-            {/* COMPLIANCE & AUDIT DASHBOARD */}
+        {/* COMPLIANCE & AUDIT DASHBOARD - Compliance Auditors and Admins */}
+        {(roles?.includes('Compliance Auditor') || userTypeDetection.isAdmin) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,59 +395,61 @@ const Dashboard: React.FC = () => {
                 </svg>
                 Compliance & Audit Dashboard
               </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <RBACStatsCard
-                title="Compliance Score"
-                value="96.7%"
-                change="+2.1%"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
-                color="green"
-              />
-              <RBACStatsCard
-                title="Audit Findings"
-                value="12"
-                change="-33%"
-                trend="down"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
-                color="orange"
-              />
-              <RBACStatsCard
-                title="Policy Violations"
-                value="3"
-                change="-75%"
-                trend="down"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                }
-                color="red"
-              />
-              <RBACStatsCard
-                title="Regulatory Reports"
-                value="18"
-                change="+6"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                }
-                color="blue"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <RBACStatsCard
+                  title="Compliance Score"
+                  value="96.7%"
+                  change="+2.1%"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color="green"
+                />
+                <RBACStatsCard
+                  title="Audit Findings"
+                  value="12"
+                  change="-33%"
+                  trend="down"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color="orange"
+                />
+                <RBACStatsCard
+                  title="Policy Violations"
+                  value="3"
+                  change="-75%"
+                  trend="down"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  }
+                  color="red"
+                />
+                <RBACStatsCard
+                  title="Regulatory Reports"
+                  value="18"
+                  change="+6"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  }
+                  color="blue"
+                />
+              </div>
             </div>
-            </div>
+        )}
 
-            {/* MANAGEMENT DASHBOARD */}
+        {/* MANAGEMENT DASHBOARD - Managers and Admins */}
+        {(roles?.includes('Manager') || userTypeDetection.isAdmin) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -453,59 +457,61 @@ const Dashboard: React.FC = () => {
                 </svg>
                 Management Dashboard
               </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <RBACStatsCard
-                title="Team Performance"
-                value="91.4%"
-                change="+5.2%"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                }
-                color="green"
-              />
-              <RBACStatsCard
-                title="Active Projects"
-                value="14"
-                change="+3"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                }
-                color="blue"
-              />
-              <RBACStatsCard
-                title="Resource Utilization"
-                value="87%"
-                change="+12%"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                }
-                color="purple"
-              />
-              <RBACStatsCard
-                title="Pending Approvals"
-                value="28"
-                change="+7"
-                trend="up"
-                icon={
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
-                color="yellow"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <RBACStatsCard
+                  title="Team Performance"
+                  value="91.4%"
+                  change="+5.2%"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  }
+                  color="green"
+                />
+                <RBACStatsCard
+                  title="Active Projects"
+                  value="14"
+                  change="+3"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  }
+                  color="blue"
+                />
+                <RBACStatsCard
+                  title="Resource Utilization"
+                  value="87%"
+                  change="+12%"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  }
+                  color="purple"
+                />
+                <RBACStatsCard
+                  title="Pending Approvals"
+                  value="28"
+                  change="+7"
+                  trend="up"
+                  icon={
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color="yellow"
+                />
+              </div>
             </div>
-            </div>
+        )}
 
-            {/* CHARTS SECTION FOR ALL STAFF */}
+        {/* CHARTS SECTION FOR NON-CLIENT USERS */}
+        {!userTypeDetection.isClient && (
             <div className="space-y-8 mb-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <ChartContainer title="Risk Model Performance">
@@ -524,7 +530,6 @@ const Dashboard: React.FC = () => {
                 </ChartContainer>
               </div>
             </div>
-          </>
         )}
 
         {/* REMOVED ROLE-SPECIFIC PROTECTED COMPONENTS FOR NOW - CAN BE RESTORED LATER */}
@@ -593,13 +598,13 @@ const Dashboard: React.FC = () => {
             {/* RBAC Charts (Admin Only) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ChartContainer title="Role Distribution">
-                <RoleDistributionChart 
+                <RoleDistributionChart
                   data={rbacData?.popular_roles || []}
                   isLoading={rbacLoading}
                 />
               </ChartContainer>
               <ChartContainer title="Permission Usage">
-                <PermissionUsageChart 
+                <PermissionUsageChart
                   data={rbacData?.recent_activity}
                   isLoading={rbacLoading}
                 />
@@ -820,7 +825,7 @@ const Dashboard: React.FC = () => {
         <div className="space-y-8">
           {/* User Activity Widget - Admin Only - FULL WIDTH */}
           <AdminOnly>
-            <UserActivityWidget 
+            <UserActivityWidget
               users={usersData?.results || (Array.isArray(usersData) ? usersData : basicUserActivity)}
               isLoading={usersLoading}
               title="Recent User Activity"
@@ -828,11 +833,11 @@ const Dashboard: React.FC = () => {
           </AdminOnly>
 
           {/* Enhanced System Alerts Widget - FULL WIDTH */}
-          <SystemAlertsWidget 
+          <SystemAlertsWidget
             userType={
-              userTypeDetection.isAdmin ? 'admin' : 
-              userTypeDetection.isStaff ? 'staff' : 
-              'client'
+              userTypeDetection.isAdmin ? 'admin' :
+                userTypeDetection.isStaff ? 'staff' :
+                  'client'
             }
             isLoading={rbacLoading}
           />

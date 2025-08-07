@@ -377,7 +377,7 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        <DebugInfo />
+        {/* <DebugInfo /> */}
 
         {/* Main Admin Tabs */}
         <div className="pb-8">
@@ -419,7 +419,7 @@ const AdminPanel: React.FC = () => {
                               
                               <div className="flex items-center space-x-3">
                                 <ProtectedComponent
-                                  permissions={["user_create"]}
+                                  permissions={["role_create"]}
                                   roles={["Administrator", "Manager"]}
                                 >
                                   <motion.button
@@ -464,7 +464,7 @@ const AdminPanel: React.FC = () => {
                     icon: <FiShield className="h-5 w-5" />,
                     content: (
                       <ProtectedComponent
-                        permissions={["role_manage", "role_assign"]}
+                        permissions={["role_assign"]}
                         roles={["Administrator", "Manager"]}
                         requireAll={false}
                       >
@@ -485,7 +485,7 @@ const AdminPanel: React.FC = () => {
                     icon: <FiActivity className="h-5 w-5" />,
                     content: (
                       <ProtectedComponent
-                        permissions={["audit_view", "security_logs_view"]}
+                        permissions={["system_logs"]}
                         roles={["Administrator", "Manager"]}
                         requireAll={false}
                       >

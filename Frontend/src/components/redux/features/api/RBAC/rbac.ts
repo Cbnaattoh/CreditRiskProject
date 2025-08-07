@@ -6,6 +6,14 @@ export interface RBACUser extends AuthUser {
     permission_summary?: PermissionSummary;
 }
 
+// Enhanced user interface with role mapping
+export interface EnhancedRBACUser extends RBACUser {
+    frontendRoles: RoleName[];
+    backendRole: BackendRoleType;
+    roleLevel: number;
+    hasElevatedAccess: boolean;
+}
+
 export interface Role {
     id: number;
     name: string;
@@ -63,53 +71,143 @@ export interface PermissionSummary {
 export type PermissionCode = 
   | 'user_view_all' | 'user_edit_all' | 'user_delete' | 'user_manage_roles'
   | 'role_view' | 'role_create' | 'role_edit' | 'role_delete' | 'role_assign'
-  | 'system_settings' | 'system_logs' | 'view_audit_logs' | 'view_dashboard'
+  | 'system_settings' | 'system_logs' | 'view_audit_logs' | 'view_dashboard' | 'system_backup'
   | 'data_export' | 'data_import' | 'data_delete'
-  | 'report_view' | 'report_create' | 'report_admin'
+  | 'report_view' | 'report_create' | 'report_admin' | 'report_edit' | 'report_delete' | 'report_comment' | 'report_share' | 'report_template_create' | 'report_template_edit' | 'report_template_delete' | 'report_schedule_create' | 'report_schedule_edit' | 'report_schedule_delete' | 'report_schedule_view'
   | 'risk_view' | 'risk_edit' | 'risk_approve' | 'risk_delete'
   | 'compliance_view' | 'compliance_edit' | 'compliance_audit'
-  | 'client_view' | 'client_edit' | 'client_delete';
+  | 'client_view' | 'client_edit' | 'client_delete'
+  | 'edit_own_profile' | 'view_own_profile' | 'view_permissions' | 'manage_permissions';
 
 export type RoleName = 'Administrator' | 'Risk Analyst' | 'Compliance Auditor' | 'Client User' | 'Manager';
 
-// Role-based access control mappings
+// Backend role type mappings
+export type BackendRoleType = 'ADMIN' | 'CLIENT' | 'ANALYST' | 'AUDITOR' | 'MANAGER';
+
+// Mapping between backend roles and frontend role names
+export const BACKEND_TO_FRONTEND_ROLE: Record<BackendRoleType, RoleName> = {
+  'ADMIN': 'Administrator',
+  'CLIENT': 'Client User',
+  'ANALYST': 'Risk Analyst',
+  'AUDITOR': 'Compliance Auditor',
+  'MANAGER': 'Manager'
+};
+
+export const FRONTEND_TO_BACKEND_ROLE: Record<RoleName, BackendRoleType> = {
+  'Administrator': 'ADMIN',
+  'Client User': 'CLIENT',
+  'Risk Analyst': 'ANALYST',
+  'Compliance Auditor': 'AUDITOR',
+  'Manager': 'MANAGER'
+};
+
+// Role-based access control mappings - updated to match backend permissions
 export const ROLE_PERMISSIONS: Record<RoleName, PermissionCode[]> = {
   'Administrator': [
     'user_view_all', 'user_edit_all', 'user_delete', 'user_manage_roles',
     'role_view', 'role_create', 'role_edit', 'role_delete', 'role_assign',
-    'system_settings', 'system_logs', 'view_audit_logs', 'view_dashboard',
+    'system_settings', 'system_logs', 'view_audit_logs', 'view_dashboard', 'system_backup',
     'data_export', 'data_import', 'data_delete',
-    'report_view', 'report_create', 'report_admin',
+    'report_view', 'report_create', 'report_admin', 'report_edit', 'report_delete', 'report_comment', 'report_share', 'report_template_create', 'report_template_edit', 'report_template_delete', 'report_schedule_create', 'report_schedule_edit', 'report_schedule_delete', 'report_schedule_view',
     'risk_view', 'risk_edit', 'risk_approve', 'risk_delete',
     'compliance_view', 'compliance_edit', 'compliance_audit',
-    'client_view', 'client_edit', 'client_delete'
+    'client_view', 'client_edit', 'client_delete',
+    'edit_own_profile', 'view_own_profile', 'view_permissions', 'manage_permissions'
   ],
   'Risk Analyst': [
-    'user_view_all', 'role_view', 'risk_view', 'risk_edit', 'risk_approve',
-    'compliance_view', 'compliance_edit', 'report_view', 'report_create',
-    'data_export', 'client_view', 'view_dashboard'
+    'risk_view', 'risk_edit', 'risk_approve',
+    'compliance_view', 'compliance_edit',
+    'report_view', 'report_create', 'report_edit', 'report_comment',
+    'data_export',
+    'client_view',
+    'view_dashboard',
+    'edit_own_profile', 'view_own_profile'
   ],
   'Compliance Auditor': [
-    'user_view_all', 'role_view', 'risk_view', 'compliance_view', 
-    'compliance_edit', 'compliance_audit', 'report_view', 'report_create',
-    'system_logs', 'view_audit_logs', 'data_export', 'client_view', 'view_dashboard'
+    'risk_view',
+    'compliance_view', 'compliance_edit', 'compliance_audit',
+    'report_view', 'report_create', 'report_edit', 'report_comment',
+    'system_logs', 'view_audit_logs',
+    'data_export',
+    'client_view',
+    'view_dashboard',
+    'edit_own_profile', 'view_own_profile'
   ],
   'Client User': [
-    'risk_view', 'compliance_view', 'client_view', 'view_dashboard'
+    'risk_view',
+    'compliance_view',
+    'client_view',
+    'view_dashboard',
+    'edit_own_profile', 'view_own_profile'
   ],
   'Manager': [
-    'user_view_all', 'user_edit_all', 'role_view', 'role_assign',
-    'risk_view', 'risk_edit', 'risk_approve', 'compliance_view', 'compliance_edit',
-    'report_view', 'report_create', 'report_admin', 'data_export',
-    'client_view', 'client_edit', 'view_dashboard'
+    'user_view_all', 'user_edit_all',
+    'role_view', 'role_assign',
+    'risk_view', 'risk_edit', 'risk_approve',
+    'compliance_view', 'compliance_edit',
+    'report_view', 'report_create', 'report_admin', 'report_edit', 'report_delete', 'report_comment', 'report_share', 'report_schedule_create', 'report_schedule_edit', 'report_schedule_view',
+    'data_export',
+    'client_view', 'client_edit',
+    'view_dashboard',
+    'edit_own_profile', 'view_own_profile'
   ]
 };
 
 // Feature access based on roles
 export const ROLE_FEATURES: Record<RoleName, string[]> = {
-  'Administrator': ['user_management', 'role_management', 'audit_logs', 'reporting', 'risk_management', 'client_management', 'admin_panel'],
+  'Administrator': ['user_management', 'role_management', 'audit_logs', 'reporting', 'risk_management', 'client_management', 'admin_panel', 'system_settings', 'data_management'],
   'Risk Analyst': ['reporting', 'risk_management', 'client_management'],
-  'Compliance Auditor': ['reporting', 'audit_logs', 'risk_management', 'client_management'],
-  'Client User': ['risk_management'], // No reporting access
+  'Compliance Auditor': ['reporting', 'audit_logs', 'risk_management', 'client_management', 'compliance_audit'],
+  'Client User': ['risk_management', 'client_view'], // Limited access - no reporting
   'Manager': ['user_management', 'role_management', 'reporting', 'risk_management', 'client_management']
+};
+
+// Role hierarchy levels (higher number = more privileges)
+export const ROLE_HIERARCHY: Record<RoleName, number> = {
+  'Administrator': 5,
+  'Manager': 4,
+  'Risk Analyst': 3,
+  'Compliance Auditor': 3,
+  'Client User': 1
+};
+
+// Utility functions
+export const mapBackendRoleToFrontend = (backendRole: string): RoleName | null => {
+  const role = backendRole.toUpperCase() as BackendRoleType;
+  return BACKEND_TO_FRONTEND_ROLE[role] || null;
+};
+
+export const mapFrontendRoleToBackend = (frontendRole: RoleName): BackendRoleType => {
+  return FRONTEND_TO_BACKEND_ROLE[frontendRole];
+};
+
+export const getRoleLevel = (roleName: RoleName): number => {
+  return ROLE_HIERARCHY[roleName] || 0;
+};
+
+export const hasHigherRoleLevel = (userRole: RoleName, requiredRole: RoleName): boolean => {
+  return getRoleLevel(userRole) >= getRoleLevel(requiredRole);
+};
+
+// Check if user has specific permission based on their roles
+export const userHasPermission = (userRoles: string[], permission: PermissionCode): boolean => {
+  return userRoles.some(roleName => {
+    const mappedRole = mapBackendRoleToFrontend(roleName);
+    if (!mappedRole) return false;
+    return ROLE_PERMISSIONS[mappedRole]?.includes(permission) || false;
+  });
+};
+
+// Get all permissions for a user based on their roles
+export const getUserPermissionsFromRoles = (userRoles: string[]): PermissionCode[] => {
+  const permissions = new Set<PermissionCode>();
+  
+  userRoles.forEach(roleName => {
+    const mappedRole = mapBackendRoleToFrontend(roleName);
+    if (mappedRole) {
+      ROLE_PERMISSIONS[mappedRole]?.forEach(permission => permissions.add(permission));
+    }
+  });
+  
+  return Array.from(permissions);
 };

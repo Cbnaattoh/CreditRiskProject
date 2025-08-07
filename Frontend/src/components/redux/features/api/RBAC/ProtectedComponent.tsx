@@ -173,6 +173,71 @@ export const StaffOnly: React.FC<{
   </ProtectedComponent>
 ));
 
+// Role-specific components
+export const ClientOnly: React.FC<{
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  className?: string;
+}> = memo(({ children, fallback = null, className }) => (
+  <ProtectedComponent
+    roles={["Client User"]}
+    fallback={fallback}
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+ClientOnly.displayName = "ClientOnly";
+
+export const AnalystOnly: React.FC<{
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  className?: string;
+}> = memo(({ children, fallback = null, className }) => (
+  <ProtectedComponent
+    roles={["Risk Analyst"]}
+    fallback={fallback}
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+AnalystOnly.displayName = "AnalystOnly";
+
+export const AuditorOnly: React.FC<{
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  className?: string;
+}> = memo(({ children, fallback = null, className }) => (
+  <ProtectedComponent
+    roles={["Compliance Auditor"]}
+    fallback={fallback}
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+AuditorOnly.displayName = "AuditorOnly";
+
+export const ManagerOnly: React.FC<{
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  className?: string;
+}> = memo(({ children, fallback = null, className }) => (
+  <ProtectedComponent
+    roles={["Manager"]}
+    fallback={fallback}
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+ManagerOnly.displayName = "ManagerOnly";
+
 StaffOnly.displayName = "StaffOnly";
 
 export const UserManagementAccess: React.FC<{
@@ -205,6 +270,71 @@ export const AuditLogsAccess: React.FC<{
     {children}
   </ProtectedComponent>
 ));
+
+// Enhanced access components
+export const ReportsAccess: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = memo(({ children, className }) => (
+  <ProtectedComponent 
+    permissions={["report_view"]} 
+    roles={["Administrator", "Risk Analyst", "Compliance Auditor", "Manager"]}
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+ReportsAccess.displayName = "ReportsAccess";
+
+export const RiskManagementAccess: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = memo(({ children, className }) => (
+  <ProtectedComponent permissions={["risk_view"]} className={className}>
+    {children}
+  </ProtectedComponent>
+));
+
+RiskManagementAccess.displayName = "RiskManagementAccess";
+
+export const ComplianceAccess: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = memo(({ children, className }) => (
+  <ProtectedComponent permissions={["compliance_view"]} className={className}>
+    {children}
+  </ProtectedComponent>
+));
+
+ComplianceAccess.displayName = "ComplianceAccess";
+
+export const ClientManagementAccess: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = memo(({ children, className }) => (
+  <ProtectedComponent permissions={["client_view"]} className={className}>
+    {children}
+  </ProtectedComponent>
+));
+
+ClientManagementAccess.displayName = "ClientManagementAccess";
+
+export const SystemSettingsAccess: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = memo(({ children, className }) => (
+  <ProtectedComponent 
+    permissions={["system_settings"]} 
+    roles={["Administrator"]}
+    requireAll
+    className={className}
+  >
+    {children}
+  </ProtectedComponent>
+));
+
+SystemSettingsAccess.displayName = "SystemSettingsAccess";
 
 AuditLogsAccess.displayName = "AuditLogsAccess";
 
@@ -399,11 +529,14 @@ export const FeatureFlag: React.FC<FeatureFlagProps> = memo(
       system_settings: ["system_settings"],
       bulk_actions: ["user_edit_all"],
       advanced_reports: ["report_admin"],
+      reports: ["report_view"],
       compliance_audit: ["compliance_audit"],
+      compliance: ["compliance_view"],
       data_export: ["data_export"],
       data_import: ["data_import"],
       risk_management: ["risk_view"],
       client_management: ["client_view"],
+      dashboard: ["view_dashboard"],
     };
 
     const requiredPermissions = featurePermissions[feature];

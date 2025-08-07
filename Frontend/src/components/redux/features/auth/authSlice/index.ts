@@ -55,7 +55,7 @@ const validateAndCleanupToken = (): {
   const token = localStorage.getItem("authToken");
   const refreshToken = localStorage.getItem("refreshToken");
   const userDataString = localStorage.getItem("authUser");
-  
+
   let user = null;
   if (userDataString) {
     try {
@@ -79,7 +79,7 @@ const validateAndCleanupToken = (): {
 
 const safeParseLocalStorage = (key: string, fallback: any[] = []): any[] => {
   if (typeof window === "undefined") return fallback;
-  
+
   try {
     const item = localStorage.getItem(key);
     if (!item) return fallback;
@@ -93,7 +93,7 @@ const safeParseLocalStorage = (key: string, fallback: any[] = []): any[] => {
 // Helper to get persisted permission summary
 const getPersistedPermissionSummary = (): PermissionSummary | null => {
   if (typeof window === "undefined") return null;
-  
+
   try {
     const item = localStorage.getItem("user_permission_summary");
     return item ? JSON.parse(item) : null;
@@ -146,12 +146,12 @@ const authSlice = createSlice({
       }>
     ) => {
       console.log('🔵 Updating permissions:', action.payload);
-      
-      state.permissions = Array.isArray(action.payload.permissions) 
-        ? action.payload.permissions 
+
+      state.permissions = Array.isArray(action.payload.permissions)
+        ? action.payload.permissions
         : EMPTY_PERMISSIONS;
-      state.roles = Array.isArray(action.payload.roles) 
-        ? action.payload.roles 
+      state.roles = Array.isArray(action.payload.roles)
+        ? action.payload.roles
         : EMPTY_ROLES;
       state.permissionSummary = action.payload.permissionSummary || null;
 
@@ -170,7 +170,7 @@ const authSlice = createSlice({
         } else {
           localStorage.removeItem("user_permission_summary");
         }
-        
+
         console.log('🔵 Persisted permissions to localStorage:', {
           permissions: state.permissions.length,
           roles: state.roles.length,
@@ -182,7 +182,7 @@ const authSlice = createSlice({
     setCredentials: (
       state,
       action: PayloadAction<{
-        user: AuthUser;
+        user: AuthUser & { permissions?: string[]; roles?: Array<{ id: number, name: string }> };
         token: string;
         refreshToken?: string;
         tokenType?: 'full_access' | 'mfa_setup';
@@ -195,18 +195,19 @@ const authSlice = createSlice({
         created_by_admin?: boolean;
       }>
     ) => {
-      const { 
-        user, 
-        token, 
-        refreshToken, 
-        tokenType, 
-        requiresMFASetup, 
-        limitedAccess, 
+
+      const {
+        user,
+        token,
+        refreshToken,
+        tokenType,
+        requiresMFASetup,
+        limitedAccess,
         mfaCompleted,
         requires_password_change,
         password_expired,
         temporary_password,
-        created_by_admin
+        created_by_admin,
       } = action.payload;
 
       if (isTokenExpired(token)) {
@@ -230,6 +231,9 @@ const authSlice = createSlice({
       state.passwordExpired = password_expired ?? false;
       state.temporaryPassword = temporary_password ?? false;
       state.createdByAdmin = created_by_admin ?? false;
+      state.roles = Array.isArray(user.roles) ? user.roles.map((r) => typeof r === 'string' ? r : r.name) : EMPTY_ROLES;
+      state.permissions = Array.isArray(user.permissions) ? user.permissions : EMPTY_PERMISSIONS;
+
 
       if (typeof window !== "undefined") {
         localStorage.setItem("authToken", token);
@@ -237,42 +241,56 @@ const authSlice = createSlice({
         if (refreshToken) {
           localStorage.setItem("refreshToken", refreshToken);
         }
+
+        localStorage.setItem("user_permissions", JSON.stringify(state.permissions));
+        localStorage.setItem("user_roles", JSON.stringify(state.roles));
+
+        if (state.permissionSummary) {
+          localStorage.setItem("user_permission_summary", JSON.stringify(state.permissionSummary));
+        }
+
+        console.log('🔵 Persisted RBAC data from setCredentials:', {
+          permissions: state.permissions.length,
+          roles: state.roles.length,
+          summary: !!state.permissionSummary
+        });
+
       }
 
       // Handle RBAC data from user object
-      if ("permissions" in action.payload.user) {
-        const rbacUser = action.payload.user as any;
-        console.log('🔵 Processing RBAC data from user:', rbacUser);
-        
-        state.permissions = Array.isArray(rbacUser.permissions) 
-          ? rbacUser.permissions 
-          : EMPTY_PERMISSIONS;
-        state.roles = Array.isArray(rbacUser.roles) 
-          ? rbacUser.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) 
-          : EMPTY_ROLES;
-        state.permissionSummary = rbacUser.permission_summary || null;
-        
-        // Persist RBAC data
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            "user_permissions",
-            JSON.stringify(state.permissions)
-          );
-          localStorage.setItem("user_roles", JSON.stringify(state.roles));
-          if (state.permissionSummary) {
-            localStorage.setItem(
-              "user_permission_summary",
-              JSON.stringify(state.permissionSummary)
-            );
-          }
-          
-          console.log('🔵 Persisted RBAC data from setCredentials:', {
-            permissions: state.permissions.length,
-            roles: state.roles.length,
-            summary: !!state.permissionSummary
-          });
-        }
-      }
+      // if ("permissions" in action.payload.user) {
+      //   const rbacUser = action.payload.user as any;
+      //   console.log('🔵 Processing RBAC data from user:', rbacUser);
+
+      //   state.permissions = Array.isArray(rbacUser.permissions)
+      //     ? rbacUser.permissions
+      //     : EMPTY_PERMISSIONS;
+      //   state.roles = Array.isArray(rbacUser.roles)
+      //     ? rbacUser.roles.map((r: any) => (typeof r === 'string' ? r : r.name))
+      //     : EMPTY_ROLES;
+      //   state.permissionSummary = rbacUser.permission_summary || null;
+
+      //   // Persist RBAC data
+      //   if (typeof window !== "undefined") {
+      //     localStorage.setItem(
+      //       "user_permissions",
+      //       JSON.stringify(state.permissions)
+      //     );
+      //     localStorage.setItem("user_roles", JSON.stringify(state.roles));
+      //     if (state.permissionSummary) {
+      //       localStorage.setItem(
+      //         "user_permission_summary",
+      //         JSON.stringify(state.permissionSummary)
+      //       );
+      //     }
+
+      //     console.log('🔵 Persisted RBAC data from setCredentials:', {
+      //       permissions: state.permissions.length,
+      //       roles: state.roles.length,
+      //       summary: !!state.permissionSummary
+      //     });
+      //   }
+      // }
     },
 
     setAuthToken: (
@@ -327,8 +345,8 @@ const authSlice = createSlice({
       state.requiresMFA = true;
       state.tempToken = action.payload.tempToken;
       state.uid = action.payload.uid;
-      state.mfaMethods = Array.isArray(action.payload.mfaMethods) 
-        ? action.payload.mfaMethods 
+      state.mfaMethods = Array.isArray(action.payload.mfaMethods)
+        ? action.payload.mfaMethods
         : ["totp"];
       state.isLoading = false;
     },
@@ -343,7 +361,7 @@ const authSlice = createSlice({
       }>
     ) => {
       const { user, token, refreshToken } = action.payload;
-      
+
       if (isTokenExpired(token)) {
         console.warn("Attempted to set expired MFA setup token");
         return;
@@ -382,7 +400,7 @@ const authSlice = createSlice({
       }>
     ) => {
       const { token, refreshToken, tokenType } = action.payload;
-      
+
       if (isTokenExpired(token)) {
         console.warn("Attempted to set expired token after MFA completion");
         return;
@@ -607,7 +625,7 @@ export const selectCreatedByAdmin = (state: RootState) => state.auth.createdByAd
 
 export const selectIsAuthenticated = createSelector(
   [selectAuthState],
-  (auth) => 
+  (auth) =>
     auth.isAuthenticated &&
     auth.token !== null &&
     !isTokenExpired(auth.token)
@@ -615,7 +633,7 @@ export const selectIsAuthenticated = createSelector(
 
 export const selectHasFullAccess = createSelector(
   [selectAuthState],
-  (auth) => 
+  (auth) =>
     auth.isAuthenticated &&
     auth.token !== null &&
     !isTokenExpired(auth.token) &&
@@ -625,7 +643,7 @@ export const selectHasFullAccess = createSelector(
 
 export const selectHasLimitedAccess = createSelector(
   [selectAuthState],
-  (auth) => 
+  (auth) =>
     auth.isAuthenticated &&
     auth.token !== null &&
     !isTokenExpired(auth.token) &&
@@ -767,11 +785,11 @@ export const selectHasElevatedAccess = createSelector(
     const hasAdminRole = roles.includes("Administrator");
     const hasAdminPermissions = [
       "user_view_all",
-      "role_view", 
+      "role_view",
       "system_settings",
       "view_audit_logs"
     ].some(permission => permissions.includes(permission));
-    
+
     return hasAdminRole || hasAdminPermissions;
   }
 );
