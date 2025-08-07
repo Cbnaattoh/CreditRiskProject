@@ -33,6 +33,10 @@ interface AuthState {
   createdByAdmin: boolean;
 }
 
+const EMPTY_PERMISSIONS: string[] = [];
+const EMPTY_ROLES: string[] = [];
+const EMPTY_MFA_METHODS: string[] = [];
+
 const isTokenExpired = (token: string | null): boolean => {
   if (!token) return true;
 
@@ -65,13 +69,28 @@ const validateAndCleanupToken = (): {
     }
   }
 
+  // Only clear token if it's significantly expired (give 5 minute buffer for network delays)
   if (token && isTokenExpired(token)) {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("authState");
-    localStorage.removeItem("authUser");
-    clearUserState();
-    return { token: null, refreshToken: null, user: null };
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timeDifference = currentTime - payload.exp;
+    
+    // If token expired more than 5 minutes ago, clear everything
+    if (timeDifference > 300) { // 5 minutes
+      console.log('🔴 Token significantly expired, clearing auth data');
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("authState");
+      localStorage.removeItem("authUser");
+      localStorage.removeItem("user_permissions");
+      localStorage.removeItem("user_roles");
+      localStorage.removeItem("user_permission_summary");
+      clearUserState();
+      return { token: null, refreshToken: null, user: null };
+    }
+    
+    // Token recently expired, keep user data but mark for refresh
+    console.log('🟡 Token recently expired, keeping user data for refresh');
   }
 
   return { token, refreshToken, user };
@@ -102,12 +121,39 @@ const getPersistedPermissionSummary = (): PermissionSummary | null => {
   }
 };
 
+// Helper to validate and restore RBAC data from localStorage
+const validatePersistedRBACData = (): {
+  permissions: string[];
+  roles: string[];
+  permissionSummary: PermissionSummary | null;
+} => {
+  const permissions = safeParseLocalStorage("user_permissions", EMPTY_PERMISSIONS);
+  const roles = safeParseLocalStorage("user_roles", EMPTY_ROLES);
+  const permissionSummary = getPersistedPermissionSummary();
+  
+  // Validate that we have meaningful RBAC data
+  const hasValidRBACData = permissions.length > 0 || roles.length > 0;
+  
+  if (hasValidRBACData) {
+    console.log('✅ Valid RBAC data found in localStorage:', {
+      permissions: permissions.length,
+      roles: roles.length,
+      summary: !!permissionSummary
+    });
+  }
+  
+  return {
+    permissions,
+    roles,
+    permissionSummary
+  };
+};
+
 const { token: initialToken, refreshToken: initialRefreshToken, user: initialUser } =
   validateAndCleanupToken();
 
-const EMPTY_PERMISSIONS: string[] = [];
-const EMPTY_ROLES: string[] = [];
-const EMPTY_MFA_METHODS: string[] = [];
+const { permissions: initialPermissions, roles: initialRoles, permissionSummary: initialPermissionSummary } =
+  validatePersistedRBACData();
 
 const initialState: AuthState = {
   user: initialUser,
@@ -121,9 +167,9 @@ const initialState: AuthState = {
   uid: null,
   isLoading: false,
   tokenExpired: false,
-  permissions: safeParseLocalStorage("user_permissions", EMPTY_PERMISSIONS),
-  roles: safeParseLocalStorage("user_roles", EMPTY_ROLES),
-  permissionSummary: getPersistedPermissionSummary(),
+  permissions: initialPermissions,
+  roles: initialRoles,
+  permissionSummary: initialPermissionSummary,
   tokenType: null,
   limitedAccess: false,
   mfaCompleted: false,
@@ -147,13 +193,35 @@ const authSlice = createSlice({
     ) => {
       console.log('🔵 Updating permissions:', action.payload);
 
-      state.permissions = Array.isArray(action.payload.permissions)
+      const newPermissions = Array.isArray(action.payload.permissions)
         ? action.payload.permissions
         : EMPTY_PERMISSIONS;
-      state.roles = Array.isArray(action.payload.roles)
+      const newRoles = Array.isArray(action.payload.roles)
         ? action.payload.roles
         : EMPTY_ROLES;
-      state.permissionSummary = action.payload.permissionSummary || null;
+
+      // Only update if we have meaningful data OR if current data is empty
+      // This prevents clearing existing good data with empty API responses
+      if (newPermissions.length > 0 || newRoles.length > 0 || 
+          (state.permissions.length === 0 && state.roles.length === 0)) {
+        state.permissions = newPermissions;
+        state.roles = newRoles;
+        state.permissionSummary = action.payload.permissionSummary || null;
+        
+        console.log('✅ Permissions updated:', {
+          permissions: state.permissions.length,
+          roles: state.roles.length,
+          summary: !!state.permissionSummary
+        });
+      } else {
+        console.log('🛡️  Blocked empty permissions update - keeping existing data:', {
+          existingPermissions: state.permissions.length,
+          existingRoles: state.roles.length,
+          newPermissions: newPermissions.length,
+          newRoles: newRoles.length
+        });
+        return; // Don't persist empty data
+      }
 
       // Persist to localStorage for page refresh survival
       if (typeof window !== "undefined") {
@@ -576,6 +644,39 @@ const authSlice = createSlice({
         clearUserState();
       }
     },
+
+    // Handle API errors without clearing permissions immediately
+    handleApiError: (state, action: PayloadAction<{ preserveAuth?: boolean }>) => {
+      const { preserveAuth = false } = action.payload;
+      
+      // Mark as loading false but preserve auth state if requested
+      state.isLoading = false;
+      
+      if (!preserveAuth) {
+        // Only mark token as expired, don't clear everything immediately
+        state.tokenExpired = true;
+        console.log('🟡 API Error - marked token as expired but preserving permissions');
+      } else {
+        console.log('🔵 API Error - preserving full auth state');
+      }
+    },
+
+    // Restore permissions from localStorage after failed API calls
+    restorePersistedPermissions: (state) => {
+      const { permissions, roles, permissionSummary } = validatePersistedRBACData();
+      
+      if (permissions.length > 0 || roles.length > 0) {
+        state.permissions = permissions;
+        state.roles = roles;
+        state.permissionSummary = permissionSummary;
+        
+        console.log('🔄 Restored permissions from localStorage:', {
+          permissions: permissions.length,
+          roles: roles.length,
+          summary: !!permissionSummary
+        });
+      }
+    },
   },
 });
 
@@ -596,6 +697,8 @@ export const {
   clearAllAuthData,
   updatePermissions,
   clearPasswordChangeRequirements,
+  handleApiError,
+  restorePersistedPermissions,
 } = authSlice.actions;
 
 export default authSlice.reducer;

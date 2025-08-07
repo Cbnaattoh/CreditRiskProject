@@ -68,6 +68,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
   const isAdmin = useIsAdmin();
   const isStaff = useIsStaff();
   
+  
   // Enhanced role detection hooks
   const isAdministrator = useIsAdministrator();
   const isClientUser = useIsClientUser();

@@ -11,7 +11,19 @@ import {
 // import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
-import { usePermissions, useHasPermission, useHasAnyPermission, useIsClientUser, useHighestRole } from "../../components/utils/hooks/useRBAC";
+import { 
+  usePermissions, 
+  useHasPermission, 
+  useHasAnyPermission, 
+  useIsClientUser, 
+  useHighestRole,
+  useIsAdministrator,
+  useIsAnalyst,
+  useIsAuditor,
+  useIsManager,
+  useDashboardAccess,
+  useNavigationAccess
+} from "../../components/utils/hooks/useRBAC";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../components/redux/features/auth/authSlice";
 import { RBACStatsCard } from "./components/RBACStatsCard";
@@ -28,16 +40,31 @@ const Dashboard: React.FC = () => {
   const isClientUser = useIsClientUser();
   const highestRole = useHighestRole();
   const navigate = useNavigate();
+  
+  // Enhanced role detection hooks (like Sidebar)
+  const isAdministrator = useIsAdministrator();
+  const isAnalyst = useIsAnalyst();
+  const isAuditor = useIsAuditor();
+  const isManager = useIsManager();
+  const dashboardAccess = useDashboardAccess();
+  const navigationAccess = useNavigationAccess();
 
-  // COMPREHENSIVE USER TYPE DETECTION
-  const userTypeDetection = useMemo(() => {
+  // Stable role detection with multiple fallback checks (like Sidebar)
+  const stableRoleDetection = useMemo(() => {
     if (!user || !isAuthenticated) {
-      return { type: 'GUEST', isAdmin: false, isClient: false, isStaff: false };
+      return { 
+        isAdmin: false, 
+        isClient: false, 
+        isStaff: false, 
+        isAnalyst: false,
+        isAuditor: false,
+        isManager: false
+      };
     }
 
-
-    // Admin detection - multiple ways
+    // Admin detection with multiple sources
     const adminChecks = [
+      isAdministrator,
       isAdmin,
       roles?.includes('Administrator'),
       user?.user_type === 'ADMIN',
@@ -47,42 +74,85 @@ const Dashboard: React.FC = () => {
     ];
     const isDefinitelyAdmin = adminChecks.some(check => check === true);
 
-    // Client detection - multiple ways  
+    // Risk Analyst detection with multiple sources
+    const analystChecks = [
+      isAnalyst,
+      roles?.includes('Risk Analyst'),
+      user?.role === 'ANALYST',
+      user?.role === 'Risk Analyst',
+      user?.user_type === 'ANALYST'
+    ];
+    const isDefinitelyAnalyst = analystChecks.some(check => check === true);
+
+    // Compliance Auditor detection
+    const auditorChecks = [
+      isAuditor,
+      roles?.includes('Compliance Auditor'),
+      user?.role === 'AUDITOR',
+      user?.role === 'Compliance Auditor'
+    ];
+    const isDefinitelyAuditor = auditorChecks.some(check => check === true);
+
+    // Manager detection
+    const managerChecks = [
+      isManager,
+      roles?.includes('Manager'),
+      user?.role === 'MANAGER',
+      user?.role === 'Manager'
+    ];
+    const isDefinitelyManager = managerChecks.some(check => check === true);
+
+    // Client detection
     const clientChecks = [
+      isClientUser,
       roles?.includes('Client User'),
       user?.user_type === 'CLIENT_USER',
       user?.user_type === 'Client User',
       user?.user_type_display === 'Client User',
-      user?.role === 'CLIENT',
-      user?.user_type === 'CLIENT',
-      user?.user_type?.toLowerCase().includes('client'),
-      user?.role?.toLowerCase() === 'client'
+      user?.role === 'CLIENT'
     ];
     const isDefinitelyClient = clientChecks.some(check => check === true);
 
-    // Staff detection
-    const staffRoles = ['Risk Analyst', 'Compliance Auditor', 'Manager'];
-    const isDefinitelyStaff = roles?.some(r => staffRoles.includes(r)) || false;
+    // Staff detection (any non-client role)
+    const isDefinitelyStaff = isDefinitelyAdmin || isDefinitelyAnalyst || isDefinitelyAuditor || isDefinitelyManager;
 
-    const result = {
-      type: isDefinitelyAdmin ? 'ADMIN' : isDefinitelyClient ? 'CLIENT' : isDefinitelyStaff ? 'STAFF' : 'USER',
+    return {
       isAdmin: isDefinitelyAdmin,
       isClient: isDefinitelyClient,
       isStaff: isDefinitelyStaff,
-      adminChecks,
-      clientChecks
+      isAnalyst: isDefinitelyAnalyst,
+      isAuditor: isDefinitelyAuditor,
+      isManager: isDefinitelyManager
     };
+  }, [
+    user, 
+    isAuthenticated, 
+    isAdministrator, 
+    isAdmin, 
+    isAnalyst, 
+    isAuditor, 
+    isManager, 
+    isClientUser, 
+    roles
+  ]);
 
-    return result;
-  }, [user, roles, isAdmin, isAuthenticated]);
+  // Use stable role detection for user type (consistent with Sidebar approach)
+  const userTypeDetection = useMemo(() => {
+    return {
+      type: stableRoleDetection.isAdmin ? 'ADMIN' : 
+            stableRoleDetection.isClient ? 'CLIENT' : 
+            stableRoleDetection.isStaff ? 'STAFF' : 'USER',
+      ...stableRoleDetection
+    };
+  }, [stableRoleDetection]);
 
   // Permission checks - role-based
   const canViewRisk = useHasAnyPermission(['risk_view', 'risk_edit']);
   const canViewUsers = useHasAnyPermission(['user_view_all', 'user_manage', 'role_view']) || isAdmin;
-  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !userTypeDetection.isClient;
+  const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !stableRoleDetection.isClient;
   const canViewCompliance = useHasPermission('compliance_view');
 
-  // RBAC data fetching
+  // RBAC data fetching with error handling
   const {
     data: rbacData,
     isLoading: rbacLoading,
@@ -99,6 +169,16 @@ const Dashboard: React.FC = () => {
     { page: 1, page_size: 10, sort_by: 'last_login' },
     { skip: !canViewUsers }
   );
+
+  // Log RBAC errors but don't let them break the UI
+  useEffect(() => {
+    if (rbacError) {
+      console.warn('🟡 RBAC Dashboard API failed - continuing with cached permissions:', rbacError);
+    }
+    if (usersError) {
+      console.warn('🟡 Users List API failed - continuing with basic user data:', usersError);
+    }
+  }, [rbacError, usersError]);
 
 
   // Create basic user activity data for non-admin users
@@ -159,7 +239,7 @@ const Dashboard: React.FC = () => {
             Welcome back, {user?.name || user?.first_name || 'User'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            {userTypeDetection.isClient
+            {stableRoleDetection.isClient
               ? "Monitor your credit applications and risk assessments"
               : `${highestRole} Dashboard - Overview of system metrics and activities`
             }
@@ -167,7 +247,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* CLIENT USER DASHBOARD */}
-        {userTypeDetection.isClient && (
+        {stableRoleDetection.isClient && (
           <>
             {/* Client User Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -269,7 +349,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* ADMIN DASHBOARD */}
-        {userTypeDetection.isAdmin && (
+        {stableRoleDetection.isAdmin && (
           <AdminOnly>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <RBACStatsCard
@@ -325,7 +405,7 @@ const Dashboard: React.FC = () => {
         {/* ROLE-SPECIFIC DASHBOARDS */}
         
         {/* RISK ANALYSIS DASHBOARD - Risk Analysts and Admins */}
-        {(roles?.includes('Risk Analyst')) && (
+        {(stableRoleDetection.isAnalyst || stableRoleDetection.isAdmin) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,7 +467,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* COMPLIANCE & AUDIT DASHBOARD - Compliance Auditors and Admins */}
-        {(roles?.includes('Compliance Auditor') || userTypeDetection.isAdmin) && (
+        {(stableRoleDetection.isAuditor || stableRoleDetection.isAdmin) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,7 +529,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* MANAGEMENT DASHBOARD - Managers and Admins */}
-        {(roles?.includes('Manager') || userTypeDetection.isAdmin) && (
+        {(stableRoleDetection.isManager || stableRoleDetection.isAdmin) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -510,8 +590,8 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* CHARTS SECTION FOR NON-CLIENT USERS */}
-        {!userTypeDetection.isClient && (
+        {/* CHARTS SECTION FOR STAFF USERS (NON-CLIENT) */}
+        {(stableRoleDetection.isAdmin || stableRoleDetection.isAnalyst || stableRoleDetection.isAuditor || stableRoleDetection.isManager) && (
             <div className="space-y-8 mb-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <ChartContainer title="Risk Model Performance">
@@ -532,11 +612,8 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* REMOVED ROLE-SPECIFIC PROTECTED COMPONENTS FOR NOW - CAN BE RESTORED LATER */}
-        {/*
-
         {/* COMPLIANCE AUDITOR CHARTS - ONLY FOR COMPLIANCE AUDITORS */}
-        <ProtectedComponent roles={["Compliance Auditor"]} requireAuth={true}>
+        {stableRoleDetection.isAuditor && (
           <div className="space-y-8 mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ChartContainer title="Compliance Violations Trend">
@@ -552,10 +629,10 @@ const Dashboard: React.FC = () => {
               </ChartContainer>
             </div>
           </div>
-        </ProtectedComponent>
+        )}
 
         {/* MANAGER CHARTS - ONLY FOR MANAGERS */}
-        <ProtectedComponent roles={["Manager"]} requireAuth={true}>
+        {stableRoleDetection.isManager && (
           <div className="space-y-8 mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ChartContainer title="Team Productivity Metrics">
@@ -574,10 +651,10 @@ const Dashboard: React.FC = () => {
               </ChartContainer>
             </div>
           </div>
-        </ProtectedComponent>
+        )}
 
         {/* ADMIN CHARTS - ONLY FOR ADMINISTRATORS */}
-        <ProtectedComponent roles={["Administrator"]} requireAuth={true}>
+        {stableRoleDetection.isAdmin && (
           <div className="space-y-8 mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ChartContainer title="System-wide Risk Distribution">
@@ -611,12 +688,12 @@ const Dashboard: React.FC = () => {
               </ChartContainer>
             </div>
           </div>
-        </ProtectedComponent>
+        )}
 
         {/* Role-Specific Quick Actions */}
         <div className="mb-8">
           {/* Risk Analyst Quick Actions */}
-          <ProtectedComponent roles={["Risk Analyst"]} requireAuth={true}>
+          {(stableRoleDetection.isAnalyst || stableRoleDetection.isAdmin) && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -672,10 +749,10 @@ const Dashboard: React.FC = () => {
                 </motion.div>
               </div>
             </div>
-          </ProtectedComponent>
+          )}
 
           {/* Compliance Auditor Quick Actions */}
-          <ProtectedComponent roles={["Compliance Auditor"]} requireAuth={true}>
+          {(stableRoleDetection.isAuditor || stableRoleDetection.isAdmin) && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -731,10 +808,10 @@ const Dashboard: React.FC = () => {
                 </motion.div>
               </div>
             </div>
-          </ProtectedComponent>
+          )}
 
           {/* Manager Quick Actions */}
-          <ProtectedComponent roles={["Manager"]} requireAuth={true}>
+          {(stableRoleDetection.isManager || stableRoleDetection.isAdmin) && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -790,11 +867,11 @@ const Dashboard: React.FC = () => {
                 </motion.div>
               </div>
             </div>
-          </ProtectedComponent>
+          )}
         </div>
 
         {/* Client User Charts */}
-        {userTypeDetection.isClient && (
+        {stableRoleDetection.isClient && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <ChartContainer title="Your Risk Profile">
               <div className="h-64 flex items-center justify-center text-gray-500">
@@ -824,19 +901,19 @@ const Dashboard: React.FC = () => {
         {/* Recent Activity & Alerts */}
         <div className="space-y-8">
           {/* User Activity Widget - Admin Only - FULL WIDTH */}
-          <AdminOnly>
+          {stableRoleDetection.isAdmin && (
             <UserActivityWidget
               users={usersData?.results || (Array.isArray(usersData) ? usersData : basicUserActivity)}
               isLoading={usersLoading}
               title="Recent User Activity"
             />
-          </AdminOnly>
+          )}
 
           {/* Enhanced System Alerts Widget - FULL WIDTH */}
           <SystemAlertsWidget
             userType={
-              userTypeDetection.isAdmin ? 'admin' :
-                userTypeDetection.isStaff ? 'staff' :
+              stableRoleDetection.isAdmin ? 'admin' :
+                stableRoleDetection.isStaff ? 'staff' :
                   'client'
             }
             isLoading={rbacLoading}
