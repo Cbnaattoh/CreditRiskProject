@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { FiPlus, FiFileText, FiShield, FiList } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useIsClientUser } from "../../components/utils/hooks/useRBAC";
-import Applications from "./index"; // Application form component
+import Applications from "./index";
 
 const ApplyWrapper: React.FC = () => {
   const isClientUser = useIsClientUser();
@@ -35,7 +35,7 @@ const ApplyWrapper: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 transition-all duration-500">
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
+        Header
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -92,37 +92,6 @@ const ApplyWrapper: React.FC = () => {
                     <li>Send you updates on your application status</li>
                   </ul>
                 </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Progress Steps */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex items-center justify-center mb-8"
-          >
-            <div className="flex items-center space-x-8 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
-                  1
-                </div>
-                <span className="text-gray-700 dark:text-gray-300 font-medium">Fill Application</span>
-              </div>
-              <div className="w-12 h-0.5 bg-gray-300 dark:bg-gray-600"></div>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full flex items-center justify-center font-semibold">
-                  2
-                </div>
-                <span className="text-gray-500 dark:text-gray-400">Upload Documents</span>
-              </div>
-              <div className="w-12 h-0.5 bg-gray-300 dark:bg-gray-600"></div>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full flex items-center justify-center font-semibold">
-                  3
-                </div>
-                <span className="text-gray-500 dark:text-gray-400">Submit & Review</span>
               </div>
             </div>
           </motion.div>

@@ -161,7 +161,6 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       showError("Please enter a valid email address.");
@@ -170,7 +169,6 @@ const AdminUserCreation: React.FC<AdminUserCreationProps> = ({
     }
 
     try {
-      // Make API call to create user
       const response = await fetch("http://localhost:8000/api/users/admin/create-user/", {
         method: "POST",
         headers: {
