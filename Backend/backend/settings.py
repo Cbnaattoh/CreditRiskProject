@@ -218,7 +218,7 @@ INSTALLED_APPS = [
     'documents',
     'integrations',
     'ml_model',
-    'ml_api',  # ML Model API endpoints
+    'ml_api',
     'notifications',
     'risk',
     'security',

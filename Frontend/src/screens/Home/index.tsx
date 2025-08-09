@@ -7,6 +7,11 @@ import {
   RiskFactorsRadar,
   ApprovalRateChart,
   ChartContainer,
+  CreditScoreDistributionChart,
+  ComplianceViolationsTrendChart,
+  SystemWideRiskDistributionChart,
+  OverallApplicationTrendsChart,
+  SystemWideRiskFactorsChart,
 } from "./components/Charts";
 // import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
@@ -610,7 +615,7 @@ const Dashboard: React.FC = () => {
                   <RiskDistributionChart />
                 </ChartContainer>
                 <ChartContainer title="Credit Score Distribution">
-                  <ApplicationTrendChart />
+                  <CreditScoreDistributionChart />
                 </ChartContainer>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -618,7 +623,7 @@ const Dashboard: React.FC = () => {
                   <RiskFactorsRadar />
                 </ChartContainer>
                 <ChartContainer title="Compliance Violations Trend">
-                  <RiskDistributionChart />
+                  <ComplianceViolationsTrendChart />
                 </ChartContainer>
               </div>
             </div>
@@ -669,16 +674,16 @@ const Dashboard: React.FC = () => {
         {stableRoleDetection.isAdmin && (
           <div className="space-y-8 mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <ChartContainer title="System-wide Risk Distribution">
-                <RiskDistributionChart />
+              <ChartContainer title="System-wide Risk Distribution" subtitle="Advanced portfolio and geographic risk analysis">
+                <SystemWideRiskDistributionChart />
               </ChartContainer>
-              <ChartContainer title="Overall Application Trends">
-                <ApplicationTrendChart />
+              <ChartContainer title="Overall Application Trends" subtitle="Comprehensive application performance analytics with forecasting">
+                <OverallApplicationTrendsChart />
               </ChartContainer>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <ChartContainer title="System-wide Risk Factors">
-                <RiskFactorsRadar />
+              <ChartContainer title="System-wide Risk Factors" subtitle="Multi-dimensional risk analysis with advanced visualization modes">
+                <SystemWideRiskFactorsChart />
               </ChartContainer>
               <ChartContainer title="Approval Rate Trends">
                 <ApprovalRateChart />

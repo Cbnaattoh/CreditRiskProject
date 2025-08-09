@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FiShield,
   FiLock,
@@ -9,6 +9,14 @@ import {
   FiActivity,
   FiAlertTriangle,
   FiCheckCircle,
+  FiGlobe,
+  FiWifi,
+  FiClock,
+  FiTrendingUp,
+  FiZap,
+  FiStar,
+  FiCheck,
+  FiX
 } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { 
@@ -38,6 +46,15 @@ export const SecurityTab: React.FC = () => {
     sessionTimeout: true,
   });
   const [showMFAModal, setShowMFAModal] = useState(false);
+  const [securityScore, setSecurityScore] = useState(92);
+  const [threatDetections, setThreatDetections] = useState(3);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    setIsAnimating(true);
+    const timer = setTimeout(() => setIsAnimating(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleToggle = (key: string) => {
     setSettings(prev => ({
@@ -153,85 +170,195 @@ export const SecurityTab: React.FC = () => {
       transition={{ duration: 0.4, ease: "easeInOut" }}
       className="space-y-6"
     >
-      {/* Security Overview Header */}
-      <div className="bg-gradient-to-r from-white/80 via-blue-50/50 to-indigo-50/80 dark:from-gray-800/80 dark:via-gray-800/60 dark:to-gray-900/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/30 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Security Overview
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Manage your account security and privacy settings
-            </p>
+      {/* Enhanced Security Overview Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-white/95 via-emerald-50/20 to-green-50/30 dark:from-gray-800/95 dark:via-emerald-900/10 dark:to-green-900/15 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-8">
+        {/* Decorative Elements */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-green-500/10 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-emerald-500/10 to-transparent rounded-full blur-2xl"></div>
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl">
+                <FiShield className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent mb-2">
+                  Security Overview
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                  Advanced protection for your digital identity
+                </p>
+              </div>
+            </div>
+            
+            {/* Security Stats */}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <motion.div
+                  className="w-3 h-3 bg-green-500 rounded-full"
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">Real-time Protection Active</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <FiTrendingUp className="h-4 w-4 text-blue-500" />
+                <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">{threatDetections} threats blocked today</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
-              Account Secured
-            </span>
-          </div>
+          
+          {/* Security Score Circle */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="mt-6 lg:mt-0 relative"
+          >
+            <div className="relative w-32 h-32 mx-auto lg:mx-0">
+              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-gray-200 dark:text-gray-700"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <motion.path
+                  className="text-green-500"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={`${securityScore}, 100`}
+                  initial={{ strokeDasharray: "0, 100" }}
+                  animate={{ strokeDasharray: `${securityScore}, 100` }}
+                  transition={{ duration: 2, ease: "easeOut" }}
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, duration: 0.5 }}
+                    className="text-2xl font-bold text-green-600 dark:text-green-400"
+                  >
+                    {securityScore}%
+                  </motion.div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 font-semibold">Security Score</div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
 
-      {/* Security Settings */}
-      <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/30 dark:border-gray-700/30 overflow-hidden">
-        <div className="p-6">
-          <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-            Security Settings
-          </h4>
-          <div className="space-y-4">
+      {/* Enhanced Security Settings */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-white/95 via-indigo-50/10 to-purple-50/10 dark:from-gray-900/95 dark:via-indigo-900/5 dark:to-purple-900/5 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full blur-2xl"></div>
+        
+        <div className="relative z-10 p-8">
+          <div className="flex items-center space-x-4 mb-8">
+            <div className="p-3 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl">
+              <FiZap className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h4 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">
+                Security Settings
+              </h4>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Configure your security preferences and protections</p>
+            </div>
+          </div>
+          <div className="space-y-6">
             {securityItems.map((item, index) => (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                initial={{ opacity: 0, x: -30, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                transition={{ delay: index * 0.15, type: "spring", damping: 20 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="group relative overflow-hidden flex items-center justify-between p-6 bg-gradient-to-r from-white/80 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/30 backdrop-blur-xl rounded-2xl border border-white/30 dark:border-gray-700/30 shadow-lg hover:shadow-2xl transition-all duration-300"
               >
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-xl ${getStatusBg(item.status)}`}>
-                    <div className={getStatusColor(item.status)}>
+                {/* Glow effect on hover */}
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="relative z-10 flex items-center space-x-6">
+                  <motion.div
+                    className={`p-4 rounded-2xl ${getStatusBg(item.status)} ring-2 ring-white/30 dark:ring-gray-800/30 shadow-lg`}
+                    whileHover={{ rotate: 5, scale: 1.1 }}
+                    transition={{ type: "spring", damping: 15 }}
+                  >
+                    <div className={`${getStatusColor(item.status)} text-lg`}>
                       {item.icon}
                     </div>
-                  </div>
-                  <div>
-                    <h5 className="font-semibold text-gray-900 dark:text-white">
+                  </motion.div>
+                  <div className="space-y-2">
+                    <h5 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {item.title}
                     </h5>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                       {item.description}
                     </p>
+                    
+                    {/* Status indicator with enhanced styling */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
+                        {item.status === 'enabled' && (
+                          <motion.div
+                            className="flex items-center space-x-1"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: index * 0.1 + 0.5 }}
+                          >
+                            <FiCheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-xs font-bold text-green-600 dark:text-green-400 px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">Active</span>
+                          </motion.div>
+                        )}
+                        {item.status === 'warning' && (
+                          <motion.div
+                            className="flex items-center space-x-1"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <FiAlertTriangle className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 rounded-full">Action Required</span>
+                          </motion.div>
+                        )}
+                        {item.status === 'disabled' && (
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-full">Inactive</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    {item.status === 'enabled' && (
-                      <FiCheckCircle className="h-4 w-4 text-green-500" />
-                    )}
-                    {item.status === 'warning' && (
-                      <FiAlertTriangle className="h-4 w-4 text-amber-500" />
-                    )}
-                    <span className={`text-sm font-medium ${getStatusColor(item.status)}`}>
-                      {item.status === 'enabled' ? 'Enabled' : 
-                       item.status === 'warning' ? 'Setup Required' : 'Disabled'}
-                    </span>
-                  </div>
-                  
+                <div className="relative z-10 flex items-center space-x-4">
                   {item.id === 'mfa' ? (
                     <motion.button
                       onClick={() => setShowMFAModal(true)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`group relative overflow-hidden flex items-center space-x-3 px-6 py-3 rounded-2xl font-semibold transition-all duration-300 shadow-lg hover:shadow-2xl ${
                         getMFAStatus() === 'enabled'
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 hover:from-green-500/20 hover:to-emerald-500/20'
                           : getMFAStatus() === 'warning'
-                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                          : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                          ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:from-amber-500/20 hover:to-orange-500/20'
+                          : 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:from-indigo-500/20 hover:to-purple-500/20'
                       }`}
                     >
-                      {item.action}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                      
+                      <FiZap className="h-4 w-4 relative z-10" />
+                      <span className="relative z-10">{item.action}</span>
+                      
+                      <motion.div
+                        className="w-1 h-1 bg-current rounded-full relative z-10"
+                        animate={{ scale: [1, 1.5, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
                     </motion.button>
                   ) : (
                     <motion.button
@@ -240,24 +367,36 @@ export const SecurityTab: React.FC = () => {
                         if (item.id === 'alerts') handleToggle('securityAlerts');
                         if (item.id === 'sessions') handleToggle('sessionTimeout');
                       }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-8 w-16 items-center rounded-full transition-all duration-300 shadow-lg ${
                         (item.id === 'notifications' && settings.loginNotifications) ||
                         (item.id === 'alerts' && settings.securityAlerts) ||
                         (item.id === 'sessions' && settings.sessionTimeout)
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600'
-                          : 'bg-gray-300 dark:bg-gray-600'
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-indigo-500/30'
+                          : 'bg-gray-300 dark:bg-gray-600 shadow-gray-300/30'
                       }`}
+                      whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       <motion.span
-                        className="inline-block h-4 w-4 transform rounded-full bg-white shadow-lg"
+                        className="inline-block h-6 w-6 transform rounded-full bg-white shadow-xl ring-2 ring-white/30"
                         animate={{
                           x: (item.id === 'notifications' && settings.loginNotifications) ||
                              (item.id === 'alerts' && settings.securityAlerts) ||
-                             (item.id === 'sessions' && settings.sessionTimeout) ? 24 : 4
+                             (item.id === 'sessions' && settings.sessionTimeout) ? 32 : 4
                         }}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
                       />
+                      
+                      {/* Glow effect when enabled */}
+                      {((item.id === 'notifications' && settings.loginNotifications) ||
+                        (item.id === 'alerts' && settings.securityAlerts) ||
+                        (item.id === 'sessions' && settings.sessionTimeout)) && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400/30 to-purple-400/30"
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                      )}
                     </motion.button>
                   )}
                 </div>
@@ -267,59 +406,97 @@ export const SecurityTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Sessions */}
-      <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/30 dark:border-gray-700/30 overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Recent Sessions
-            </h4>
+      {/* Enhanced Recent Sessions */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-white/95 via-blue-50/10 to-cyan-50/10 dark:from-gray-900/95 dark:via-blue-900/5 dark:to-cyan-900/5 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/5 to-transparent rounded-full blur-3xl"></div>
+        
+        <div className="relative z-10 p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl">
+                <FiActivity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h4 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">
+                  Active Sessions
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">Monitor your account access across all devices</p>
+              </div>
+            </div>
+            
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border border-blue-200 dark:border-blue-700 rounded-2xl text-blue-700 dark:text-blue-300 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              View All
+              <FiEye className="h-4 w-4 group-hover:scale-110 transition-transform" />
+              <span>View All</span>
             </motion.button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {recentSessions.map((session, index) => (
               <motion.div
                 key={session.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl"
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: index * 0.15, type: "spring", damping: 20 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="group relative overflow-hidden flex items-center justify-between p-6 bg-gradient-to-r from-white/80 to-blue-50/30 dark:from-gray-800/60 dark:to-blue-900/10 backdrop-blur-xl rounded-2xl border border-white/30 dark:border-gray-700/30 shadow-lg hover:shadow-2xl transition-all duration-300"
               >
-                <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                    <FiSmartphone className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/3 via-transparent to-cyan-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="relative z-10 flex items-center space-x-6">
+                  <motion.div
+                    className="p-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl shadow-lg ring-2 ring-white/20 dark:ring-gray-800/20"
+                    whileHover={{ rotate: 10, scale: 1.1 }}
+                    transition={{ type: "spring", damping: 15 }}
+                  >
+                    <FiSmartphone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </motion.div>
+                  <div className="space-y-1">
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {session.device}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {session.location} • {session.time}
-                    </p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center space-x-1">
+                        <FiGlobe className="h-3 w-3" />
+                        <span>{session.location}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <FiClock className="h-3 w-3" />
+                        <span>{session.time}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  {session.current && (
-                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">
-                      Current
-                    </span>
-                  )}
-                  {!session.current && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium"
+                <div className="relative z-10 flex items-center space-x-4">
+                  {session.current ? (
+                    <motion.div
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-300 dark:border-green-700 rounded-full"
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{ duration: 3, repeat: Infinity }}
                     >
-                      Revoke
-                    </motion.button>
+                      <motion.div
+                        className="w-2 h-2 bg-green-500 rounded-full"
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      <span className="text-sm font-bold text-green-700 dark:text-green-300">Active Now</span>
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-3 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-full font-medium">Inactive</span>
+                      <motion.button
+                        whileHover={{ scale: 1.05, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                      >
+                        <FiX className="h-3 w-3 group-hover:rotate-90 transition-transform duration-300" />
+                        <span className="text-sm">Revoke</span>
+                      </motion.button>
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -328,14 +505,24 @@ export const SecurityTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Save Button */}
+      {/* Enhanced Save Button */}
       <div className="flex justify-end">
         <motion.button
-          whileHover={{ scale: 1.02, y: -1 }}
-          whileTap={{ scale: 0.98 }}
-          className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+          whileHover={{ scale: 1.05, y: -3 }}
+          whileTap={{ scale: 0.95 }}
+          className="group relative overflow-hidden flex items-center space-x-3 px-10 py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-2xl font-bold shadow-2xl hover:shadow-3xl hover:shadow-indigo-500/30 transition-all duration-300"
         >
-          Save Security Settings
+          {/* Shine effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+          
+          <FiShield className="h-5 w-5 relative z-10" />
+          <span className="relative z-10 text-lg">Save Security Settings</span>
+          
+          <motion.div
+            className="w-2 h-2 bg-white rounded-full relative z-10"
+            animate={{ scale: [1, 1.5, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
         </motion.button>
       </div>
       

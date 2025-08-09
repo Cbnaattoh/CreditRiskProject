@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -20,6 +20,8 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  ComposedChart,
+  Rectangle
 } from "recharts";
 
 const COLORS = ["#6366F1", "#F59E0B", "#EF4444", "#10B981", "#8B5CF6"];
@@ -597,3 +599,2000 @@ export const ChartContainer: React.FC<{
     <div className="relative z-10">{children}</div>
   </div>
 );
+
+// Credit Score Distribution Chart - Premium Advanced Design
+export const CreditScoreDistributionChart: React.FC = () => {
+  const [activeRange, setActiveRange] = useState<number | null>(null);
+  const [animationComplete, setAnimationComplete] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimationComplete(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Credit score distribution data with realistic ranges
+  const creditScoreData = [
+    { range: "300-579", label: "Poor", count: 145, percentage: 8.2, color: "#DC2626", icon: "🔴", description: "High risk borrowers", benchmark: 10.5 },
+    { range: "580-669", label: "Fair", count: 289, percentage: 16.4, color: "#EA580C", icon: "🟠", description: "Subprime borrowers", benchmark: 18.2 },
+    { range: "670-739", label: "Good", count: 456, percentage: 25.8, color: "#F59E0B", icon: "🟡", description: "Prime borrowers", benchmark: 24.1 },
+    { range: "740-799", label: "Very Good", count: 523, percentage: 29.6, color: "#059669", icon: "🟢", description: "Low risk borrowers", benchmark: 28.7 },
+    { range: "800-850", label: "Excellent", count: 354, percentage: 20.0, color: "#047857", icon: "💎", description: "Exceptional credit", benchmark: 18.5 },
+  ];
+
+  const CustomCreditTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-3xl p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 min-w-[280px]">
+          <div className="flex items-center mb-4">
+            <div className="text-2xl mr-3">{data.icon}</div>
+            <div>
+              <p className="font-bold text-lg text-gray-900 dark:text-white">
+                {data.label} Credit
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                Score Range: {data.range}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Applications:</span>
+              <span className="font-bold text-gray-900 dark:text-white text-lg">{data.count.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio:</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400 text-lg">{data.percentage}%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Industry Avg:</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">{data.benchmark}%</span>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl border border-indigo-200 dark:border-indigo-800">
+            <p className="text-xs text-indigo-800 dark:text-indigo-200 font-medium">
+              {data.description}
+            </p>
+          </div>
+          
+          {/* Performance vs benchmark */}
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+              <span>vs Industry</span>
+              <span>{data.percentage > data.benchmark ? '+' : ''}{(data.percentage - data.benchmark).toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  data.percentage > data.benchmark 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                    : 'bg-gradient-to-r from-amber-500 to-orange-500'
+                }`}
+                style={{ width: `${Math.min(Math.abs(data.percentage - data.benchmark) * 10, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Statistics Header */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-2xl p-4 border border-indigo-200 dark:border-indigo-800">
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">742</div>
+          <div className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">Avg Score</div>
+        </div>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-4 border border-green-200 dark:border-green-800">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">1,767</div>
+          <div className="text-sm text-green-700 dark:text-green-300 font-medium">Total Apps</div>
+        </div>
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-4 border border-purple-200 dark:border-purple-800">
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">72.4%</div>
+          <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Prime+</div>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-2xl p-4 border border-amber-200 dark:border-amber-800">
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">+2.1%</div>
+          <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">vs Target</div>
+        </div>
+      </div>
+
+      {/* Advanced Bar Chart */}
+      <ResponsiveContainer width="100%" height={350}>
+        <ComposedChart
+          data={creditScoreData}
+          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+        >
+          <defs>
+            {creditScoreData.map((item, index) => (
+              <React.Fragment key={index}>
+                <linearGradient id={`creditGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={item.color} stopOpacity={0.6} />
+                </linearGradient>
+                <filter id={`creditGlow-${index}`}>
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </React.Fragment>
+            ))}
+            <linearGradient id="benchmarkGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6B7280" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#6B7280" stopOpacity={0.4} />
+            </linearGradient>
+          </defs>
+          
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="rgba(156, 163, 175, 0.2)"
+            className="dark:opacity-30"
+          />
+          
+          <XAxis
+            dataKey="range"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 11, fontWeight: 500 }}
+            className="text-gray-600 dark:text-gray-400"
+            angle={-45}
+            textAnchor="end"
+            height={80}
+          />
+          
+          <YAxis
+            yAxisId="count"
+            orientation="left"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Applications', angle: -90, position: 'insideLeft' }}
+          />
+          
+          <YAxis
+            yAxisId="percentage"
+            orientation="right"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Portfolio %', angle: 90, position: 'insideRight' }}
+          />
+          
+          <Tooltip content={<CustomCreditTooltip />} />
+          
+          {/* Industry Benchmark Line */}
+          <Line
+            yAxisId="percentage"
+            type="monotone"
+            dataKey="benchmark"
+            stroke="#6B7280"
+            strokeWidth={3}
+            strokeDasharray="8 4"
+            dot={false}
+            name="Industry Benchmark"
+          />
+          
+          {/* Main Bars */}
+          <Bar
+            yAxisId="count"
+            dataKey="count"
+            fill={(entry: any, index: number) => `url(#creditGradient-${index})`}
+            radius={[8, 8, 0, 0]}
+            onMouseEnter={(data, index) => setActiveRange(index)}
+            onMouseLeave={() => setActiveRange(null)}
+          >
+            {creditScoreData.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={`url(#creditGradient-${index})`}
+                filter={activeRange === index ? `url(#creditGlow-${index})` : ""}
+                className="transition-all duration-300 cursor-pointer"
+              />
+            ))}
+          </Bar>
+          
+          {/* Percentage Area */}
+          <Area
+            yAxisId="percentage"
+            type="monotone"
+            dataKey="percentage"
+            stroke="#6366F1"
+            strokeWidth={2}
+            fill="url(#creditGradient-0)"
+            fillOpacity={0.1}
+          />
+          
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      {/* Interactive Legend with Advanced Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+        {creditScoreData.map((item, index) => (
+          <div
+            key={index}
+            className={`
+              p-4 rounded-2xl border transition-all duration-300 cursor-pointer transform hover:scale-105
+              ${
+                activeRange === index
+                  ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-lg'
+                  : 'border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
+              }
+            `}
+            onMouseEnter={() => setActiveRange(index)}
+            onMouseLeave={() => setActiveRange(null)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-lg">{item.icon}</div>
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                {item.percentage > item.benchmark ? '↗️' : '↘️'}
+              </div>
+            </div>
+            <div className="text-sm font-bold text-gray-900 dark:text-white mb-1">
+              {item.label}
+            </div>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              {item.range}
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-bold" style={{ color: item.color }}>
+                {item.count}
+              </span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {item.percentage}%
+              </span>
+            </div>
+            
+            {/* Mini progress bar */}
+            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div
+                className="h-1.5 rounded-full transition-all duration-500"
+                style={{
+                  backgroundColor: item.color,
+                  width: `${(item.percentage / Math.max(...creditScoreData.map(d => d.percentage))) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Compliance Violations Trend Chart - Premium Advanced Design
+export const ComplianceViolationsTrendChart: React.FC = () => {
+  const [selectedMetric, setSelectedMetric] = useState<string>('all');
+  const [timeRange, setTimeRange] = useState<string>('6m');
+
+  // Compliance violations trend data with multiple metrics
+  const violationsData = [
+    {
+      month: "Jan 2024",
+      total: 12,
+      critical: 2,
+      high: 4,
+      medium: 4,
+      low: 2,
+      resolved: 10,
+      compliance_score: 94.2,
+      audit_findings: 8,
+      policy_violations: 4,
+      regulatory_breaches: 0
+    },
+    {
+      month: "Feb 2024",
+      total: 8,
+      critical: 1,
+      high: 2,
+      medium: 3,
+      low: 2,
+      resolved: 7,
+      compliance_score: 96.1,
+      audit_findings: 5,
+      policy_violations: 3,
+      regulatory_breaches: 0
+    },
+    {
+      month: "Mar 2024",
+      total: 15,
+      critical: 3,
+      high: 5,
+      medium: 5,
+      low: 2,
+      resolved: 12,
+      compliance_score: 91.8,
+      audit_findings: 10,
+      policy_violations: 5,
+      regulatory_breaches: 1
+    },
+    {
+      month: "Apr 2024",
+      total: 6,
+      critical: 0,
+      high: 2,
+      medium: 3,
+      low: 1,
+      resolved: 6,
+      compliance_score: 97.5,
+      audit_findings: 3,
+      policy_violations: 2,
+      regulatory_breaches: 0
+    },
+    {
+      month: "May 2024",
+      total: 9,
+      critical: 1,
+      high: 3,
+      medium: 3,
+      low: 2,
+      resolved: 8,
+      compliance_score: 95.3,
+      audit_findings: 6,
+      policy_violations: 3,
+      regulatory_breaches: 0
+    },
+    {
+      month: "Jun 2024",
+      total: 4,
+      critical: 0,
+      high: 1,
+      medium: 2,
+      low: 1,
+      resolved: 4,
+      compliance_score: 98.2,
+      audit_findings: 2,
+      policy_violations: 1,
+      regulatory_breaches: 0
+    },
+  ];
+
+  const violationTypes = [
+    { key: 'critical', label: 'Critical', color: '#DC2626', icon: '🚨' },
+    { key: 'high', label: 'High', color: '#EA580C', icon: '⚠️' },
+    { key: 'medium', label: 'Medium', color: '#F59E0B', icon: '⚡' },
+    { key: 'low', label: 'Low', color: '#059669', icon: '📋' },
+  ];
+
+  const ComplianceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-3xl p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 min-w-[320px]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-bold text-lg text-gray-900 dark:text-white">
+                {label}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                Compliance Overview
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                {data.compliance_score}%
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Score</div>
+            </div>
+          </div>
+          
+          {/* Violations Breakdown */}
+          <div className="space-y-2 mb-4">
+            <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Violations by Severity:</div>
+            {violationTypes.map((type) => (
+              <div key={type.key} className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <span className="text-sm mr-2">{type.icon}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{type.label}:</span>
+                </div>
+                <span className="font-bold text-sm" style={{ color: type.color }}>
+                  {data[type.key]}
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          {/* Additional Metrics */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Total Violations:</span>
+              <span className="font-bold text-red-600 dark:text-red-400">{data.total}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Resolved:</span>
+              <span className="font-bold text-green-600 dark:text-green-400">{data.resolved}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Audit Findings:</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{data.audit_findings}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Regulatory Breaches:</span>
+              <span className={`font-bold ${data.regulatory_breaches > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                {data.regulatory_breaches}
+              </span>
+            </div>
+          </div>
+          
+          {/* Resolution Rate */}
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 rounded-2xl border border-green-200 dark:border-green-800">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-green-800 dark:text-green-200 font-medium">Resolution Rate</span>
+              <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                {((data.resolved / data.total) * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div className="w-full bg-green-200 dark:bg-green-800/50 rounded-full h-2">
+              <div 
+                className="h-2 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500"
+                style={{ width: `${(data.resolved / data.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const currentData = violationsData;
+  const avgCompliance = currentData.reduce((sum, item) => sum + item.compliance_score, 0) / currentData.length;
+  const totalViolations = currentData.reduce((sum, item) => sum + item.total, 0);
+  const totalResolved = currentData.reduce((sum, item) => sum + item.resolved, 0);
+  const criticalViolations = currentData.reduce((sum, item) => sum + item.critical, 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Advanced Control Panel */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-4 border border-green-200 dark:border-green-800">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{avgCompliance.toFixed(1)}%</div>
+            <div className="text-sm text-green-700 dark:text-green-300 font-medium">Avg Compliance</div>
+          </div>
+          <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-2xl p-4 border border-red-200 dark:border-red-800">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{totalViolations}</div>
+            <div className="text-sm text-red-700 dark:text-red-300 font-medium">Total Violations</div>
+          </div>
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-2xl p-4 border border-amber-200 dark:border-amber-800">
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{criticalViolations}</div>
+            <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">Critical Issues</div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{((totalResolved/totalViolations)*100).toFixed(0)}%</div>
+            <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Resolution Rate</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Multi-Metric Chart */}
+      <ResponsiveContainer width="100%" height={400}>
+        <ComposedChart
+          data={currentData}
+          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+        >
+          <defs>
+            <linearGradient id="complianceGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#10B981" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="violationsGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#DC2626" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#DC2626" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="criticalGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#DC2626" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#DC2626" stopOpacity={0.6} />
+            </linearGradient>
+            <linearGradient id="highGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#EA580C" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#EA580C" stopOpacity={0.6} />
+            </linearGradient>
+            <linearGradient id="mediumGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.6} />
+            </linearGradient>
+            <linearGradient id="lowGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#059669" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+            </linearGradient>
+            <filter id="complianceGlow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="rgba(156, 163, 175, 0.2)"
+            className="dark:opacity-30"
+          />
+          
+          <XAxis
+            dataKey="month"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+          />
+          
+          <YAxis
+            yAxisId="violations"
+            orientation="left"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Violations', angle: -90, position: 'insideLeft' }}
+          />
+          
+          <YAxis
+            yAxisId="score"
+            orientation="right"
+            domain={[85, 100]}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Compliance Score %', angle: 90, position: 'insideRight' }}
+          />
+          
+          <Tooltip content={<ComplianceTooltip />} />
+          
+          {/* Stacked Violation Bars */}
+          <Bar yAxisId="violations" dataKey="critical" stackId="violations" fill="url(#criticalGradient)" radius={[0, 0, 0, 0]} />
+          <Bar yAxisId="violations" dataKey="high" stackId="violations" fill="url(#highGradient)" radius={[0, 0, 0, 0]} />
+          <Bar yAxisId="violations" dataKey="medium" stackId="violations" fill="url(#mediumGradient)" radius={[0, 0, 0, 0]} />
+          <Bar yAxisId="violations" dataKey="low" stackId="violations" fill="url(#lowGradient)" radius={[4, 4, 0, 0]} />
+          
+          {/* Compliance Score Line */}
+          <Line
+            yAxisId="score"
+            type="monotone"
+            dataKey="compliance_score"
+            stroke="#10B981"
+            strokeWidth={4}
+            filter="url(#complianceGlow)"
+            dot={{
+              r: 6,
+              fill: "#10B981",
+              stroke: "#ffffff",
+              strokeWidth: 3,
+              className: "dark:stroke-gray-800",
+            }}
+            activeDot={{
+              r: 8,
+              fill: "#10B981",
+              stroke: "#ffffff",
+              strokeWidth: 4,
+              className: "dark:stroke-gray-800",
+            }}
+          />
+          
+          {/* Target Compliance Line */}
+          <Line
+            yAxisId="score"
+            type="monotone"
+            dataKey={() => 95}
+            stroke="#6B7280"
+            strokeWidth={2}
+            strokeDasharray="8 4"
+            dot={false}
+            name="Target (95%)"
+          />
+          
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      {/* Advanced Legend with Trend Indicators */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {violationTypes.map((type, index) => {
+          const currentPeriodValue = currentData[currentData.length - 1]?.[type.key] || 0;
+          const previousPeriodValue = currentData[currentData.length - 2]?.[type.key] || 0;
+          const trend = currentPeriodValue - previousPeriodValue;
+          
+          return (
+            <div
+              key={type.key}
+              className="p-4 rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300 hover:shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-lg">{type.icon}</div>
+                <div className={`text-xs font-bold ${
+                  trend > 0 ? 'text-red-500' : trend < 0 ? 'text-green-500' : 'text-gray-500'
+                }`}>
+                  {trend > 0 ? '↗️' : trend < 0 ? '↘️' : '➡️'} {trend !== 0 ? Math.abs(trend) : ''}
+                </div>
+              </div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white mb-1">
+                {type.label}
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold" style={{ color: type.color }}>
+                  {currentPeriodValue}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  This month
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// System-wide Risk Distribution Chart - Premium Advanced Design
+export const SystemWideRiskDistributionChart: React.FC = () => {
+  const [activeSegment, setActiveSegment] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'portfolio' | 'geographic' | 'sector'>('portfolio');
+
+  // Enhanced system-wide risk data with multiple dimensions
+  const systemRiskData = {
+    portfolio: [
+      { name: "Consumer Loans", value: 42.3, risk_score: 3.2, color: "#6366F1", icon: "🏠", exposure: 2.4, trend: "stable" },
+      { name: "Business Loans", value: 28.7, risk_score: 4.1, color: "#8B5CF6", icon: "🏢", exposure: 1.8, trend: "improving" },
+      { name: "Credit Cards", value: 15.2, risk_score: 5.3, color: "#EC4899", icon: "💳", exposure: 3.1, trend: "deteriorating" },
+      { name: "Auto Loans", value: 8.9, risk_score: 2.8, color: "#10B981", icon: "🚗", exposure: 1.2, trend: "stable" },
+      { name: "Mortgages", value: 4.9, risk_score: 2.1, color: "#F59E0B", icon: "🏘️", exposure: 0.9, trend: "improving" },
+    ],
+    geographic: [
+      { name: "North America", value: 35.8, risk_score: 3.1, color: "#6366F1", icon: "🌎", exposure: 2.2, trend: "stable" },
+      { name: "Europe", value: 28.4, risk_score: 2.9, color: "#8B5CF6", icon: "🌍", exposure: 1.9, trend: "improving" },
+      { name: "Asia Pacific", value: 22.1, risk_score: 3.8, color: "#EC4899", icon: "🌏", exposure: 2.8, trend: "stable" },
+      { name: "Latin America", value: 8.7, risk_score: 4.5, color: "#F59E0B", icon: "🌎", exposure: 3.2, trend: "deteriorating" },
+      { name: "Middle East & Africa", value: 5.0, risk_score: 4.1, color: "#EF4444", icon: "🌍", exposure: 2.9, trend: "stable" },
+    ],
+    sector: [
+      { name: "Technology", value: 24.6, risk_score: 2.8, color: "#6366F1", icon: "💻", exposure: 1.5, trend: "improving" },
+      { name: "Healthcare", value: 19.3, risk_score: 3.2, color: "#10B981", icon: "🏥", exposure: 2.1, trend: "stable" },
+      { name: "Financial Services", value: 16.8, risk_score: 3.9, color: "#F59E0B", icon: "🏦", exposure: 2.7, trend: "stable" },
+      { name: "Retail", value: 14.2, risk_score: 4.3, color: "#EC4899", icon: "🛍️", exposure: 3.1, trend: "deteriorating" },
+      { name: "Manufacturing", value: 12.4, risk_score: 3.7, color: "#8B5CF6", icon: "🏭", exposure: 2.4, trend: "improving" },
+      { name: "Energy", value: 8.9, risk_score: 4.8, color: "#EF4444", icon: "⚡", exposure: 3.8, trend: "deteriorating" },
+      { name: "Real Estate", value: 3.8, risk_score: 4.1, color: "#6B7280", icon: "🏗️", exposure: 2.9, trend: "stable" },
+    ]
+  };
+
+  const currentData = systemRiskData[viewMode];
+
+  const SystemRiskTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-3xl p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 min-w-[300px]">
+          <div className="flex items-center mb-4">
+            <div className="text-3xl mr-3">{data.icon}</div>
+            <div>
+              <p className="font-bold text-xl text-gray-900 dark:text-white">
+                {data.name}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} Distribution
+              </p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{data.value}%</div>
+              <div className="text-xs text-indigo-700 dark:text-indigo-300">Portfolio</div>
+            </div>
+            <div className="text-center p-3 bg-red-50 dark:bg-red-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{data.risk_score}</div>
+              <div className="text-xs text-red-700 dark:text-red-300">Risk Score</div>
+            </div>
+            <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">${data.exposure}B</div>
+              <div className="text-xs text-amber-700 dark:text-amber-300">Exposure</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+              <div className={`text-lg font-bold ${
+                data.trend === 'improving' ? 'text-green-600 dark:text-green-400' : 
+                data.trend === 'deteriorating' ? 'text-red-600 dark:text-red-400' : 
+                'text-gray-600 dark:text-gray-400'
+              }`}>
+                {data.trend === 'improving' ? '📈' : data.trend === 'deteriorating' ? '📉' : '➡️'}
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Trend</div>
+            </div>
+          </div>
+          
+          {/* Risk Assessment */}
+          <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border border-blue-200 dark:border-blue-800">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">Risk Level</span>
+              <span className={`text-sm font-bold ${
+                data.risk_score <= 3 ? 'text-green-600 dark:text-green-400' :
+                data.risk_score <= 4 ? 'text-amber-600 dark:text-amber-400' :
+                'text-red-600 dark:text-red-400'
+              }`}>
+                {data.risk_score <= 3 ? 'Low' : data.risk_score <= 4 ? 'Medium' : 'High'}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  data.risk_score <= 3 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                  data.risk_score <= 4 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                  'bg-gradient-to-r from-red-400 to-red-500'
+                }`}
+                style={{ width: `${(data.risk_score / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const totalExposure = currentData.reduce((sum, item) => sum + item.exposure, 0);
+  const avgRiskScore = currentData.reduce((sum, item) => sum + item.risk_score, 0) / currentData.length;
+  const highRiskCount = currentData.filter(item => item.risk_score > 4).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Control Panel */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+        {/* View Mode Selector */}
+        <div className="flex items-center space-x-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-2 border border-gray-200 dark:border-gray-700">
+          {[
+            { key: 'portfolio', label: 'Portfolio', icon: '📊' },
+            { key: 'geographic', label: 'Geography', icon: '🌍' },
+            { key: 'sector', label: 'Sectors', icon: '🏢' }
+          ].map((mode) => (
+            <button
+              key={mode.key}
+              onClick={() => setViewMode(mode.key as any)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                viewMode === mode.key 
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' 
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              <span>{mode.icon}</span>
+              <span>{mode.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* KPI Summary */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center">
+            <div className="text-xl font-bold text-gray-900 dark:text-white">${totalExposure.toFixed(1)}B</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Total Exposure</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{avgRiskScore.toFixed(1)}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Avg Risk Score</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-red-600 dark:text-red-400">{highRiskCount}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">High Risk</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Donut Chart */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex-1">
+          <ResponsiveContainer width="100%" height={400}>
+            <PieChart>
+              <defs>
+                {currentData.map((item, index) => (
+                  <React.Fragment key={index}>
+                    <linearGradient
+                      id={`systemGradient-${index}`}
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="100%"
+                    >
+                      <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={item.color} stopOpacity={0.6} />
+                    </linearGradient>
+                    <filter id={`systemGlow-${index}`}>
+                      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </React.Fragment>
+                ))}
+              </defs>
+              <Pie
+                data={currentData}
+                cx="50%"
+                cy="50%"
+                innerRadius={80}
+                outerRadius={140}
+                paddingAngle={2}
+                dataKey="value"
+                onMouseEnter={(_, index) => setActiveSegment(index)}
+                onMouseLeave={() => setActiveSegment(null)}
+              >
+                {currentData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={`url(#systemGradient-${index})`}
+                    filter={activeSegment === index ? `url(#systemGlow-${index})` : ""}
+                    className="transition-all duration-300 cursor-pointer hover:opacity-90"
+                    style={{
+                      transform: activeSegment === index ? 'scale(1.05)' : 'scale(1)',
+                      transformOrigin: 'center'
+                    }}
+                  />
+                ))}
+              </Pie>
+              <Tooltip content={<SystemRiskTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Enhanced Legend with Risk Metrics */}
+        <div className="flex-1 space-y-3">
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Risk Breakdown</h4>
+          {currentData.map((item, index) => (
+            <div
+              key={index}
+              className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer transform hover:scale-102 ${
+                activeSegment === index
+                  ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-lg'
+                  : 'border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+              onMouseEnter={() => setActiveSegment(index)}
+              onMouseLeave={() => setActiveSegment(null)}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="text-2xl">{item.icon}</div>
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white">{item.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">${item.exposure}B exposure</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold" style={{ color: item.color }}>
+                    {item.value}%
+                  </div>
+                  <div className={`text-sm font-medium ${
+                    item.trend === 'improving' ? 'text-green-600 dark:text-green-400' : 
+                    item.trend === 'deteriorating' ? 'text-red-600 dark:text-red-400' : 
+                    'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {item.trend === 'improving' ? '↗️' : item.trend === 'deteriorating' ? '↘️' : '➡️'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Risk Score Indicator */}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-gray-600 dark:text-gray-400">Risk Score</span>
+                <span className={`text-sm font-bold ${
+                  item.risk_score <= 3 ? 'text-green-600 dark:text-green-400' :
+                  item.risk_score <= 4 ? 'text-amber-600 dark:text-amber-400' :
+                  'text-red-600 dark:text-red-400'
+                }`}>
+                  {item.risk_score}/5.0
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    item.risk_score <= 3 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                    item.risk_score <= 4 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                    'bg-gradient-to-r from-red-400 to-red-500'
+                  }`}
+                  style={{ width: `${(item.risk_score / 5) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Overall Application Trends Chart - Premium Advanced Design
+export const OverallApplicationTrendsChart: React.FC = () => {
+  const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m'>('6m');
+  const [selectedMetric, setSelectedMetric] = useState<'volume' | 'conversion' | 'quality'>('volume');
+  const [forecastEnabled, setForecastEnabled] = useState(false);
+
+  // Enhanced application trends data with predictions
+  const applicationTrendsData = [
+    {
+      month: "Jan 2024",
+      applications: 1420,
+      approved: 892,
+      rejected: 445,
+      pending: 83,
+      approval_rate: 62.8,
+      avg_processing_time: 4.2,
+      quality_score: 7.8,
+      channel_online: 65,
+      channel_mobile: 25,
+      channel_branch: 10,
+      predicted: false
+    },
+    {
+      month: "Feb 2024", 
+      applications: 1356,
+      approved: 923,
+      rejected: 354,
+      pending: 79,
+      approval_rate: 68.1,
+      avg_processing_time: 3.9,
+      quality_score: 8.1,
+      channel_online: 67,
+      channel_mobile: 24,
+      channel_branch: 9,
+      predicted: false
+    },
+    {
+      month: "Mar 2024",
+      applications: 1589,
+      approved: 1045,
+      rejected: 456,
+      pending: 88,
+      approval_rate: 65.8,
+      avg_processing_time: 4.1,
+      quality_score: 7.9,
+      channel_online: 69,
+      channel_mobile: 23,
+      channel_branch: 8,
+      predicted: false
+    },
+    {
+      month: "Apr 2024",
+      applications: 1634,
+      approved: 1123,
+      rejected: 398,
+      pending: 113,
+      approval_rate: 68.7,
+      avg_processing_time: 3.8,
+      quality_score: 8.3,
+      channel_online: 71,
+      channel_mobile: 22,
+      channel_branch: 7,
+      predicted: false
+    },
+    {
+      month: "May 2024",
+      applications: 1712,
+      approved: 1189,
+      rejected: 401,
+      pending: 122,
+      approval_rate: 69.5,
+      avg_processing_time: 3.6,
+      quality_score: 8.4,
+      channel_online: 73,
+      channel_mobile: 21,
+      channel_branch: 6,
+      predicted: false
+    },
+    {
+      month: "Jun 2024",
+      applications: 1598,
+      approved: 1134,
+      rejected: 356,
+      pending: 108,
+      approval_rate: 71.0,
+      avg_processing_time: 3.4,
+      quality_score: 8.6,
+      channel_online: 74,
+      channel_mobile: 21,
+      channel_branch: 5,
+      predicted: false
+    },
+    // Forecast data
+    {
+      month: "Jul 2024",
+      applications: 1680,
+      approved: 1210,
+      rejected: 370,
+      pending: 100,
+      approval_rate: 72.6,
+      avg_processing_time: 3.2,
+      quality_score: 8.8,
+      channel_online: 75,
+      channel_mobile: 20,
+      channel_branch: 5,
+      predicted: true
+    },
+    {
+      month: "Aug 2024",
+      applications: 1735,
+      approved: 1272,
+      rejected: 363,
+      pending: 100,
+      approval_rate: 73.3,
+      avg_processing_time: 3.1,
+      quality_score: 8.9,
+      channel_online: 76,
+      channel_mobile: 20,
+      channel_branch: 4,
+      predicted: true
+    }
+  ];
+
+  const displayData = forecastEnabled ? applicationTrendsData : applicationTrendsData.slice(0, 6);
+
+  const ApplicationTrendsTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-3xl p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 min-w-[350px]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-bold text-xl text-gray-900 dark:text-white">
+                {label}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                Application Performance
+                {data.predicted && <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs">Forecast</span>}
+              </p>
+            </div>
+          </div>
+          
+          {/* Volume Metrics */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{data.applications.toLocaleString()}</div>
+              <div className="text-xs text-indigo-700 dark:text-indigo-300">Applications</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 dark:bg-green-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{data.approval_rate}%</div>
+              <div className="text-xs text-green-700 dark:text-green-300">Approval Rate</div>
+            </div>
+            <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{data.avg_processing_time}</div>
+              <div className="text-xs text-amber-700 dark:text-amber-300">Avg Days</div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-2xl">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{data.quality_score}</div>
+              <div className="text-xs text-purple-700 dark:text-purple-300">Quality Score</div>
+            </div>
+          </div>
+
+          {/* Channel Distribution */}
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Channel Distribution:</div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">📱 Online:</span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400">{data.channel_online}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">📲 Mobile:</span>
+                <span className="font-bold text-purple-600 dark:text-purple-400">{data.channel_mobile}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">🏢 Branch:</span>
+                <span className="font-bold text-gray-600 dark:text-gray-400">{data.channel_branch}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Breakdown */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">✅ Approved:</span>
+              <span className="font-bold text-green-600 dark:text-green-400">{data.approved.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">❌ Rejected:</span>
+              <span className="font-bold text-red-600 dark:text-red-400">{data.rejected.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">⏳ Pending:</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{data.pending.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const totalApplications = displayData.reduce((sum, item) => sum + item.applications, 0);
+  const avgApprovalRate = displayData.reduce((sum, item) => sum + item.approval_rate, 0) / displayData.length;
+  const avgProcessingTime = displayData.reduce((sum, item) => sum + item.avg_processing_time, 0) / displayData.length;
+
+  return (
+    <div className="space-y-6">
+      {/* Advanced Control Panel */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+        {/* Controls */}
+        <div className="flex items-center space-x-4">
+          {/* Time Range */}
+          <div className="flex items-center space-x-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-2 border border-gray-200 dark:border-gray-700">
+            {[
+              { key: '3m', label: '3M' },
+              { key: '6m', label: '6M' },
+              { key: '12m', label: '12M' }
+            ].map((range) => (
+              <button
+                key={range.key}
+                onClick={() => setTimeRange(range.key as any)}
+                className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                  timeRange === range.key 
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white' 
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Forecast Toggle */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setForecastEnabled(!forecastEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+                forecastEnabled ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                  forecastEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Forecast</span>
+          </div>
+        </div>
+
+        {/* KPI Summary */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{totalApplications.toLocaleString()}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Total Apps</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-green-600 dark:text-green-400">{avgApprovalRate.toFixed(1)}%</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Avg Approval</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{avgProcessingTime.toFixed(1)}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Avg Days</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Multi-Layer Chart */}
+      <ResponsiveContainer width="100%" height={420}>
+        <ComposedChart
+          data={displayData}
+          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+        >
+          <defs>
+            <linearGradient id="applicationsGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6366F1" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#6366F1" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="approvalGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#10B981" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="rejectedGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#EF4444" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#EF4444" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="pendingGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.1} />
+            </linearGradient>
+            <filter id="trendsGlow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="rgba(156, 163, 175, 0.2)"
+            className="dark:opacity-30"
+          />
+          
+          <XAxis
+            dataKey="month"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+          />
+          
+          <YAxis
+            yAxisId="volume"
+            orientation="left"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Applications', angle: -90, position: 'insideLeft' }}
+          />
+          
+          <YAxis
+            yAxisId="rate"
+            orientation="right"
+            domain={[0, 100]}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "currentColor", fontSize: 12 }}
+            className="text-gray-600 dark:text-gray-400"
+            label={{ value: 'Approval Rate %', angle: 90, position: 'insideRight' }}
+          />
+          
+          <Tooltip content={<ApplicationTrendsTooltip />} />
+          
+          {/* Volume Areas */}
+          <Area
+            yAxisId="volume"
+            type="monotone"
+            dataKey="approved"
+            stackId="1"
+            stroke="#10B981"
+            fill="url(#approvalGradient)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="volume"
+            type="monotone"
+            dataKey="rejected" 
+            stackId="1"
+            stroke="#EF4444"
+            fill="url(#rejectedGradient)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="volume"
+            type="monotone"
+            dataKey="pending"
+            stackId="1"
+            stroke="#F59E0B"
+            fill="url(#pendingGradient)"
+            strokeWidth={2}
+          />
+          
+          {/* Approval Rate Line */}
+          <Line
+            yAxisId="rate"
+            type="monotone"
+            dataKey="approval_rate"
+            stroke="#8B5CF6"
+            strokeWidth={4}
+            filter="url(#trendsGlow)"
+            dot={{
+              r: 6,
+              fill: "#8B5CF6",
+              stroke: "#ffffff",
+              strokeWidth: 3,
+              className: "dark:stroke-gray-800",
+            }}
+            activeDot={{
+              r: 8,
+              fill: "#8B5CF6", 
+              stroke: "#ffffff",
+              strokeWidth: 4,
+              className: "dark:stroke-gray-800",
+            }}
+            strokeDasharray={({ payload }: any) => payload?.predicted ? "5,5" : "0"}
+          />
+          
+          {/* Quality Score Line */}
+          <Line
+            yAxisId="rate"
+            type="monotone"
+            dataKey={(data: any) => data.quality_score * 10}
+            stroke="#EC4899"
+            strokeWidth={3}
+            strokeDasharray="8 4"
+            dot={false}
+            name="Quality Score (x10)"
+          />
+          
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      {/* Enhanced Metrics Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-2xl">📊</div>
+            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              +12.3%
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+            {displayData[displayData.length - 1]?.applications.toLocaleString()}
+          </div>
+          <div className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">Latest Month</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-2xl">✅</div>
+            <div className="text-xs font-bold text-green-600 dark:text-green-400">
+              +2.1%
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+            {displayData[displayData.length - 1]?.approval_rate}%
+          </div>
+          <div className="text-sm text-green-700 dark:text-green-300 font-medium">Current Rate</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-2xl">⏱️</div>
+            <div className="text-xs font-bold text-green-600 dark:text-green-400">
+              -0.8d
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+            {displayData[displayData.length - 1]?.avg_processing_time}
+          </div>
+          <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">Processing Days</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-2xl">⭐</div>
+            <div className="text-xs font-bold text-purple-600 dark:text-purple-400">
+              +0.3
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+            {displayData[displayData.length - 1]?.quality_score}
+          </div>
+          <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Quality Score</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// System-wide Risk Factors Chart - Premium Advanced Design
+export const SystemWideRiskFactorsChart: React.FC = () => {
+  const [activeFactor, setActiveFactor] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'radar' | 'heatmap' | 'matrix'>('radar');
+  const [timeComparison, setTimeComparison] = useState<'current' | 'trend' | 'forecast'>('current');
+
+  // Enhanced risk factors data with multiple dimensions and historical trends
+  const riskFactorsData = {
+    current: [
+      { 
+        factor: "Credit Quality", 
+        score: 85, 
+        weight: 25, 
+        trend: "stable", 
+        impact: "high",
+        subcategories: {
+          "Credit Score Distribution": 88,
+          "Payment History": 82,
+          "Debt-to-Income": 87,
+          "Credit Utilization": 83
+        },
+        benchmark: 82,
+        threshold: 75,
+        description: "Overall creditworthiness assessment"
+      },
+      { 
+        factor: "Market Conditions", 
+        score: 72, 
+        weight: 20, 
+        trend: "deteriorating", 
+        impact: "high",
+        subcategories: {
+          "Interest Rate Environment": 68,
+          "Economic Indicators": 75,
+          "Market Volatility": 70,
+          "Industry Outlook": 76
+        },
+        benchmark: 78,
+        threshold: 65,
+        description: "External market and economic factors"
+      },
+      { 
+        factor: "Operational Risk", 
+        score: 91, 
+        weight: 15, 
+        trend: "improving", 
+        impact: "medium",
+        subcategories: {
+          "Process Efficiency": 93,
+          "Technology Risk": 89,
+          "Compliance": 95,
+          "Human Resources": 87
+        },
+        benchmark: 85,
+        threshold: 80,
+        description: "Internal operational effectiveness"
+      },
+      { 
+        factor: "Portfolio Concentration", 
+        score: 78, 
+        weight: 15, 
+        trend: "stable", 
+        impact: "medium",
+        subcategories: {
+          "Geographic Spread": 82,
+          "Industry Diversification": 75,
+          "Product Mix": 80,
+          "Customer Segments": 76
+        },
+        benchmark: 75,
+        threshold: 70,
+        description: "Portfolio diversification and concentration risk"
+      },
+      { 
+        factor: "Liquidity Position", 
+        score: 88, 
+        weight: 12, 
+        trend: "improving", 
+        impact: "high",
+        subcategories: {
+          "Cash Reserves": 92,
+          "Credit Facilities": 85,
+          "Asset Quality": 87,
+          "Funding Sources": 88
+        },
+        benchmark: 83,
+        threshold: 75,
+        description: "Availability of liquid assets and funding"
+      },
+      { 
+        factor: "Regulatory Environment", 
+        score: 82, 
+        weight: 8, 
+        trend: "stable", 
+        impact: "medium",
+        subcategories: {
+          "Compliance Status": 95,
+          "Regulatory Changes": 75,
+          "Capital Requirements": 85,
+          "Reporting Standards": 92
+        },
+        benchmark: 80,
+        threshold: 75,
+        description: "Regulatory compliance and environment"
+      },
+      { 
+        factor: "Technology & Innovation", 
+        score: 79, 
+        weight: 5, 
+        trend: "improving", 
+        impact: "low",
+        subcategories: {
+          "Digital Capabilities": 83,
+          "Data Analytics": 82,
+          "Cybersecurity": 75,
+          "System Integration": 76
+        },
+        benchmark: 72,
+        threshold: 65,
+        description: "Technology infrastructure and innovation"
+      }
+    ]
+  };
+
+  const currentData = riskFactorsData.current;
+  const overallRiskScore = Math.round(
+    currentData.reduce((sum, factor) => sum + (factor.score * factor.weight), 0) / 
+    currentData.reduce((sum, factor) => sum + factor.weight, 0)
+  );
+
+  const RiskFactorsTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const factor = currentData.find(f => f.factor === label);
+      
+      if (!factor) return null;
+      
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-3xl p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 min-w-[350px]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-bold text-xl text-gray-900 dark:text-white">
+                {factor.factor}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                {factor.description}
+              </p>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-bold ${
+                factor.score >= 85 ? 'text-green-600 dark:text-green-400' :
+                factor.score >= 75 ? 'text-amber-600 dark:text-amber-400' :
+                'text-red-600 dark:text-red-400'
+              }`}>
+                {factor.score}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Risk Score</div>
+            </div>
+          </div>
+          
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl">
+              <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{factor.weight}%</div>
+              <div className="text-xs text-indigo-700 dark:text-indigo-300">Weight</div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-2xl">
+              <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{factor.impact.toUpperCase()}</div>
+              <div className="text-xs text-purple-700 dark:text-purple-300">Impact</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+              <div className="text-lg font-bold text-gray-600 dark:text-gray-400">{factor.benchmark}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Benchmark</div>
+            </div>
+            <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/30 rounded-2xl">
+              <div className={`text-lg font-bold ${
+                factor.trend === 'improving' ? 'text-green-600 dark:text-green-400' :
+                factor.trend === 'deteriorating' ? 'text-red-600 dark:text-red-400' :
+                'text-gray-600 dark:text-gray-400'
+              }`}>
+                {factor.trend === 'improving' ? '📈' : factor.trend === 'deteriorating' ? '📉' : '➡️'}
+              </div>
+              <div className="text-xs text-amber-700 dark:text-amber-300">Trend</div>
+            </div>
+          </div>
+          
+          {/* Subcategories Breakdown */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Risk Breakdown:</div>
+            <div className="space-y-2">
+              {Object.entries(factor.subcategories).map(([category, score]) => (
+                <div key={category} className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{category}:</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          score >= 85 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                          score >= 75 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                          'bg-gradient-to-r from-red-400 to-red-500'
+                        }`}
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                    <span className={`text-sm font-bold ${
+                      score >= 85 ? 'text-green-600 dark:text-green-400' :
+                      score >= 75 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {score}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Performance vs Benchmark */}
+          <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border border-blue-200 dark:border-blue-800">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">vs Benchmark</span>
+              <span className={`text-sm font-bold ${
+                factor.score > factor.benchmark ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {factor.score > factor.benchmark ? '+' : ''}{factor.score - factor.benchmark}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  factor.score > factor.benchmark 
+                    ? 'bg-gradient-to-r from-green-400 to-green-500' 
+                    : 'bg-gradient-to-r from-red-400 to-red-500'
+                }`}
+                style={{ width: `${Math.min(Math.abs(factor.score - factor.benchmark) * 5, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const highRiskFactors = currentData.filter(factor => factor.score < factor.threshold).length;
+  const avgScore = Math.round(currentData.reduce((sum, factor) => sum + factor.score, 0) / currentData.length);
+  const criticalFactors = currentData.filter(factor => factor.impact === 'high' && factor.score < 80).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Control Panel */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+        {/* View Mode Controls */}
+        <div className="flex items-center space-x-4">
+          {/* View Mode Selector */}
+          <div className="flex items-center space-x-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-2 border border-gray-200 dark:border-gray-700">
+            {[
+              { key: 'radar', label: 'Radar', icon: '🎯' },
+              { key: 'heatmap', label: 'Heatmap', icon: '🔥' },
+              { key: 'matrix', label: 'Matrix', icon: '📊' }
+            ].map((mode) => (
+              <button
+                key={mode.key}
+                onClick={() => setViewMode(mode.key as any)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  viewMode === mode.key 
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' 
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <span>{mode.icon}</span>
+                <span>{mode.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Time Comparison */}
+          <div className="flex items-center space-x-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-2 border border-gray-200 dark:border-gray-700">
+            {[
+              { key: 'current', label: 'Current' },
+              { key: 'trend', label: 'Trend' },
+              { key: 'forecast', label: 'Forecast' }
+            ].map((time) => (
+              <button
+                key={time.key}
+                onClick={() => setTimeComparison(time.key as any)}
+                className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                  timeComparison === time.key 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' 
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {time.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* KPI Summary */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className={`text-xl font-bold ${
+              overallRiskScore >= 85 ? 'text-green-600 dark:text-green-400' :
+              overallRiskScore >= 75 ? 'text-amber-600 dark:text-amber-400' :
+              'text-red-600 dark:text-red-400'
+            }`}>{overallRiskScore}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Overall Score</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-red-600 dark:text-red-400">{criticalFactors}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Critical Issues</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{avgScore}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Avg Factor</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Radar Chart */}
+      {viewMode === 'radar' && (
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex-1">
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={currentData.map(factor => ({
+                subject: factor.factor,
+                score: factor.score,
+                benchmark: factor.benchmark,
+                threshold: factor.threshold,
+                fullMark: 100,
+                ...factor
+              }))}>
+                <defs>
+                  <linearGradient id="riskRadarGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.8} />
+                    <stop offset="50%" stopColor="#8B5CF6" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#EC4899" stopOpacity={0.4} />
+                  </linearGradient>
+                  <linearGradient id="riskBenchmarkGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#6B7280" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#6B7280" stopOpacity={0.3} />
+                  </linearGradient>
+                  <filter id="riskGlow">
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <PolarGrid
+                  stroke="rgba(156, 163, 175, 0.3)"
+                  className="dark:opacity-40"
+                />
+                <PolarAngleAxis
+                  dataKey="subject"
+                  tick={{ fill: "currentColor", fontSize: 11, fontWeight: 600 }}
+                  className="text-gray-600 dark:text-gray-400"
+                />
+                <PolarRadiusAxis
+                  angle={30}
+                  domain={[0, 100]}
+                  tick={{ fill: "currentColor", fontSize: 9 }}
+                  className="text-gray-500 dark:text-gray-500"
+                />
+                
+                {/* Benchmark Area */}
+                <Radar
+                  name="Industry Benchmark"
+                  dataKey="benchmark"
+                  stroke="#6B7280"
+                  fill="url(#riskBenchmarkGradient)"
+                  strokeWidth={2}
+                  dot={false}
+                  fillOpacity={0.2}
+                />
+                
+                {/* Current Score Area */}
+                <Radar
+                  name="Current Score"
+                  dataKey="score"
+                  stroke="#6366F1"
+                  fill="url(#riskRadarGradient)"
+                  strokeWidth={3}
+                  dot={{ 
+                    r: 6, 
+                    fill: "#6366F1", 
+                    stroke: "#ffffff", 
+                    strokeWidth: 2,
+                    filter: "url(#riskGlow)"
+                  }}
+                  filter="url(#riskGlow)"
+                />
+                
+                {/* Threshold Line */}
+                <Radar
+                  name="Risk Threshold"
+                  dataKey="threshold"
+                  stroke="#EF4444"
+                  strokeWidth={2}
+                  strokeDasharray="5,5"
+                  dot={false}
+                  fill="none"
+                />
+                
+                <Tooltip content={<RiskFactorsTooltip />} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Enhanced Legend with Risk Assessment */}
+          <div className="flex-1 space-y-4">
+            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Risk Factor Analysis</h4>
+            {currentData.map((factor, index) => (
+              <div
+                key={index}
+                className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer transform hover:scale-102 ${
+                  activeFactor === index
+                    ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-lg'
+                    : 'border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+                onMouseEnter={() => setActiveFactor(index)}
+                onMouseLeave={() => setActiveFactor(null)}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm">{factor.factor}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{factor.weight}% weight • {factor.impact} impact</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-2xl font-bold ${
+                      factor.score >= 85 ? 'text-green-600 dark:text-green-400' :
+                      factor.score >= 75 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {factor.score}
+                    </div>
+                    <div className={`text-xs font-medium ${
+                      factor.trend === 'improving' ? 'text-green-600 dark:text-green-400' :
+                      factor.trend === 'deteriorating' ? 'text-red-600 dark:text-red-400' :
+                      'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {factor.trend === 'improving' ? '↗️ Improving' : factor.trend === 'deteriorating' ? '↘️ Declining' : '➡️ Stable'}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Performance</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">vs {factor.benchmark} benchmark</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      factor.score >= 85 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                      factor.score >= 75 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                      'bg-gradient-to-r from-red-400 to-red-500'
+                    }`}
+                    style={{ width: `${factor.score}%` }}
+                  />
+                </div>
+                
+                {/* Quick Status */}
+                <div className="flex justify-between items-center">
+                  <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                    factor.score >= factor.threshold 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                      : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                  }`}>
+                    {factor.score >= factor.threshold ? 'Within Limits' : 'Above Threshold'}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {factor.score > factor.benchmark ? '+' : ''}{factor.score - factor.benchmark} vs benchmark
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Heatmap View */}
+      {viewMode === 'heatmap' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {currentData.map((factor, index) => (
+              <div
+                key={index}
+                className="p-6 rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h5 className="font-bold text-gray-900 dark:text-white">{factor.factor}</h5>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{factor.description}</p>
+                  </div>
+                  <div className={`text-3xl font-bold ${
+                    factor.score >= 85 ? 'text-green-600 dark:text-green-400' :
+                    factor.score >= 75 ? 'text-amber-600 dark:text-amber-400' :
+                    'text-red-600 dark:text-red-400'
+                  }`}>
+                    {factor.score}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(factor.subcategories).map(([category, score]) => (
+                    <div
+                      key={category}
+                      className={`p-3 rounded-xl text-center ${
+                        score >= 85 ? 'bg-green-50 dark:bg-green-900/30' :
+                        score >= 75 ? 'bg-amber-50 dark:bg-amber-900/30' :
+                        'bg-red-50 dark:bg-red-900/30'
+                      }`}
+                    >
+                      <div className={`text-lg font-bold ${
+                        score >= 85 ? 'text-green-600 dark:text-green-400' :
+                        score >= 75 ? 'text-amber-600 dark:text-amber-400' :
+                        'text-red-600 dark:text-red-400'
+                      }`}>
+                        {score}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{category}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Matrix View */}
+      {viewMode === 'matrix' && (
+        <div className="space-y-6">
+          {/* Risk Impact Matrix */}
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+            <h5 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Risk Impact Matrix</h5>
+            <div className="grid grid-cols-4 gap-4">
+              {/* Matrix Headers */}
+              <div></div>
+              <div className="text-center font-semibold text-gray-600 dark:text-gray-400">Low Impact</div>
+              <div className="text-center font-semibold text-gray-600 dark:text-gray-400">Medium Impact</div>
+              <div className="text-center font-semibold text-gray-600 dark:text-gray-400">High Impact</div>
+              
+              {/* High Risk Row */}
+              <div className="flex items-center font-semibold text-gray-600 dark:text-gray-400">High Risk</div>
+              <div className="h-20 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score < 75 && f.impact === 'low').map(f => (
+                    <div key={f.factor} className="text-xs text-amber-800 dark:text-amber-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score < 75 && f.impact === 'medium').map(f => (
+                    <div key={f.factor} className="text-xs text-red-800 dark:text-red-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-red-200 dark:bg-red-900/50 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score < 75 && f.impact === 'high').map(f => (
+                    <div key={f.factor} className="text-xs text-red-900 dark:text-red-100 font-semibold">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Medium Risk Row */}
+              <div className="flex items-center font-semibold text-gray-600 dark:text-gray-400">Medium Risk</div>
+              <div className="h-20 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 75 && f.score < 85 && f.impact === 'low').map(f => (
+                    <div key={f.factor} className="text-xs text-green-800 dark:text-green-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 75 && f.score < 85 && f.impact === 'medium').map(f => (
+                    <div key={f.factor} className="text-xs text-amber-800 dark:text-amber-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 75 && f.score < 85 && f.impact === 'high').map(f => (
+                    <div key={f.factor} className="text-xs text-red-800 dark:text-red-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Low Risk Row */}
+              <div className="flex items-center font-semibold text-gray-600 dark:text-gray-400">Low Risk</div>
+              <div className="h-20 bg-green-200 dark:bg-green-900/50 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 85 && f.impact === 'low').map(f => (
+                    <div key={f.factor} className="text-xs text-green-900 dark:text-green-100 font-semibold">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 85 && f.impact === 'medium').map(f => (
+                    <div key={f.factor} className="text-xs text-green-800 dark:text-green-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-20 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  {currentData.filter(f => f.score >= 85 && f.impact === 'high').map(f => (
+                    <div key={f.factor} className="text-xs text-amber-800 dark:text-amber-200">{f.factor}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -49,11 +49,8 @@ const SidePanel: React.FC<SidePanelProps> = () => {
           transition={{ delay: 0.4, duration: 0.8 }}
           className="space-y-4"
         >
-          <h1 className="text-5xl font-bold text-white leading-tight">
-            RiskGuard{" "}
-            <span className="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
-              Pro
-            </span>
+          <h1 className="text-5xl font-bold leading-tight bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
+            RiskGuard
           </h1>
 
           <div className="flex items-center space-x-2">
