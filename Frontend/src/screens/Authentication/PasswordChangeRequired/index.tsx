@@ -20,7 +20,7 @@ import {
   selectPasswordExpired,
   selectCreatedByAdmin,
 } from "../../../components/redux/features/auth/authSlice";
-import { useToast } from "../../../components/utils/Toast";
+import { useToast, ToastContainer } from "../../../components/utils/Toast";
 import { usePasswordSecurityGuard } from "../../../components/utils/hooks/usePasswordSecurityGuard";
 
 const PasswordChangeRequired: React.FC = () => {
@@ -42,7 +42,7 @@ const PasswordChangeRequired: React.FC = () => {
   const [changePasswordRequired, { isLoading }] = useChangePasswordRequiredMutation();
   
   // Toast system
-  const { success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
+  const { success: showSuccess, error: showError, warning: showWarning, info: showInfo, toasts, removeToast } = useToast();
   
   // Security guard to prevent bypass attempts
   const { securityLevel } = usePasswordSecurityGuard();
@@ -179,7 +179,7 @@ const PasswordChangeRequired: React.FC = () => {
       
       // Redirect to dashboard after successful change
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/");
       }, 2000);
     } catch (err: any) {
       let errorMessage = "Failed to change password. Please try again.";
@@ -200,7 +200,13 @@ const PasswordChangeRequired: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-500 bg-gradient-to-br from-gray-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900">
+    <>
+      <ToastContainer
+        toasts={toasts}
+        removeToast={removeToast}
+        position="top-right"
+      />
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-500 bg-gradient-to-br from-gray-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900">
       {/* Enhanced background elements */}
       <motion.div
         className="absolute top-0 right-0 w-96 h-96 rounded-full filter blur-3xl opacity-20 bg-indigo-200 dark:bg-indigo-400"
@@ -533,7 +539,8 @@ const PasswordChangeRequired: React.FC = () => {
           </AnimatePresence>
         </div>
       </motion.div>
-    </div>
+      </div>
+    </>
   );
 };
 
