@@ -34,20 +34,17 @@ const mockFormValues = {
   dob: "1990-05-15",
   email: "john.doe@example.com",
   phone: "+233 24 123 4567",
+  // Individual address fields as they come from the form
+  residentialAddress: "House No. 123, Tech Valley Street",
+  digitalAddress: "GE-3445-345",
+  city: "Kumasi",
+  region: "Ashanti Region",
+  landmark: "Near SDA Church",
+  postalCode: "00233",
   // Legacy string format for backward compatibility
-  address: "123 Main St, Kumasi, Ghana",
+  address: "",
   // New structured address format
-  addresses: [
-    {
-      address_type: "HOME",
-      street_address: "123 Main Street, Tech Valley",
-      city: "Kumasi",
-      state_province: "Ashanti Region",
-      postal_code: "00233",
-      country: "Ghana",
-      is_primary: true
-    }
-  ],
+  addresses: [],
   employmentStatus: "Full-time",
   occupation: "Software Engineer",
   jobTitle: "Software Engineer",  // NEW: Ghana employment analysis field
@@ -107,10 +104,10 @@ export default function ReviewStep({
     return `GHC ${Number(amount).toLocaleString()}`;
   };
 
-  const formatAddress = (addressData: any) => {
+  const formatAddress = (addressData: any, formValues: any) => {
     // Handle case where address is a simple string (legacy format)
-    if (typeof addressData === 'string') {
-      return addressData || "Not provided";
+    if (typeof addressData === 'string' && addressData) {
+      return addressData;
     }
 
     // Handle case where address is an array of address objects
@@ -122,6 +119,20 @@ export default function ReviewStep({
     // Handle case where address is a single address object
     if (addressData && typeof addressData === 'object') {
       return formatSingleAddress(addressData);
+    }
+
+    // Handle form data with individual address fields
+    if (formValues) {
+      const addressParts = [];
+      
+      if (formValues.residentialAddress) addressParts.push(formValues.residentialAddress);
+      if (formValues.city) addressParts.push(formValues.city);
+      if (formValues.region) addressParts.push(formValues.region);
+      if (formValues.postalCode) addressParts.push(formValues.postalCode);
+      
+      if (addressParts.length > 0) {
+        return addressParts.join(", ");
+      }
     }
 
     return "Not provided";
@@ -142,7 +153,7 @@ export default function ReviewStep({
     return parts.length > 0 ? parts.join(", ") : "Not provided";
   };
 
-  const renderDetailedAddress = (addressData: any) => {
+  const renderDetailedAddress = (addressData: any, formValues: any) => {
     // Handle string address - no detailed breakdown available
     if (typeof addressData === 'string') {
       return null;
@@ -152,6 +163,64 @@ export default function ReviewStep({
     // Handle array of addresses - use primary or first
     if (Array.isArray(addressData) && addressData.length > 0) {
       address = addressData.find(addr => addr.is_primary) || addressData[0];
+    }
+
+    // Handle form data with individual address fields
+    if (!address && formValues) {
+      const hasFormAddressData = formValues.residentialAddress || formValues.digitalAddress || 
+                                formValues.city || formValues.region || formValues.landmark || formValues.postalCode;
+      
+      if (hasFormAddressData) {
+        return (
+          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
+            <div className="flex items-center">
+              <span className="font-medium w-20">Type:</span>
+              <span>Residential</span>
+            </div>
+            {formValues.residentialAddress && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">Street:</span>
+                <span>{formValues.residentialAddress}</span>
+              </div>
+            )}
+            {formValues.digitalAddress && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">Digital:</span>
+                <span>{formValues.digitalAddress}</span>
+              </div>
+            )}
+            {formValues.city && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">City:</span>
+                <span>{formValues.city}</span>
+              </div>
+            )}
+            {formValues.region && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">Region:</span>
+                <span>{formValues.region}</span>
+              </div>
+            )}
+            {formValues.postalCode && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">Postal:</span>
+                <span>{formValues.postalCode}</span>
+              </div>
+            )}
+            {formValues.landmark && (
+              <div className="flex items-center">
+                <span className="font-medium w-20">Landmark:</span>
+                <span>{formValues.landmark}</span>
+              </div>
+            )}
+            <div className="flex items-center text-green-600 dark:text-green-400">
+              <FiCheckCircle className="h-3 w-3 mr-1" />
+              <span className="text-xs">Primary Address</span>
+            </div>
+          </div>
+        );
+      }
+      return null;
     }
 
     // Only show detailed breakdown if we have structured address data
@@ -266,10 +335,11 @@ export default function ReviewStep({
         { label: "Phone Number", value: formValues.phone || "Not provided", icon: FiPhone },
         { 
           label: "Address", 
-          value: formatAddress(formValues.address || formValues.addresses), 
+          value: formatAddress(formValues.address || formValues.addresses, formValues), 
           icon: FiMapPin,
           isAddress: true,
-          fullAddress: formValues.address || formValues.addresses
+          fullAddress: formValues.address || formValues.addresses,
+          formValues: formValues
         }
       ]
     },
@@ -445,12 +515,12 @@ export default function ReviewStep({
                                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                   {item.label}
                                 </p>
-                                {item.isAddress && item.fullAddress ? (
+                                {item.isAddress ? (
                                   <div className="space-y-2">
                                     <p className="text-sm text-gray-900 dark:text-white font-medium">
                                       {item.value}
                                     </p>
-                                    {renderDetailedAddress(item.fullAddress)}
+                                    {renderDetailedAddress(item.fullAddress, item.formValues)}
                                   </div>
                                 ) : (
                                   <p className="text-sm text-gray-900 dark:text-white font-medium">
