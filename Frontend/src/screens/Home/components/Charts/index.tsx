@@ -2596,3 +2596,832 @@ export const SystemWideRiskFactorsChart: React.FC = () => {
     </div>
   );
 };
+
+// Policy Compliance Matrix data generator
+const generatePolicyComplianceData = () => [
+  {
+    policy: 'Data Privacy (GDPR)',
+    compliant: 95,
+    nonCompliant: 5,
+    totalChecks: 1250,
+    criticalIssues: 2,
+    lastAudit: '2024-01-15',
+    riskLevel: 'Low',
+    trend: 'up'
+  },
+  {
+    policy: 'Financial Regulations',
+    compliant: 88,
+    nonCompliant: 12,
+    totalChecks: 980,
+    criticalIssues: 8,
+    lastAudit: '2024-01-20',
+    riskLevel: 'Medium',
+    trend: 'down'
+  },
+  {
+    policy: 'Security Standards',
+    compliant: 92,
+    nonCompliant: 8,
+    totalChecks: 2100,
+    criticalIssues: 5,
+    lastAudit: '2024-01-18',
+    riskLevel: 'Low',
+    trend: 'stable'
+  },
+  {
+    policy: 'Credit Risk Policies',
+    compliant: 85,
+    nonCompliant: 15,
+    totalChecks: 1500,
+    criticalIssues: 12,
+    lastAudit: '2024-01-22',
+    riskLevel: 'High',
+    trend: 'up'
+  },
+  {
+    policy: 'Operational Risk',
+    compliant: 90,
+    nonCompliant: 10,
+    totalChecks: 850,
+    criticalIssues: 4,
+    lastAudit: '2024-01-19',
+    riskLevel: 'Medium',
+    trend: 'up'
+  },
+  {
+    policy: 'AML/KYC Compliance',
+    compliant: 97,
+    nonCompliant: 3,
+    totalChecks: 3200,
+    criticalIssues: 1,
+    lastAudit: '2024-01-21',
+    riskLevel: 'Low',
+    trend: 'up'
+  }
+];
+
+// Audit Coverage Analysis data generator
+const generateAuditCoverageData = () => [
+  {
+    department: 'Credit Risk',
+    covered: 95,
+    pending: 5,
+    auditsCompleted: 45,
+    totalAudits: 48,
+    highRiskAreas: 3,
+    mediumRisk: 8,
+    lowRisk: 34,
+    nextAudit: '2024-02-15'
+  },
+  {
+    department: 'Operations',
+    covered: 82,
+    pending: 18,
+    auditsCompleted: 28,
+    totalAudits: 35,
+    highRiskAreas: 6,
+    mediumRisk: 12,
+    lowRisk: 17,
+    nextAudit: '2024-02-08'
+  },
+  {
+    department: 'IT Security',
+    covered: 98,
+    pending: 2,
+    auditsCompleted: 52,
+    totalAudits: 53,
+    highRiskAreas: 1,
+    mediumRisk: 4,
+    lowRisk: 48,
+    nextAudit: '2024-02-28'
+  },
+  {
+    department: 'Compliance',
+    covered: 88,
+    pending: 12,
+    auditsCompleted: 22,
+    totalAudits: 25,
+    highRiskAreas: 2,
+    mediumRisk: 6,
+    lowRisk: 17,
+    nextAudit: '2024-02-12'
+  },
+  {
+    department: 'Finance',
+    covered: 91,
+    pending: 9,
+    auditsCompleted: 32,
+    totalAudits: 35,
+    highRiskAreas: 3,
+    mediumRisk: 7,
+    lowRisk: 25,
+    nextAudit: '2024-02-18'
+  }
+];
+
+export const PolicyComplianceMatrix: React.FC = () => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'bar' | 'radar'>('bar');
+  const data = generatePolicyComplianceData();
+
+  const radarData = data.map(item => ({
+    policy: item.policy.split(' ')[0],
+    compliance: item.compliant,
+    fullMark: 100
+  }));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-2xl p-4 shadow-xl">
+          <p className="font-semibold text-gray-900 dark:text-white mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {`${entry.dataKey}: ${entry.value}%`}
+            </p>
+          ))}
+          {data.criticalIssues !== undefined && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+              Critical Issues: {data.criticalIssues}
+            </p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="w-full bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            🛡️ Policy Compliance Matrix
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Real-time compliance monitoring across all policy domains
+          </p>
+        </div>
+        <div className="flex space-x-2 mt-4 lg:mt-0">
+          {(['bar', 'radar'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                viewMode === mode
+                  ? 'bg-indigo-500 text-white shadow-lg transform scale-105'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {mode === 'bar' ? '📊 Bar Chart' : '🎯 Radar'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-96 mb-8">
+        <ResponsiveContainer width="100%" height="100%">
+          {viewMode === 'bar' ? (
+            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <defs>
+                <linearGradient id="compliantGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.4}/>
+                </linearGradient>
+                <linearGradient id="nonCompliantGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.4}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+              <XAxis 
+                dataKey="policy" 
+                angle={-45} 
+                textAnchor="end" 
+                height={80}
+                fontSize={12}
+                tick={{ fill: isDarkMode ? '#9CA3AF' : '#374151' }}
+              />
+              <YAxis tick={{ fill: isDarkMode ? '#9CA3AF' : '#374151', fontSize: 12 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+              <Bar 
+                dataKey="compliant" 
+                name="Compliant %" 
+                fill="url(#compliantGradient)"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar 
+                dataKey="nonCompliant" 
+                name="Non-Compliant %" 
+                fill="url(#nonCompliantGradient)"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          ) : (
+            <RadarChart data={radarData} margin={{ top: 40, right: 80, bottom: 40, left: 80 }}>
+              <PolarGrid stroke="#e5e7eb" opacity={0.3} />
+              <PolarAngleAxis 
+                dataKey="policy" 
+                tick={{ fontSize: 12, fill: isDarkMode ? '#9CA3AF' : '#374151' }} 
+              />
+              <PolarRadiusAxis 
+                angle={90} 
+                domain={[0, 100]} 
+                tick={{ fontSize: 10, fill: isDarkMode ? '#9CA3AF' : '#374151' }} 
+              />
+              <Radar
+                name="Compliance %"
+                dataKey="compliance"
+                stroke="#6366f1"
+                fill="#6366f1"
+                fillOpacity={0.2}
+                strokeWidth={3}
+              />
+              <Tooltip content={<CustomTooltip />} />
+            </RadarChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {data.slice(0, 3).map((item, index) => (
+          <div
+            key={item.policy}
+            className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 rounded-2xl p-4 border border-gray-200/50 dark:border-gray-600/30"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                {item.policy}
+              </h4>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                item.riskLevel === 'Low' ? 'bg-green-100 text-green-800 border-green-200' :
+                item.riskLevel === 'Medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                'bg-red-100 text-red-800 border-red-200'
+              }`}>
+                {item.riskLevel} Risk
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${item.compliant}%` }}
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {item.compliant}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs text-gray-600 dark:text-gray-400">
+              <span>{item.criticalIssues} critical issues</span>
+              <span className="flex items-center">
+                {item.trend === 'up' && <span className="text-green-500">📈</span>}
+                {item.trend === 'down' && <span className="text-red-500">📉</span>}
+                {item.trend === 'stable' && <span className="text-gray-500">➡️</span>}
+                <span className="ml-1">{item.trend}</span>
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const AuditCoverageAnalysis: React.FC = () => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'bar' | 'pie'>('bar');
+  const data = generateAuditCoverageData();
+
+  const pieData = data.map((item, index) => ({
+    name: item.department,
+    value: item.covered,
+    fill: COLORS[index % COLORS.length]
+  }));
+
+  const AuditTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-white/30 dark:border-gray-700/40 rounded-2xl p-4 shadow-xl">
+          <p className="font-semibold text-gray-900 dark:text-white mb-2">{label}</p>
+          <div className="space-y-1 text-sm">
+            <p style={{ color: '#3b82f6' }}>Coverage: {data.covered}%</p>
+            <p style={{ color: '#f59e0b' }}>Pending: {data.pending}%</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Completed: {data.auditsCompleted}/{data.totalAudits}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+              Next Audit: {data.nextAudit}
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="w-full bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            👁️ Audit Coverage Analysis
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Comprehensive audit coverage tracking across all departments
+          </p>
+        </div>
+        <div className="flex space-x-2 mt-4 lg:mt-0">
+          {(['bar', 'pie'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                viewMode === mode
+                  ? 'bg-indigo-500 text-white shadow-lg transform scale-105'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {mode === 'bar' ? '📊 Bar Chart' : '🥧 Pie Chart'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-96 mb-8">
+        <ResponsiveContainer width="100%" height="100%">
+          {viewMode === 'bar' ? (
+            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <defs>
+                <linearGradient id="coveredGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                </linearGradient>
+                <linearGradient id="pendingGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.8}/>
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.4}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+              <XAxis 
+                dataKey="department" 
+                tick={{ fill: isDarkMode ? '#9CA3AF' : '#374151', fontSize: 12 }}
+              />
+              <YAxis tick={{ fill: isDarkMode ? '#9CA3AF' : '#374151', fontSize: 12 }} />
+              <Tooltip content={<AuditTooltip />} />
+              <Legend />
+              <Bar 
+                dataKey="covered" 
+                name="Coverage %" 
+                fill="url(#coveredGradient)"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar 
+                dataKey="pending" 
+                name="Pending %" 
+                fill="url(#pendingGradient)"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          ) : (
+            <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                outerRadius={120}
+                dataKey="value"
+                label={({ name, value }) => `${name}: ${value}%`}
+                labelLine={false}
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+
+      {/* Department Risk Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {data.map((dept, index) => (
+          <div
+            key={dept.department}
+            className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 rounded-2xl p-4 border border-gray-200/50 dark:border-gray-600/30"
+          >
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+              {dept.department}
+            </h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-red-600 dark:text-red-400">High Risk</span>
+                <span className="font-medium">{dept.highRiskAreas}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-yellow-600 dark:text-yellow-400">Medium Risk</span>
+                <span className="font-medium">{dept.mediumRisk}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-green-600 dark:text-green-400">Low Risk</span>
+                <span className="font-medium">{dept.lowRisk}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>Next Audit:</span>
+                <span className="font-medium">{new Date(dept.nextAudit).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Client Risk Profile data generator
+const generateClientRiskData = () => ({
+  overallScore: 742,
+  riskLevel: 'Good',
+  factors: [
+    { factor: 'Credit History', score: 85, weight: 25, status: 'excellent' },
+    { factor: 'Income Stability', score: 78, weight: 20, status: 'good' },
+    { factor: 'Debt-to-Income', score: 72, weight: 20, status: 'fair' },
+    { factor: 'Employment History', score: 88, weight: 15, status: 'excellent' },
+    { factor: 'Assets & Collateral', score: 65, weight: 10, status: 'fair' },
+    { factor: 'Payment Behavior', score: 92, weight: 10, status: 'excellent' }
+  ],
+  trends: [
+    { month: 'Jan', score: 720 },
+    { month: 'Feb', score: 725 },
+    { month: 'Mar', score: 735 },
+    { month: 'Apr', score: 738 },
+    { month: 'May', score: 742 },
+    { month: 'Jun', score: 742 }
+  ]
+});
+
+// Client Application History data generator
+const generateClientApplicationData = () => [
+  {
+    id: 'APP-2024-001',
+    type: 'Personal Loan',
+    amount: 25000,
+    status: 'Approved',
+    appliedDate: '2024-01-15',
+    approvedDate: '2024-01-20',
+    riskScore: 742,
+    interestRate: 8.5,
+    term: 36
+  },
+  {
+    id: 'APP-2023-045',
+    type: 'Credit Card',
+    amount: 5000,
+    status: 'Approved',
+    appliedDate: '2023-10-12',
+    approvedDate: '2023-10-15',
+    riskScore: 720,
+    interestRate: 16.99,
+    term: 12
+  },
+  {
+    id: 'APP-2023-032',
+    type: 'Auto Loan',
+    amount: 45000,
+    status: 'Under Review',
+    appliedDate: '2023-11-28',
+    approvedDate: null,
+    riskScore: 735,
+    interestRate: null,
+    term: 60
+  }
+];
+
+export const ClientRiskProfileChart: React.FC = () => {
+  const [viewMode, setViewMode] = useState<'radar' | 'trend'>('radar');
+  const data = generateClientRiskData();
+
+  const radarData = data.factors.map(factor => ({
+    factor: factor.factor.split(' ')[0],
+    score: factor.score,
+    fullMark: 100
+  }));
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#10b981'; // green
+    if (score >= 60) return '#f59e0b'; // amber
+    return '#ef4444'; // red
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      excellent: 'bg-green-100 text-green-800 border-green-200',
+      good: 'bg-blue-100 text-blue-800 border-blue-200',
+      fair: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      poor: 'bg-red-100 text-red-800 border-red-200'
+    };
+    return styles[status as keyof typeof styles] || styles.fair;
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center space-x-3">
+            <div className="text-3xl font-bold text-gray-900 dark:text-white">
+              {data.overallScore}
+            </div>
+            <div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Credit Score</div>
+              <div className={`text-sm font-medium ${
+                data.riskLevel === 'Excellent' ? 'text-green-600' :
+                data.riskLevel === 'Good' ? 'text-blue-600' :
+                data.riskLevel === 'Fair' ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>
+                {data.riskLevel} Standing
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          {(['radar', 'trend'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                viewMode === mode
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {mode === 'radar' ? '🎯' : '📈'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart Area */}
+      <div className="flex-1 min-h-[250px]">
+        <ResponsiveContainer width="100%" height="100%">
+          {viewMode === 'radar' ? (
+            <RadarChart data={radarData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <PolarGrid stroke="#e5e7eb" opacity={0.3} />
+              <PolarAngleAxis dataKey="factor" tick={{ fontSize: 11 }} />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
+              <Radar
+                name="Risk Factors"
+                dataKey="score"
+                stroke="#6366f1"
+                fill="#6366f1"
+                fillOpacity={0.2}
+                strokeWidth={2}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload[0]) {
+                    const factor = data.factors.find(f => f.factor.startsWith(payload[0].payload.factor));
+                    return (
+                      <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl p-3 shadow-lg">
+                        <p className="font-semibold text-gray-900 dark:text-white">{factor?.factor}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Score: {factor?.score}/100</p>
+                        <p className="text-xs" style={{ color: getScoreColor(factor?.score || 0) }}>
+                          {factor?.status.charAt(0).toUpperCase() + factor?.status.slice(1)}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+            </RadarChart>
+          ) : (
+            <LineChart data={data.trends} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+              <YAxis domain={['dataMin - 10', 'dataMax + 10']} tick={{ fontSize: 12 }} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload[0]) {
+                    return (
+                      <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl p-3 shadow-lg">
+                        <p className="font-semibold text-gray-900 dark:text-white">{label}</p>
+                        <p className="text-sm text-indigo-600">Score: {payload[0].value}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke="#6366f1"
+                strokeWidth={3}
+                dot={{ fill: '#6366f1', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#6366f1', strokeWidth: 2 }}
+              />
+            </LineChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+
+      {/* Risk Factors Summary */}
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        {data.factors.slice(0, 4).map((factor, index) => (
+          <div key={index} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">
+                {factor.factor}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadge(factor.status)}`}>
+                {factor.status}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                <div
+                  className="h-1.5 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: `${factor.score}%`,
+                    backgroundColor: getScoreColor(factor.score)
+                  }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-900 dark:text-white">
+                {factor.score}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const ClientApplicationHistoryChart: React.FC = () => {
+  const [viewMode, setViewMode] = useState<'timeline' | 'amounts'>('timeline');
+  const data = generateClientApplicationData();
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Approved': return 'text-green-600 bg-green-100 border-green-200';
+      case 'Under Review': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
+      case 'Rejected': return 'text-red-600 bg-red-100 border-red-200';
+      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Approved': return '✅';
+      case 'Under Review': return '🔄';
+      case 'Rejected': return '❌';
+      default: return '📋';
+    }
+  };
+
+  const chartData = data.map(app => ({
+    type: app.type,
+    amount: app.amount,
+    date: new Date(app.appliedDate).getTime(),
+    status: app.status,
+    riskScore: app.riskScore
+  }));
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Applications</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.length}</div>
+        </div>
+        <div className="flex space-x-2">
+          {(['timeline', 'amounts'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                viewMode === mode
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {mode === 'timeline' ? '📅' : '💰'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart Area */}
+      <div className="flex-1 min-h-[200px]">
+        {viewMode === 'amounts' ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+              <XAxis 
+                dataKey="type" 
+                tick={{ fontSize: 11 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                tick={{ fontSize: 11 }}
+                tickFormatter={(value) => `$${value.toLocaleString()}`}
+              />
+              <Tooltip
+                formatter={(value: any, name: any) => [`$${value.toLocaleString()}`, 'Amount']}
+                labelFormatter={(label) => `Application: ${label}`}
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  backdropFilter: 'blur(12px)'
+                }}
+              />
+              <Bar 
+                dataKey="amount" 
+                fill="#6366f1"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="space-y-3">
+            {data.map((app, index) => (
+              <div key={app.id} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3">
+                    <div className="text-2xl">{getStatusIcon(app.status)}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          {app.type}
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(app.status)}`}>
+                          {app.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Amount: <span className="font-medium">${app.amount.toLocaleString()}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Applied: {new Date(app.appliedDate).toLocaleDateString()}
+                        {app.approvedDate && (
+                          <span> • Approved: {new Date(app.approvedDate).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      Score: {app.riskScore}
+                    </div>
+                    {app.interestRate && (
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {app.interestRate}% APR
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+          <div className="text-lg font-bold text-green-600 dark:text-green-400">
+            {data.filter(app => app.status === 'Approved').length}
+          </div>
+          <div className="text-xs text-green-600 dark:text-green-400">Approved</div>
+        </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
+          <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+            {data.filter(app => app.status === 'Under Review').length}
+          </div>
+          <div className="text-xs text-yellow-600 dark:text-yellow-400">Pending</div>
+        </div>
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+            ${data.reduce((sum, app) => sum + app.amount, 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-blue-600 dark:text-blue-400">Total Value</div>
+        </div>
+      </div>
+    </div>
+  );
+};
