@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.core.validators import validate_email
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, date
+import logging
 from .models import (
     CreditApplication, 
     Applicant, 
@@ -583,12 +584,33 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                 'openAccounts': 'open_accounts',
                 'homeOwnership': 'home_ownership',
                 'collections12mo': 'collections_12mo',
-                'jobTitle': 'job_title'  # Ghana employment analysis field
+                'jobTitle': 'job_title',  # Ghana employment analysis field (direct)
+                'emp_title': 'job_title',  # Ghana employment analysis field (from transformer)
+                'job_title': 'job_title'  # Ghana employment analysis field (direct mapping)
             }
+            
+            # Debug: Check if job title fields are in the received data
+            logger = logging.getLogger(__name__)
+            job_title_fields = ['jobTitle', 'emp_title', 'job_title']
+            found_job_titles = {}
+            for field in job_title_fields:
+                if field in data:
+                    found_job_titles[field] = data[field]
+                    logger.info(f"✅ SERIALIZER: {field} found in request: '{data[field]}'")
+            
+            if not found_job_titles:
+                logger.warning(f"❌ SERIALIZER: No job title fields found. Available keys: {list(data.keys())}")
+            else:
+                logger.info(f"📋 SERIALIZER: Found job title fields: {found_job_titles}")
             
             for frontend_field, backend_field in ml_field_mapping.items():
                 if frontend_field in data:
-                    data[backend_field] = data.pop(frontend_field)
+                    value = data.pop(frontend_field)
+                    # Handle "Select..." default value for jobTitle
+                    if frontend_field == 'jobTitle' and value == 'Select...':
+                        value = 'Other'
+                    logger.info(f"🔄 SERIALIZER: Mapping {frontend_field}='{value}' → {backend_field}")
+                    data[backend_field] = value
         
         return super().to_internal_value(data)
     
@@ -641,6 +663,46 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
         if not request.user.is_authenticated:
             raise serializers.ValidationError("User must be authenticated")
         
+        # PRE-POPULATE JOB TITLE: Extract job_title from applicant_data BEFORE creating application
+        logger.info(f"🔍 DEBUG: validated_data keys: {list(validated_data.keys())}")
+        logger.info(f"🔍 DEBUG: validated_data.get('job_title'): '{validated_data.get('job_title')}'")
+        logger.info(f"🔍 DEBUG: applicant_data exists: {applicant_data is not None}")
+        
+        if applicant_data:
+            logger.info(f"🔍 DEBUG: applicant_data keys: {list(applicant_data.keys())}")
+            employment_history = applicant_data.get('employment_history', [])
+            logger.info(f"🔍 DEBUG: employment_history length: {len(employment_history)}")
+            if employment_history:
+                logger.info(f"🔍 DEBUG: first employment keys: {list(employment_history[0].keys())}")
+                logger.info(f"🔍 DEBUG: first employment job_title: '{employment_history[0].get('job_title')}'")
+        
+        # COMPREHENSIVE JOB TITLE EXTRACTION: Try multiple sources
+        job_title_sources = []
+        
+        # Source 1: Direct from validated_data (from ML field mapping)
+        if validated_data.get('job_title'):
+            job_title_sources.append(f"validated_data.job_title='{validated_data.get('job_title')}'")
+        
+        # Source 2: From employment history in applicant_data
+        if applicant_data:
+            employment_history = applicant_data.get('employment_history', [])
+            if employment_history and len(employment_history) > 0:
+                first_employment = employment_history[0]
+                if first_employment.get('job_title'):
+                    job_title_sources.append(f"employment_history.job_title='{first_employment.get('job_title')}'")
+                    # Set it if not already set
+                    if not validated_data.get('job_title'):
+                        validated_data['job_title'] = first_employment['job_title']
+                        logger.info(f"🔧 Pre-populated job_title from employment data: '{first_employment['job_title']}'")
+        
+        logger.info(f"📋 JOB TITLE SOURCES: {job_title_sources}")
+        logger.info(f"🎯 FINAL job_title for application: '{validated_data.get('job_title', 'NOT_SET')}'")
+        
+        if not validated_data.get('job_title'):
+            logger.error(f"❌ CRITICAL: No job_title found from any source!")
+        else:
+            logger.info(f"✅ SUCCESS: job_title will be saved: '{validated_data.get('job_title')}'")
+        
         # DEFENSIVE LAYER 5: Explicitly set applicant to authenticated user
         # This bypasses any field validation issues
         try:
@@ -648,7 +710,7 @@ class CreditApplicationSerializer(serializers.ModelSerializer):
                 applicant=request.user, 
                 **validated_data
             )
-            logger.info(f"Application created successfully: {application.id}")
+            logger.info(f"Application created successfully: {application.id} with job_title: '{application.job_title}'")
         except Exception as e:
             logger.error(f"Failed to create application: {str(e)}")
             raise serializers.ValidationError(f"Failed to create application: {str(e)}")

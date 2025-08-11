@@ -351,7 +351,6 @@ export default function ReviewStep({
       items: [
         { label: "Employment Status", value: formValues.employmentStatus || "Not provided", icon: FiActivity },
         { label: "Job Title", value: formValues.jobTitle || "Not provided", icon: FiBriefcase },
-        { label: "Occupation", value: formValues.occupation || "Not provided", icon: FiBriefcase },
         { label: "Employer", value: formValues.employer || "Not provided", icon: FiBriefcase },
         { label: "Years at Current Job", value: formValues.yearsEmployed != null && formValues.yearsEmployed !== "" && !isNaN(Number(formValues.yearsEmployed)) ? `${formValues.yearsEmployed} years` : "Not provided", icon: FiClock },
         { label: "Employment Length", value: formValues.employmentLength || "Not provided", icon: FiClock }

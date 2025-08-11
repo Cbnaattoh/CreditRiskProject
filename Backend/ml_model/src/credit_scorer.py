@@ -265,6 +265,9 @@ class CreditScorer:
             # Get category and risk level
             category, risk_level = self._get_score_category_and_risk(credit_score)
             
+            # Extract Ghana employment analysis from processed data
+            ghana_analysis = self._extract_ghana_employment_analysis(application_data, processed_data)
+            
             # Calculate comprehensive confidence
             confidence_data = self._calculate_confidence(
                 score=credit_score,
@@ -290,7 +293,11 @@ class CreditScorer:
                     'raw_score_range': f"{self.raw_score_min:.2f} - {self.raw_score_max:.2f}",
                     'scaled_score_range': "300 - 850",
                     'scale_factor': self.scale_factor
-                }
+                },
+                # Ghana employment analysis results
+                'job_category': ghana_analysis.get('job_category', 'N/A'),
+                'ghana_job_stability_score': ghana_analysis.get('job_stability_score', 0),
+                'ghana_employment_score': ghana_analysis.get('employment_score', 0)
             }
             
         except Exception as e:
@@ -515,6 +522,49 @@ class CreditScorer:
         except Exception:
             return 75.0  # Default if analysis fails
     
+    def _extract_ghana_employment_analysis(self, application_data: Dict[str, Any], processed_data: pd.DataFrame) -> Dict[str, Any]:
+        """Extract Ghana employment analysis results from processed data and application data."""
+        try:
+            # Import Ghana employment processor
+            try:
+                from ..ghana_employment_processor import categorize_ghana_job_title, calculate_ghana_employment_score
+            except ImportError:
+                import sys
+                import os
+                parent_dir = os.path.dirname(os.path.dirname(__file__))
+                if parent_dir not in sys.path:
+                    sys.path.append(parent_dir)
+                from ghana_employment_processor import categorize_ghana_job_title, calculate_ghana_employment_score
+            
+            # Get job title from application data
+            emp_title = application_data.get('emp_title', 'Other')
+            emp_length = application_data.get('emp_length', '5 years')
+            annual_income = application_data.get('annual_inc', 50000)
+            
+            # Categorize job title
+            job_category = categorize_ghana_job_title(emp_title)
+            
+            # Calculate employment score
+            employment_analysis = calculate_ghana_employment_score(emp_length, job_category, annual_income)
+            
+            logger.info(f"🇬🇭 Ghana Analysis: Job='{emp_title}' → Category='{job_category}' → Stability={employment_analysis.get('job_stability_score', 0)}")
+            
+            return {
+                'job_category': job_category,
+                'job_stability_score': employment_analysis.get('job_stability_score', 0),
+                'employment_score': employment_analysis.get('total_employment_score', 0),
+                'employment_risk_level': employment_analysis.get('employment_risk_level', 'Unknown')
+            }
+            
+        except Exception as e:
+            logger.error(f"Ghana employment analysis failed: {e}")
+            return {
+                'job_category': 'N/A',
+                'job_stability_score': 0,
+                'employment_score': 0,
+                'employment_risk_level': 'Unknown'
+            }
+
     def _get_confidence_level(self, confidence_score: float) -> str:
         """Convert confidence score to descriptive level."""
         if confidence_score >= 90:

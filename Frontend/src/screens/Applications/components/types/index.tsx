@@ -275,6 +275,8 @@ export class FormDataTransformer {
       revolving_accounts_12mo: formData.revolvingAccounts12mo,
       employment_length: formData.employmentLength,
       emp_title: formData.jobTitle, // Ghana employment analysis field
+      jobTitle: formData.jobTitle,  // DUPLICATE: Send both formats to ensure capture
+      job_title: formData.jobTitle, // DUPLICATE: Direct backend field mapping
       public_records: formData.publicRecords,
       open_accounts: formData.openAccounts,
       home_ownership: formData.homeOwnership,

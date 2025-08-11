@@ -29,15 +29,50 @@ export const EmploymentStep = ({
         helperText="Select the option that best describes your current employment"
       />
       <FormInput
-        label="Occupation"
-        name="occupation"
+        label="Job Title"
+        name="jobTitle"
         register={register}
-        error={errors.occupation}
+        error={errors.jobTitle}
         required
-        placeholder="Teacher, Engineer, Trader, etc."
-        helperText="Your job title or profession"
-        tooltip="Be specific about your role, e.g., 'Senior Accountant' rather than just 'Accountant'"
+        type="select"
+        options={[
+          { value: "Select...", label: "Select..." },
+          { value: "Bank Manager", label: "Bank Manager" },
+          { value: "Government Worker", label: "Government Worker" },
+          { value: "Teacher", label: "Teacher" },
+          { value: "Doctor", label: "Doctor" },
+          { value: "Nurse", label: "Nurse" },
+          { value: "Engineer", label: "Engineer" },
+          { value: "Lawyer", label: "Lawyer" },
+          { value: "Accountant", label: "Accountant" },
+          { value: "Software Developer", label: "Software Developer" },
+          { value: "Marketing Manager", label: "Marketing Manager" },
+          { value: "Sales Representative", label: "Sales Representative" },
+          { value: "Business Owner", label: "Business Owner" },
+          { value: "Trader", label: "Trader" },
+          { value: "Farmer", label: "Farmer" },
+          { value: "Fisherman", label: "Fisherman" },
+          { value: "Driver", label: "Driver" },
+          { value: "Mechanic", label: "Mechanic" },
+          { value: "Electrician", label: "Electrician" },
+          { value: "Security Guard", label: "Security Guard" },
+          { value: "Chef", label: "Chef" },
+          { value: "Waiter", label: "Waiter" },
+          { value: "House Help", label: "House Help" },
+          { value: "Cleaner", label: "Cleaner" },
+          { value: "Mining Engineer", label: "Mining Engineer" },
+          { value: "Oil & Gas Worker", label: "Oil & Gas Worker" },
+          { value: "Construction Worker", label: "Construction Worker" },
+          { value: "Real Estate Agent", label: "Real Estate Agent" },
+          { value: "Journalist", label: "Journalist" },
+          { value: "Artist", label: "Artist" },
+          { value: "Musician", label: "Musician" },
+          { value: "Other", label: "Other" }
+        ]}
+        helperText="Select your specific job title - this affects your employment stability score in Ghana"
+        tooltip="Your job title is analyzed for employment stability in Ghana's job market"
       />
+
       <FormInput
         label="Company Name"
         name="employer"

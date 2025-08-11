@@ -43,7 +43,7 @@ def auto_generate_ml_assessment(sender, instance, created, **kwargs):
                 return
             
             ml_logger.info("🔄 Starting ML credit score generation...")
-            result = _generate_credit_score_for_application(instance)
+            result = _generate_credit_score_for_application(instance, created)
             
             total_time = time.time() - start_time
             
@@ -66,7 +66,7 @@ def auto_generate_ml_assessment(sender, instance, created, **kwargs):
             ml_logger.error(f"Traceback:\n{traceback.format_exc()}")
             ml_logger.info("=" * 80)
 
-def _generate_credit_score_for_application(application):
+def _generate_credit_score_for_application(application, created=False):
     """
     Generate credit score using ML model for an application
     This is the same logic as in ApplicationSubmitView._generate_credit_score
@@ -84,9 +84,16 @@ def _generate_credit_score_for_application(application):
         # Fix job title issue: Get from employment info if main job_title is empty
         job_title = application.job_title
         ml_logger.debug(f"🏷️  Initial job title: '{job_title}'")
+        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application ID: {application.id}")
+        ml_logger.debug(f"🔍 SIGNAL DEBUG: Has applicant_info relation: {hasattr(application, 'applicant_info')}")
+        
+        # Let's also check if the application was just created vs updated
+        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application was created: {created}")
+        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application status: {application.status}")
         
         if not job_title:
             ml_logger.debug("🔍 Job title empty, checking multiple sources...")
+            ml_logger.debug(f"⏰ TIMING: Application created={created}, status={application.status}")
             
             # Strategy 1: Try to get from applicant_info -> employment_history
             try:
@@ -200,8 +207,8 @@ def _generate_credit_score_for_application(application):
                     'risk_level': result['risk_level'],
                     'confidence': result['confidence'],
                     'ghana_job_category': result.get('job_category', 'Other'),
-                    'ghana_employment_score': result.get('employment_score', 50.0),
-                    'ghana_job_stability_score': result.get('job_stability_score', 50),
+                    'ghana_employment_score': result.get('ghana_employment_score', 50.0),
+                    'ghana_job_stability_score': result.get('ghana_job_stability_score', 50),
                     'model_version': result.get('model_version', '2.0.0'),
                     'confidence_factors': result.get('confidence_factors', {}),
                     'processing_time_ms': processing_time,
