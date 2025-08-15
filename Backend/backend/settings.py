@@ -368,7 +368,10 @@ ASGI_APPLICATION = 'backend.asgi.application'
 # Channel Layers for WebSocket support
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/1')],
+        },
     },
 }
 
@@ -432,3 +435,29 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Media files (profile pictures, uploads, etc.)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# ML Pipeline Configuration
+ML_PROCESSING_ENABLED = os.getenv('ML_PROCESSING_ENABLED', 'True').lower() == 'true'
+ML_AUTO_TRIGGER_ON_SUBMIT = os.getenv('ML_AUTO_TRIGGER_ON_SUBMIT', 'True').lower() == 'true'
+ML_BATCH_SIZE = int(os.getenv('ML_BATCH_SIZE', '10'))
+ML_RETRY_ATTEMPTS = int(os.getenv('ML_RETRY_ATTEMPTS', '3'))
+
+# ML Model Configuration
+ML_MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'models')
+ML_CONFIDENCE_THRESHOLD = float(os.getenv('ML_CONFIDENCE_THRESHOLD', '0.7'))
+GHANA_EMPLOYMENT_ANALYSIS_ENABLED = os.getenv('GHANA_EMPLOYMENT_ANALYSIS_ENABLED', 'True').lower() == 'true'

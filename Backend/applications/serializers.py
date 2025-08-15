@@ -10,7 +10,8 @@ from .models import (
     FinancialInfo, 
     BankAccount,
     Document,
-    ApplicationNote
+    ApplicationNote,
+    MLCreditAssessment
 )
 import uuid
 import re
@@ -451,10 +452,21 @@ class ApplicationNoteSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['author', 'created_at']
 
+class MLCreditAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MLCreditAssessment
+        fields = [
+            'id', 'credit_score', 'category', 'risk_level', 'confidence',
+            'ghana_job_category', 'ghana_employment_score', 'ghana_job_stability_score',
+            'model_version', 'model_accuracy', 'prediction_timestamp', 'processing_status'
+        ]
+        read_only_fields = fields
+
 class CreditApplicationSerializer(serializers.ModelSerializer):
     applicant_info = ApplicantSerializer(required=False)
     documents = DocumentSerializer(many=True, read_only=True)  
     additional_notes = ApplicationNoteSerializer(many=True, read_only=True)
+    ml_assessment = MLCreditAssessmentSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
     # INDUSTRY STANDARD FIX: Override applicant field to prevent validation

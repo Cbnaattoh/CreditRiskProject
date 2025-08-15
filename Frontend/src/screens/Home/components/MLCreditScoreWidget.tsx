@@ -8,6 +8,7 @@ import {
 } from '../../../components/redux/features/api/ml/mlApi';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../../../components/redux/features/auth/authSlice';
+import { useGetMLProcessingStatisticsQuery } from '../../../components/redux/features/api/applications/applicationsApi';
 
 interface MLCreditScoreWidgetProps {
   userType: 'admin' | 'staff' | 'client';
@@ -41,6 +42,15 @@ const MLCreditScoreWidget: React.FC<MLCreditScoreWidgetProps> = ({
     data: modelHealth, 
     isLoading: isHealthLoading 
   } = useGetModelHealthQuery();
+
+  // Fetch ML processing statistics (for admin/staff users only)
+  const { 
+    data: mlStats, 
+    isLoading: isStatsLoading,
+    error: statsError
+  } = useGetMLProcessingStatisticsQuery(undefined, {
+    skip: userType === 'client'
+  });
 
   const handleInputChange = (field: keyof MLPredictionInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -406,46 +416,117 @@ const MLCreditScoreWidget: React.FC<MLCreditScoreWidgetProps> = ({
             <p className="text-sm text-gray-600 dark:text-gray-400">Ghana-specialized credit scoring</p>
           </div>
         </div>
+        
+        {/* Real-time status indicator */}
+        {modelHealth?.status === 'healthy' && (
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-600 dark:text-green-400">Online</span>
+          </div>
+        )}
       </div>
 
-      {isHealthLoading ? (
+      {(isHealthLoading || isStatsLoading) ? (
         <div className="animate-pulse space-y-3">
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-        </div>
-      ) : modelHealth ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Status</span>
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              modelHealth.status === 'healthy' 
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-            }`}>
-              {modelHealth.status}
-            </span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
           </div>
+        </div>
+      ) : (modelHealth || mlStats) ? (
+        <div className="space-y-4">
+          {/* Model Health Status */}
+          {modelHealth && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Model Status</span>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                modelHealth.status === 'healthy' 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+              }`}>
+                {modelHealth.status}
+              </span>
+            </div>
+          )}
           
-          <div className="grid grid-cols-2 gap-4">
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">{modelHealth.accuracy}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Accuracy</div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                {modelHealth?.accuracy || 'N/A'}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Model Accuracy</div>
             </div>
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">{modelHealth.ghana_employment_categories}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Job Categories</div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                {mlStats?.performance.success_rate || 0}%
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Success Rate</div>
             </div>
           </div>
 
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            <div><strong>Model:</strong> {modelHealth.model_type}</div>
-            <div><strong>Version:</strong> {modelHealth.version}</div>
-            <div><strong>Features:</strong> {modelHealth.features_count}</div>
-          </div>
+          {/* Processing Statistics */}
+          {mlStats && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  {mlStats.overview.with_ml_assessments}
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400">Processed</div>
+              </div>
+              <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="text-sm font-semibold text-green-900 dark:text-green-100">
+                  {mlStats.performance.recent_processing_24h}
+                </div>
+                <div className="text-xs text-green-600 dark:text-green-400">24h</div>
+              </div>
+            </div>
+          )}
+
+          {/* Model Info */}
+          {modelHealth && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+              <div className="flex justify-between">
+                <span>Version:</span> 
+                <span className="font-medium">{modelHealth.version}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Features:</span> 
+                <span className="font-medium">{modelHealth.features_count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Categories:</span> 
+                <span className="font-medium">{modelHealth.ghana_employment_categories}</span>
+              </div>
+              {mlStats && (
+                <div className="flex justify-between">
+                  <span>Coverage:</span> 
+                  <span className="font-medium">{mlStats.overview.coverage_percentage}%</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Performance Indicators */}
+          {mlStats && mlStats.performance.average_processing_time_ms > 0 && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex justify-between">
+                <span>Avg Processing:</span> 
+                <span className="font-medium">{Math.round(mlStats.performance.average_processing_time_ms)}ms</span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-sm text-red-600 dark:text-red-400">
           Failed to load model status
+          {statsError && (
+            <div className="text-xs mt-1">
+              Statistics unavailable - check permissions
+            </div>
+          )}
         </div>
       )}
     </div>

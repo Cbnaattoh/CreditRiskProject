@@ -4,6 +4,21 @@ from users.models import User
 import uuid
 from django.utils import timezone
 
+class ApplicationManager(models.Manager):
+    """Custom manager to handle soft delete filtering"""
+    
+    def get_queryset(self):
+        """Return only non-deleted applications by default"""
+        return super().get_queryset().filter(is_deleted=False)
+    
+    def with_deleted(self):
+        """Return all applications including soft-deleted ones"""
+        return super().get_queryset()
+    
+    def deleted_only(self):
+        """Return only soft-deleted applications"""
+        return super().get_queryset().filter(is_deleted=True)
+
 class CreditApplication(models.Model):
     APPLICATION_STATUS = (
         ('DRAFT', 'Draft'),
@@ -52,6 +67,20 @@ class CreditApplication(models.Model):
     # Ghana-specific ML model fields
     job_title = models.CharField(max_length=100, blank=True, help_text="Job title for Ghana employment analysis (emp_title field)")
     
+    # Soft delete fields
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='deleted_applications'
+    )
+    
+    # Custom manager
+    objects = ApplicationManager()
+    
     class Meta:
         ordering = ['-submission_date']
         permissions = [
@@ -90,6 +119,21 @@ class CreditApplication(models.Model):
             new_num = 1
             
         return f"RG-{year}-{new_num:04d}"
+    
+    def soft_delete(self, user=None):
+        """Soft delete the application"""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        if user:
+            self.deleted_by = user
+        self.save()
+    
+    def restore(self):
+        """Restore a soft deleted application"""
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
+        self.save()
     
     def __str__(self):
         return f"Application {self.reference_number} - {self.get_status_display()}"
@@ -294,6 +338,18 @@ class MLCreditAssessment(models.Model):
     # Processing metadata
     processing_time_ms = models.IntegerField(null=True, blank=True, help_text="Prediction processing time in milliseconds")
     features_used = models.JSONField(null=True, blank=True, help_text="Features used for prediction")
+    
+    # Processing status and error tracking
+    processing_status = models.CharField(max_length=20, default='COMPLETED', choices=[
+        ('PENDING', 'Pending'),
+        ('PROCESSING', 'Processing'),
+        ('COMPLETED', 'Completed'),
+        ('FAILED', 'Failed'),
+        ('RETRYING', 'Retrying')
+    ], help_text="Current processing status")
+    processing_error = models.TextField(null=True, blank=True, help_text="Error message if processing failed")
+    retry_count = models.IntegerField(default=0, help_text="Number of processing retries")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last time this assessment was updated")
     
     class Meta:
         db_table = 'ml_credit_assessments'

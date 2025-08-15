@@ -118,6 +118,7 @@ export interface CreditApplication {
   additional_notes?: ApplicationNote[];
   risk_assessment?: RiskAssessment;
   risk_explanation?: RiskExplanation;
+  ml_assessment?: MLCreditAssessment;
 }
 
 export interface ApplicationListResponse {
@@ -125,6 +126,55 @@ export interface ApplicationListResponse {
   next?: string;
   previous?: string;
   results: CreditApplication[];
+}
+
+export interface MLCreditAssessment {
+  id?: number;
+  application: string;
+  credit_score: number;
+  category: string;
+  risk_level: string;
+  confidence: number;
+  ghana_job_category?: string;
+  ghana_employment_score?: number;
+  ghana_job_stability_score?: number;
+  model_version: string;
+  prediction_timestamp: string;
+  model_accuracy: number;
+  confidence_factors?: Record<string, any>;
+  processing_time_ms?: number;
+  features_used?: string[];
+  processing_status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'RETRYING';
+  processing_error?: string;
+  retry_count: number;
+  last_updated: string;
+}
+
+export interface UserMLAssessmentSummary {
+  latest_assessment?: MLCreditAssessment;
+  total_assessments: number;
+  average_credit_score?: number;
+  risk_level_distribution: Record<string, number>;
+  assessment_history: MLCreditAssessment[];
+}
+
+export interface MLProcessingStatistics {
+  overview: {
+    total_applications: number;
+    with_ml_assessments: number;
+    without_ml_assessments: number;
+    coverage_percentage: number;
+  };
+  processing_status: Record<string, number>;
+  performance: {
+    recent_processing_24h: number;
+    average_processing_time_ms: number;
+    failed_assessments: number;
+    success_rate: number;
+  };
+  score_distribution: Record<string, number>;
+  risk_distribution: Record<string, number>;
+  last_updated: string;
 }
 
 export interface FileValidationResult {
@@ -284,7 +334,6 @@ export const applicationsApi = createApi({
   }),
   tagTypes: ['Application', 'Document', 'Note', 'Risk'],
   endpoints: (builder) => ({
-    // Get all applications (paginated) - Backend automatically filters by user role
     getApplications: builder.query<ApplicationListResponse, { page?: number; page_size?: number; status?: string }>({
       query: (params = {}) => ({
         url: '',
@@ -321,6 +370,15 @@ export const applicationsApi = createApi({
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'Application', id }],
+    }),
+
+    // Delete application (soft delete)
+    deleteApplication: builder.mutation<{ detail: string }, string>({
+      query: (id) => ({
+        url: `${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Application'],
     }),
 
     // Submit application
@@ -376,6 +434,24 @@ export const applicationsApi = createApi({
       query: (applicationId) => `${applicationId}/notes/`,
       providesTags: ['Note'],
     }),
+
+    // Get ML assessment for specific application
+    getApplicationMLAssessment: builder.query<MLCreditAssessment, string>({
+      query: (applicationId) => `${applicationId}/ml-assessment/`,
+      providesTags: (result, error, applicationId) => [{ type: 'Application', id: applicationId }],
+    }),
+
+    // Get user's ML assessment summary (latest assessment and history)
+    getUserMLAssessmentSummary: builder.query<UserMLAssessmentSummary, void>({
+      query: () => 'my-ml-assessments/',
+      providesTags: ['Application'],
+    }),
+
+    // Get ML processing statistics (admin/analyst only)
+    getMLProcessingStatistics: builder.query<MLProcessingStatistics, void>({
+      query: () => 'ml-assessments/statistics/',
+      providesTags: ['Application'],
+    }),
   }),
 });
 
@@ -384,9 +460,13 @@ export const {
   useGetApplicationQuery,
   useCreateApplicationMutation,
   useUpdateApplicationMutation,
+  useDeleteApplicationMutation,
   useSubmitApplicationMutation,
   useUploadDocumentMutation,
   useGetApplicationDocumentsQuery,
   useAddApplicationNoteMutation,
   useGetApplicationNotesQuery,
+  useGetApplicationMLAssessmentQuery,
+  useGetUserMLAssessmentSummaryQuery,
+  useGetMLProcessingStatisticsQuery,
 } = applicationsApi;

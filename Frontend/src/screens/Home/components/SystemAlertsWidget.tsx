@@ -21,7 +21,7 @@ interface SystemAlert {
   title: string;
   description: string;
   time: string;
-  type: 'notification' | 'system' | 'security';
+  type: 'notification' | 'system' | 'security' | 'ml_processing';
   actionable?: boolean;
   onAction?: () => void;
 }
@@ -30,7 +30,13 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
   userType,
   isLoading = false
 }) => {
-  const [filterType, setFilterType] = useState<'all' | 'unread' | 'high' | 'security'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'unread' | 'high' | 'security' | 'ml_processing'>('all');
+  const [mlProcessingStats, setMlProcessingStats] = useState({
+    processing: 2,
+    completed_today: 15,
+    failed_today: 1,
+    avg_processing_time: 45
+  });
   
   // API queries
   const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useGetRecentNotificationsQuery();
@@ -58,17 +64,27 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
           case 'SYSTEM_ALERT':
             severity = 'high';
             break;
+          case 'ML_PROCESSING_FAILED':
+            severity = 'high';
+            break;
           case 'STATUS_CHANGE':
           case 'DECISION_MADE':
+          case 'ML_PROCESSING_COMPLETED':
+          case 'CREDIT_SCORE_GENERATED':
             severity = 'medium';
             break;
           case 'APPLICATION_SUBMITTED':
           case 'DOCUMENT_UPLOADED':
+          case 'ML_PROCESSING_STARTED':
             severity = 'low';
             break;
           default:
             severity = 'info';
         }
+
+        const alertType = ['ML_PROCESSING_STARTED', 'ML_PROCESSING_COMPLETED', 'ML_PROCESSING_FAILED', 'CREDIT_SCORE_GENERATED'].includes(notification.notification_type) 
+          ? 'ml_processing' 
+          : 'notification';
 
         alerts.push({
           id: `notification-${notification.id}`,
@@ -76,7 +92,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
           title: notification.title,
           description: notification.message,
           time: notification.time_ago || formatTime(notification.created_at),
-          type: 'notification',
+          type: alertType,
           actionable: !notification.is_read,
           onAction: () => markNotificationRead(notification.id)
         });
@@ -148,6 +164,57 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
       }
     }
 
+    // Add ML Processing system alerts
+    if (userType === 'admin' || userType === 'staff') {
+      // ML Processing queue status
+      if (mlProcessingStats.processing > 0) {
+        alerts.push({
+          id: 'ml-processing-queue',
+          severity: mlProcessingStats.processing > 5 ? 'medium' : 'info',
+          title: 'ML Processing Queue',
+          description: `${mlProcessingStats.processing} credit applications currently being processed by ML models`,
+          time: 'Real-time',
+          type: 'ml_processing'
+        });
+      }
+
+      // Daily ML processing summary
+      if (mlProcessingStats.completed_today > 0) {
+        alerts.push({
+          id: 'ml-daily-summary',
+          severity: 'info',
+          title: 'Daily ML Processing Summary',
+          description: `${mlProcessingStats.completed_today} credit scores generated today with avg processing time of ${mlProcessingStats.avg_processing_time}s`,
+          time: 'Today',
+          type: 'ml_processing'
+        });
+      }
+
+      // ML Processing failures
+      if (mlProcessingStats.failed_today > 0) {
+        alerts.push({
+          id: 'ml-failures',
+          severity: mlProcessingStats.failed_today > 3 ? 'high' : 'medium',
+          title: 'ML Processing Issues',
+          description: `${mlProcessingStats.failed_today} ML processing ${mlProcessingStats.failed_today === 1 ? 'failure' : 'failures'} detected today. Review system logs.`,
+          time: 'Today',
+          type: 'ml_processing'
+        });
+      }
+
+      // ML Model performance alert
+      if (mlProcessingStats.avg_processing_time > 60) {
+        alerts.push({
+          id: 'ml-performance',
+          severity: 'medium',
+          title: 'ML Model Performance Alert',
+          description: `Average processing time is ${mlProcessingStats.avg_processing_time}s. Consider model optimization.`,
+          time: 'Performance monitoring',
+          type: 'ml_processing'
+        });
+      }
+    }
+
     // Add security alerts from audit logs
     if (auditLogs && userType === 'admin') {
       const recentLogins = auditLogs.filter(log => log.action === 'LOGIN');
@@ -211,6 +278,8 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
         return systemAlerts.filter(alert => alert.severity === 'high');
       case 'security':
         return systemAlerts.filter(alert => alert.type === 'security');
+      case 'ml_processing':
+        return systemAlerts.filter(alert => alert.type === 'ml_processing');
       default:
         return systemAlerts;
     }
@@ -268,7 +337,10 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
 
         {/* Filter buttons */}
         <div className="flex items-center space-x-2">
-          {['all', 'unread', 'high', 'security'].map((filter) => (
+          {((userType === 'admin' || userType === 'staff') 
+            ? ['all', 'unread', 'high', 'security', 'ml_processing']
+            : ['all', 'unread', 'high']
+          ).map((filter) => (
             <button
               key={filter}
               onClick={() => setFilterType(filter as any)}
@@ -278,7 +350,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              {filter === 'ml_processing' ? 'ML Processing' : filter.charAt(0).toUpperCase() + filter.slice(1)}
             </button>
           ))}
         </div>

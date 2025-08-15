@@ -18,3 +18,7 @@ EMAIL_USE_TLS = boolean
 EMAIL_HOST_USER = your_email_username
 EMAIL_HOST_PASSWORD = your_host_password
 DEFAULT_FROM_EMAIL = 'klvnafriyie123@gmail.com'
+
+# Celery settings
+CELERY_BROKER_URL='redis://host.docker.internal:6379/0'
+CELERY_RESULT_BACKEND='redis://host.docker.internal:6379/0'

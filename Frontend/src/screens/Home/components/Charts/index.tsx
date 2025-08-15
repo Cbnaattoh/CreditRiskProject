@@ -3105,9 +3105,92 @@ const generateClientApplicationData = () => [
   }
 ];
 
-export const ClientRiskProfileChart: React.FC = () => {
+// Function to generate client risk data from ML assessment
+const generateClientRiskDataFromML = (assessment: {
+  credit_score: number;
+  category: string;
+  risk_level: string;
+  confidence: number;
+  confidence_factors?: Record<string, any>;
+}) => {
+  // Extract factors from confidence_factors or create default ones
+  const factors = [];
+  
+  if (assessment.confidence_factors) {
+    // Map confidence factors to risk factors
+    Object.entries(assessment.confidence_factors).forEach(([key, value], index) => {
+      if (index < 6) { // Limit to 6 factors for radar chart
+        const score = typeof value === 'number' ? Math.round(value * 100) : 75;
+        factors.push({
+          factor: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          score: Math.max(0, Math.min(100, score)), // Ensure score is between 0-100
+          status: score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'fair' : 'poor',
+          change: Math.random() > 0.5 ? 'up' : 'down'
+        });
+      }
+    });
+  }
+  
+  // Fill remaining factors if needed
+  const defaultFactors = [
+    'Payment History', 'Credit Utilization', 'Length of History', 
+    'Account Mix', 'Recent Inquiries', 'Debt to Income'
+  ];
+  
+  while (factors.length < 6) {
+    const remainingFactors = defaultFactors.filter(df => 
+      !factors.some(f => f.factor.includes(df.split(' ')[0]))
+    );
+    if (remainingFactors.length === 0) break;
+    
+    const factorName = remainingFactors[0];
+    const score = 60 + Math.random() * 30; // Random score between 60-90
+    factors.push({
+      factor: factorName,
+      score: Math.round(score),
+      status: score >= 80 ? 'excellent' : score >= 60 ? 'good' : 'fair',
+      change: Math.random() > 0.5 ? 'up' : 'down'
+    });
+  }
+
+  return {
+    overallScore: assessment.credit_score,
+    riskLevel: assessment.category,
+    confidence: `${Math.round(assessment.confidence)}%`,
+    lastUpdated: 'Today',
+    factors: factors.slice(0, 6), // Ensure max 6 factors
+    trend: {
+      direction: assessment.risk_level === 'Low Risk' ? 'up' : 
+                assessment.risk_level === 'High Risk' ? 'down' : 'stable',
+      change: '+12',
+      period: '30 days'
+    }
+  };
+};
+
+interface ClientRiskProfileProps {
+  mlAssessmentData?: {
+    latest_assessment?: {
+      credit_score: number;
+      category: string;
+      risk_level: string;
+      confidence: number;
+      confidence_factors?: Record<string, any>;
+    };
+  };
+  isLoading?: boolean;
+}
+
+export const ClientRiskProfileChart: React.FC<ClientRiskProfileProps> = ({ 
+  mlAssessmentData, 
+  isLoading = false 
+}) => {
   const [viewMode, setViewMode] = useState<'radar' | 'trend'>('radar');
-  const data = generateClientRiskData();
+  
+  // Use ML assessment data if available, otherwise fall back to generated data
+  const data = mlAssessmentData?.latest_assessment ? 
+    generateClientRiskDataFromML(mlAssessmentData.latest_assessment) : 
+    generateClientRiskData();
 
   const radarData = data.factors.map(factor => ({
     factor: factor.factor.split(' ')[0],
@@ -3130,6 +3213,16 @@ export const ClientRiskProfileChart: React.FC = () => {
     };
     return styles[status as keyof typeof styles] || styles.fair;
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-pulse text-gray-500 dark:text-gray-400">
+          Loading risk profile...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -3268,15 +3361,111 @@ export const ClientRiskProfileChart: React.FC = () => {
   );
 };
 
-export const ClientApplicationHistoryChart: React.FC = () => {
+interface ClientApplicationHistoryProps {
+  applicationsData?: {
+    results?: any[];
+    count?: number;
+  } | any[];
+  isLoading?: boolean;
+  onViewAll?: () => void;
+}
+
+// Transform backend application data to chart format
+const transformApplicationData = (applications: any[]) => {
+  if (!Array.isArray(applications)) {
+    return [];
+  }
+  
+  const transformed = applications.map((app) => {
+    // Map status from backend to display format
+    const getDisplayStatus = (status: string) => {
+      const statusMap = {
+        'DRAFT': 'Draft',
+        'SUBMITTED': 'Under Review',
+        'UNDER_REVIEW': 'Under Review',
+        'APPROVED': 'Approved',
+        'REJECTED': 'Rejected',
+        'NEEDS_INFO': 'Needs More Information'
+      };
+      return statusMap[status as keyof typeof statusMap] || status;
+    };
+
+    // Get loan type from loan_amount - this could be enhanced based on your data
+    const getLoanType = (amount: number) => {
+      if (!amount) return 'Credit Application';
+      if (amount <= 5000) return 'Small Personal Loan';
+      if (amount <= 25000) return 'Personal Loan';
+      if (amount <= 100000) return 'Business Loan';
+      return 'Large Loan';
+    };
+
+    // Get risk score from ML assessment if available
+    const getRiskScore = () => {
+      if (app.ml_assessment?.credit_score) {
+        return app.ml_assessment.credit_score;
+      }
+      if (app.risk_assessment?.risk_score) {
+        return Math.round(app.risk_assessment.risk_score * 100); // Convert to 0-100 scale if needed
+      }
+      return null;
+    };
+
+    return {
+      id: app.id || app.reference_number,
+      reference_number: app.reference_number,
+      type: getLoanType(parseFloat(app.loan_amount || '0')),
+      amount: parseFloat(app.loan_amount || '0'),
+      status: getDisplayStatus(app.status),
+      appliedDate: app.submission_date || app.last_updated,
+      approvedDate: app.status === 'APPROVED' ? app.last_updated : null,
+      riskScore: getRiskScore(),
+      interestRate: parseFloat(app.interest_rate || '0'),
+      term: 36, // Default term, could be enhanced based on your data
+      rawApp: app // Keep reference to original app data for additional info
+    };
+  }); // Show all applications
+  
+  return transformed;
+};
+
+export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryProps> = ({ 
+  applicationsData, 
+  isLoading = false,
+  onViewAll
+}) => {
   const [viewMode, setViewMode] = useState<'timeline' | 'amounts'>('timeline');
-  const data = generateClientApplicationData();
+  
+  // Debug logging can be removed in production
+  // console.log('🔍 ApplicationHistory Debug:', { applicationsData, isLoading });
+  
+  // Use real data if available, otherwise fall back to generated data
+  let data;
+  
+  // Handle both cases: applicationsData as array or as object with results property
+  let applicationsArray;
+  if (Array.isArray(applicationsData)) {
+    applicationsArray = applicationsData;
+  } else if (applicationsData?.results && Array.isArray(applicationsData.results)) {
+    applicationsArray = applicationsData.results;
+  }
+  
+  if (applicationsArray && applicationsArray.length > 0) {
+    data = transformApplicationData(applicationsArray);
+  } else {
+    data = generateClientApplicationData();
+  }
+
+  // Keep all data for statistics, but limit timeline display to recent 3
+  const allData = data;
+  const recentData = data.slice(0, 3);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Approved': return 'text-green-600 bg-green-100 border-green-200';
       case 'Under Review': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
       case 'Rejected': return 'text-red-600 bg-red-100 border-red-200';
+      case 'Draft': return 'text-blue-600 bg-blue-100 border-blue-200';
+      case 'Needs More Information': return 'text-orange-600 bg-orange-100 border-orange-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
@@ -3286,11 +3475,13 @@ export const ClientApplicationHistoryChart: React.FC = () => {
       case 'Approved': return '✅';
       case 'Under Review': return '🔄';
       case 'Rejected': return '❌';
+      case 'Draft': return '📝';
+      case 'Needs More Information': return '❓';
       default: return '📋';
     }
   };
 
-  const chartData = data.map(app => ({
+  const chartData = allData.map(app => ({
     type: app.type,
     amount: app.amount,
     date: new Date(app.appliedDate).getTime(),
@@ -3298,68 +3489,118 @@ export const ClientApplicationHistoryChart: React.FC = () => {
     riskScore: app.riskScore
   }));
 
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-pulse text-gray-500 dark:text-gray-400">
+          Loading application history...
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-gray-500 dark:text-gray-400">
+          <div className="text-4xl mb-2">📝</div>
+          <div className="text-sm">No applications found</div>
+          <div className="text-xs mt-1">Submit your first application to see history</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="text-sm text-gray-600 dark:text-gray-400">Total Applications</div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.length}</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{allData.length}</div>
         </div>
-        <div className="flex space-x-2">
-          {(['timeline', 'amounts'] as const).map((mode) => (
+        <div className="flex items-center space-x-2">
+          <div className="flex space-x-2">
+            {(['timeline', 'amounts'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === mode
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {mode === 'timeline' ? '📅' : '💰'}
+              </button>
+            ))}
+          </div>
+          {onViewAll && (
             <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                viewMode === mode
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
+              onClick={onViewAll}
+              className="px-3 py-1 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center space-x-1"
             >
-              {mode === 'timeline' ? '📅' : '💰'}
+              <span>View All</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
-          ))}
+          )}
         </div>
       </div>
 
       {/* Chart Area */}
       <div className="flex-1 min-h-[200px]">
         {viewMode === 'amounts' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-              <XAxis 
-                dataKey="type" 
-                tick={{ fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis 
-                tick={{ fontSize: 11 }}
-                tickFormatter={(value) => `$${value.toLocaleString()}`}
-              />
-              <Tooltip
-                formatter={(value: any, name: any) => [`$${value.toLocaleString()}`, 'Amount']}
-                labelFormatter={(label) => `Application: ${label}`}
-                contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '12px',
-                  backdropFilter: 'blur(12px)'
-                }}
-              />
-              <Bar 
-                dataKey="amount" 
-                fill="#6366f1"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          chartData.some(app => app.amount > 0) ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData.filter(app => app.amount > 0)} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                <XAxis 
+                  dataKey="type" 
+                  tick={{ fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => `$${value.toLocaleString()}`}
+                />
+                <Tooltip
+                  formatter={(value: any, name: any) => [`$${value.toLocaleString()}`, 'Amount']}
+                  labelFormatter={(label) => `Application: ${label}`}
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    backdropFilter: 'blur(12px)'
+                  }}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  fill="#6366f1"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-center text-gray-500 dark:text-gray-400">
+              <div>
+                <div className="text-2xl mb-2">💰</div>
+                <div className="text-sm">No loan amounts specified</div>
+                <div className="text-xs mt-1">Applications don't have loan amounts yet</div>
+              </div>
+            </div>
+          )
         ) : (
           <div className="space-y-3">
-            {data.map((app, index) => (
+            {allData.length > 3 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center mb-2">
+                Showing {recentData.length} of {allData.length} recent applications
+              </div>
+            )}
+            {recentData.map((app, index) => (
               <div key={app.id} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
@@ -3373,8 +3614,15 @@ export const ClientApplicationHistoryChart: React.FC = () => {
                           {app.status}
                         </span>
                       </div>
+                      {app.reference_number && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          Ref: {app.reference_number}
+                        </div>
+                      )}
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Amount: <span className="font-medium">${app.amount.toLocaleString()}</span>
+                        Amount: <span className="font-medium">
+                          {app.amount > 0 ? `$${app.amount.toLocaleString()}` : 'Not specified'}
+                        </span>
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                         Applied: {new Date(app.appliedDate).toLocaleDateString()}
@@ -3385,12 +3633,19 @@ export const ClientApplicationHistoryChart: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      Score: {app.riskScore}
-                    </div>
-                    {app.interestRate && (
+                    {app.riskScore && (
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        Score: {app.riskScore}
+                      </div>
+                    )}
+                    {app.interestRate && app.interestRate > 0 && (
                       <div className="text-xs text-gray-600 dark:text-gray-400">
                         {app.interestRate}% APR
+                      </div>
+                    )}
+                    {!app.riskScore && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        No score yet
                       </div>
                     )}
                   </div>
@@ -3405,19 +3660,19 @@ export const ClientApplicationHistoryChart: React.FC = () => {
       <div className="grid grid-cols-3 gap-3 mt-4">
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
           <div className="text-lg font-bold text-green-600 dark:text-green-400">
-            {data.filter(app => app.status === 'Approved').length}
+            {allData.filter(app => app.status === 'Approved').length}
           </div>
           <div className="text-xs text-green-600 dark:text-green-400">Approved</div>
         </div>
         <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
           <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
-            {data.filter(app => app.status === 'Under Review').length}
+            {allData.filter(app => ['Under Review', 'Draft', 'Needs More Information'].includes(app.status)).length}
           </div>
           <div className="text-xs text-yellow-600 dark:text-yellow-400">Pending</div>
         </div>
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
           <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-            ${data.reduce((sum, app) => sum + app.amount, 0).toLocaleString()}
+            ${allData.reduce((sum, app) => sum + app.amount, 0).toLocaleString()}
           </div>
           <div className="text-xs text-blue-600 dark:text-blue-400">Total Value</div>
         </div>
