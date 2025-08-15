@@ -15,9 +15,10 @@ import {
   FiClock,
   FiFileText,
   FiUser,
+  FiTrash2,
 } from "react-icons/fi";
 import { Tooltip } from "@mui/material";
-import { useGetApplicationsQuery } from "../../components/redux/features/api/applications/applicationsApi";
+import { useGetApplicationsQuery, useDeleteApplicationMutation, useGetApplicationMLAssessmentQuery } from "../../components/redux/features/api/applications/applicationsApi";
 import type { CreditApplication } from "../../components/redux/features/api/applications/applicationsApi";
 import ErrorBoundary from "../../components/utils/ErrorBoundary";
 import { useGetRiskAnalysisQuery } from "../../components/redux/features/api/risk/riskApi";
@@ -46,9 +47,13 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [applicationToDelete, setApplicationToDelete] = useState<EnhancedApplication | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const isClientUser = useIsClientUser();
+  
+  const [deleteApplication, { isLoading: isDeleting }] = useDeleteApplicationMutation();
   
   // Determine the page title based on route
   const getPageTitle = () => {
@@ -90,6 +95,12 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
       skip: !selectedApplicant?.id,
     });
 
+  // Fetch ML assessment details for selected applicant
+  const { data: mlAssessmentDetails, isLoading: mlAssessmentLoading } =
+    useGetApplicationMLAssessmentQuery(selectedApplicant?.id || "", {
+      skip: !selectedApplicant?.id,
+    });
+
   // Enhanced applications with computed fields
   const enhancedApplications = useMemo(() => {
     // Handle both paginated response and direct array
@@ -99,6 +110,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     return applications.map((app): EnhancedApplication => {
       const applicantInfo = app.applicant_info;
       const riskAssessment = app.risk_assessment;
+      const mlAssessment = app.ml_assessment; // ML Credit Assessment
       const documents = app.documents || [];
 
       return {
@@ -110,10 +122,15 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
           : "Unknown Applicant",
         email: applicantInfo?.email || "No email provided",
         phone_number: applicantInfo?.phone_number || "No phone provided",
-        risk_score: riskAssessment?.risk_score
+        // Use ML assessment data first, fallback to traditional risk assessment
+        risk_score: mlAssessment?.credit_score 
+          ? Math.round(((850 - mlAssessment.credit_score) / 550) * 100) // Convert credit score to risk percentage (850-300 = 550 range)
+          : riskAssessment?.risk_score
           ? Math.round(riskAssessment.risk_score / 10)
           : undefined,
-        confidence_score: riskAssessment?.probability_of_default
+        confidence_score: mlAssessment?.confidence
+          ? Math.round(mlAssessment.confidence)
+          : riskAssessment?.probability_of_default
           ? Math.round((1 - riskAssessment.probability_of_default) * 100)
           : undefined,
         employment_type:
@@ -163,6 +180,36 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
 
   const handleNavigateToExplainability = (applicationId: string) => {
     navigate(`/home/explainability/${applicationId}`);
+  };
+
+  const handleDeleteClick = (application: EnhancedApplication) => {
+    setApplicationToDelete(application);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!applicationToDelete) return;
+    
+    try {
+      await deleteApplication(applicationToDelete.id!).unwrap();
+      setDeleteConfirmOpen(false);
+      setApplicationToDelete(null);
+      // Show success message - you can add toast here if available
+      console.log('Application deleted successfully');
+    } catch (error: any) {
+      console.error('Delete failed:', error);
+      // Show error message - you can add toast here if available
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setApplicationToDelete(null);
+  };
+
+  const canDeleteApplication = (application: EnhancedApplication) => {
+    // Only allow deletion of DRAFT and SUBMITTED applications
+    return application.status === 'DRAFT' || application.status === 'SUBMITTED';
   };
 
   const getRiskColor = (score?: number) => {
@@ -585,14 +632,31 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                           ).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <motion.button
-                            onClick={() => handleViewDetails(application)}
-                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors font-medium"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            View Details
-                          </motion.button>
+                          <div className="flex items-center justify-end space-x-2">
+                            <motion.button
+                              onClick={() => handleViewDetails(application)}
+                              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors font-medium"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              View Details
+                            </motion.button>
+                            
+                            {/* Delete button - only show for deletable applications */}
+                            {canDeleteApplication(application) && (
+                              <Tooltip title="Delete Application">
+                                <motion.button
+                                  onClick={() => handleDeleteClick(application)}
+                                  className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  disabled={isDeleting}
+                                >
+                                  <FiTrash2 className="w-4 h-4" />
+                                </motion.button>
+                              </Tooltip>
+                            )}
+                          </div>
                         </td>
                       </motion.tr>
                     ))}
@@ -764,79 +828,352 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                         </div>
                       </div>
 
-                      {/* Risk Assessment */}
+                      {/* Enhanced Risk Assessment with ML Data */}
                       {(selectedApplicant.risk_score ||
-                        selectedApplicant.confidence_score) && (
+                        selectedApplicant.confidence_score ||
+                        mlAssessmentDetails ||
+                        mlAssessmentLoading) && (
                         <div className="bg-gray-50/50 dark:bg-gray-700/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                            Risk Assessment
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {selectedApplicant.risk_score && (
-                              <div>
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Risk Score
-                                  </span>
-                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                    {selectedApplicant.risk_score}%
-                                  </span>
-                                </div>
-                                <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
-                                  <div
-                                    className={`h-full rounded-full ${getRiskColor(
-                                      selectedApplicant.risk_score
-                                    )}`}
-                                    style={{
-                                      width: `${selectedApplicant.risk_score}%`,
-                                    }}
-                                  />
-                                </div>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                  {getRiskLabel(selectedApplicant.risk_score)}
-                                </p>
-                              </div>
-                            )}
-                            {selectedApplicant.confidence_score && (
-                              <div>
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Confidence Score
-                                  </span>
-                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                    {selectedApplicant.confidence_score}%
-                                  </span>
-                                </div>
-                                <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
-                                  <div
-                                    className={`h-full rounded-full ${getConfidenceColor(
-                                      selectedApplicant.confidence_score
-                                    )}`}
-                                    style={{
-                                      width: `${selectedApplicant.confidence_score}%`,
-                                    }}
-                                  />
-                                </div>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                  {selectedApplicant.confidence_score >= 80
-                                    ? "High Confidence"
-                                    : selectedApplicant.confidence_score >= 60
-                                    ? "Medium Confidence"
-                                    : "Low Confidence"}
-                                </p>
-                              </div>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                              ML Risk Assessment
+                            </h3>
+                            {mlAssessmentLoading && (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
                             )}
                           </div>
+
+                          {mlAssessmentDetails ? (
+                            <div className="space-y-6">
+                              {/* Credit Score and Risk */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                      Credit Score
+                                    </span>
+                                    <span className="text-lg font-bold text-gray-900 dark:text-white">
+                                      {mlAssessmentDetails.credit_score}
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                                      style={{
+                                        width: `${(mlAssessmentDetails.credit_score / 850) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                    <span>300</span>
+                                    <span className="font-medium">{mlAssessmentDetails.category}</span>
+                                    <span>850</span>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                      Risk Level
+                                    </span>
+                                    <span className={`px-2 py-1 rounded text-sm font-medium ${
+                                      mlAssessmentDetails.risk_level === 'Low Risk' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                      mlAssessmentDetails.risk_level === 'Medium Risk' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                      'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                    }`}>
+                                      {mlAssessmentDetails.risk_level}
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        mlAssessmentDetails.risk_level === 'Low Risk' ? 'bg-green-500' :
+                                        mlAssessmentDetails.risk_level === 'Medium Risk' ? 'bg-yellow-500' :
+                                        'bg-red-500'
+                                      }`}
+                                      style={{
+                                        width: `${mlAssessmentDetails.confidence}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                    Confidence: {mlAssessmentDetails.confidence.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Ghana Employment Analysis */}
+                              {mlAssessmentDetails.ghana_job_category && (
+                                <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                                  <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">
+                                    Ghana Employment Analysis
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                      <p className="text-xs text-gray-600 dark:text-gray-400">Job Category</p>
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {mlAssessmentDetails.ghana_job_category}
+                                      </p>
+                                    </div>
+                                    {mlAssessmentDetails.ghana_employment_score && (
+                                      <div>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">Employment Score</p>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                          {mlAssessmentDetails.ghana_employment_score}/100
+                                        </p>
+                                      </div>
+                                    )}
+                                    {mlAssessmentDetails.ghana_job_stability_score && (
+                                      <div>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">Stability Score</p>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                          {mlAssessmentDetails.ghana_job_stability_score}/100
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Model Information */}
+                              <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                  <div>
+                                    <p className="text-gray-600 dark:text-gray-400">Model Version</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {mlAssessmentDetails.model_version}
+                                    </p>
+                                  </div>
+                                  {mlAssessmentDetails.model_accuracy && (
+                                    <div>
+                                      <p className="text-gray-600 dark:text-gray-400">Model Accuracy</p>
+                                      <p className="font-medium text-gray-900 dark:text-white">
+                                        {mlAssessmentDetails.model_accuracy}%
+                                      </p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-gray-600 dark:text-gray-400">Processing Status</p>
+                                    <p className={`font-medium ${
+                                      mlAssessmentDetails.processing_status === 'COMPLETED' ? 'text-green-600 dark:text-green-400' :
+                                      mlAssessmentDetails.processing_status === 'FAILED' ? 'text-red-600 dark:text-red-400' :
+                                      'text-yellow-600 dark:text-yellow-400'
+                                    }`}>
+                                      {mlAssessmentDetails.processing_status}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-600 dark:text-gray-400">Assessed</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {new Date(mlAssessmentDetails.prediction_timestamp).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // Fallback to basic risk assessment if no ML data
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {selectedApplicant.risk_score && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                      Risk Score
+                                    </span>
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                      {selectedApplicant.risk_score}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                      className={`h-full rounded-full ${getRiskColor(
+                                        selectedApplicant.risk_score
+                                      )}`}
+                                      style={{
+                                        width: `${selectedApplicant.risk_score}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    {getRiskLabel(selectedApplicant.risk_score)}
+                                  </p>
+                                </div>
+                              )}
+                              {selectedApplicant.confidence_score && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                      Confidence Score
+                                    </span>
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                      {selectedApplicant.confidence_score}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                      className={`h-full rounded-full ${getConfidenceColor(
+                                        selectedApplicant.confidence_score
+                                      )}`}
+                                      style={{
+                                        width: `${selectedApplicant.confidence_score}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    {selectedApplicant.confidence_score >= 80
+                                      ? "High Confidence"
+                                      : selectedApplicant.confidence_score >= 60
+                                      ? "Medium Confidence"
+                                      : "Low Confidence"}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* AI Insights from Risk Analysis */}
                           {riskAnalysis?.risk_explanation && (
-                            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-t border-gray-200 dark:border-gray-600">
                               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-                                AI Insight
+                                AI Risk Explanation
                               </h4>
                               <p className="text-sm text-blue-800 dark:text-blue-200">
                                 {riskAnalysis.risk_explanation.summary}
                               </p>
                             </div>
                           )}
+
+                          {/* No ML Assessment Available */}
+                          {!mlAssessmentDetails && !mlAssessmentLoading && !selectedApplicant.risk_score && (
+                            <div className="text-center py-8">
+                              <FiBarChart className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                              <p className="text-gray-600 dark:text-gray-400">
+                                No ML assessment available for this application
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-500">
+                                Submit the application to generate a risk assessment
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ML Explainability Insights */}
+                      {mlAssessmentDetails && (
+                        <div className="bg-purple-50/50 dark:bg-purple-900/20 rounded-xl p-6">
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                            AI Model Explainability
+                          </h3>
+                          
+                          <div className="space-y-4">
+                            {/* Key Factors */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-2">
+                                Key Decision Factors
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-lg">
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">Credit Score</span>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium">{mlAssessmentDetails.credit_score}</span>
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      mlAssessmentDetails.credit_score >= 700 ? 'bg-green-500' :
+                                      mlAssessmentDetails.credit_score >= 600 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }`}></div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-lg">
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">Model Confidence</span>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium">{mlAssessmentDetails.confidence.toFixed(1)}%</span>
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      mlAssessmentDetails.confidence >= 80 ? 'bg-green-500' :
+                                      mlAssessmentDetails.confidence >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }`}></div>
+                                  </div>
+                                </div>
+
+                                {mlAssessmentDetails.ghana_employment_score && (
+                                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-lg">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Employment Stability</span>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-sm font-medium">{mlAssessmentDetails.ghana_employment_score}/100</span>
+                                      <div className={`w-2 h-2 rounded-full ${
+                                        mlAssessmentDetails.ghana_employment_score >= 70 ? 'bg-green-500' :
+                                        mlAssessmentDetails.ghana_employment_score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}></div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {selectedApplicant.applicant_info?.employment_history?.[0]?.monthly_income && (
+                                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-lg">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Income Verification</span>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-sm font-medium">
+                                        {selectedApplicant.applicant_info.employment_history[0].income_verified ? 'Verified' : 'Pending'}
+                                      </span>
+                                      <div className={`w-2 h-2 rounded-full ${
+                                        selectedApplicant.applicant_info.employment_history[0].income_verified ? 'bg-green-500' : 'bg-yellow-500'
+                                      }`}></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Model Interpretation */}
+                            <div className="border-t border-purple-200 dark:border-purple-700 pt-4">
+                              <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-2">
+                                Model Interpretation
+                              </h4>
+                              <div className="space-y-2">
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2"></div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    This assessment was generated using our Ghana-specialized ML model v{mlAssessmentDetails.model_version}
+                                  </p>
+                                </div>
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2"></div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    The model considers {mlAssessmentDetails.ghana_job_category ? 
+                                      `job category "${mlAssessmentDetails.ghana_job_category}" specific to Ghana's employment market` :
+                                      'multiple factors including employment stability and income verification'
+                                    }
+                                  </p>
+                                </div>
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2"></div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    {mlAssessmentDetails.confidence >= 80 ? 
+                                      'High confidence indicates strong predictive reliability for this assessment' :
+                                      mlAssessmentDetails.confidence >= 60 ?
+                                      'Medium confidence suggests adequate predictive reliability' :
+                                      'Lower confidence indicates this assessment should be reviewed by an analyst'
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Button */}
+                            <div className="border-t border-purple-200 dark:border-purple-700 pt-4">
+                              <motion.button
+                                onClick={() => {
+                                  handleNavigateToExplainability(selectedApplicant.id!);
+                                  setIsDetailOpen(false);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <FiEye size={18} />
+                                <span>View Detailed Explainability Analysis</span>
+                              </motion.button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -954,6 +1291,78 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Delete Confirmation Modal */}
+        <AnimatePresence>
+          {deleteConfirmOpen && applicationToDelete && (
+            <motion.div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: "spring", damping: 25 }}
+              >
+                <div className="p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                      <FiTrash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Delete Application
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        This action cannot be undone
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <p className="text-gray-700 dark:text-gray-300">
+                      Are you sure you want to delete the application for{" "}
+                      <span className="font-semibold">{applicationToDelete.full_name}</span>?
+                    </p>
+                    <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <strong>Reference:</strong> {applicationToDelete.reference_number || "Draft"}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <strong>Status:</strong> {applicationToDelete.status_display || applicationToDelete.status}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <motion.button
+                      onClick={handleDeleteCancel}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      onClick={handleDeleteConfirm}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>

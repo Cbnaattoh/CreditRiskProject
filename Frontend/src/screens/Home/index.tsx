@@ -19,6 +19,7 @@ import {
 } from "./components/Charts";
 // import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
+import { useGetApplicationsQuery, useGetUserMLAssessmentSummaryQuery } from "../../components/redux/features/api/applications/applicationsApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import { 
   usePermissions, 
@@ -51,7 +52,6 @@ const Dashboard: React.FC = () => {
   const highestRole = useHighestRole();
   const navigate = useNavigate();
   
-  // Enhanced role detection hooks (like Sidebar)
   const isAdministrator = useIsAdministrator();
   const isAnalyst = useIsAnalyst();
   const isAuditor = useIsAuditor();
@@ -59,7 +59,6 @@ const Dashboard: React.FC = () => {
   const dashboardAccess = useDashboardAccess();
   const navigationAccess = useNavigationAccess();
 
-  // Stable role detection with multiple fallback checks (like Sidebar)
   const stableRoleDetection = useMemo(() => {
     if (!user || !isAuthenticated) {
       return { 
@@ -72,7 +71,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    // Admin detection with multiple sources
+    // Admin detection
     const adminChecks = [
       isAdministrator,
       isAdmin,
@@ -84,7 +83,7 @@ const Dashboard: React.FC = () => {
     ];
     const isDefinitelyAdmin = adminChecks.some(check => check === true);
 
-    // Risk Analyst detection with multiple sources
+    // Risk Analyst detection
     const analystChecks = [
       isAnalyst,
       roles?.includes('Risk Analyst'),
@@ -146,7 +145,7 @@ const Dashboard: React.FC = () => {
     roles
   ]);
 
-  // Use stable role detection for user type (consistent with Sidebar approach)
+  // Use stable role detection for user type
   const userTypeDetection = useMemo(() => {
     return {
       type: stableRoleDetection.isAdmin ? 'ADMIN' : 
@@ -162,7 +161,6 @@ const Dashboard: React.FC = () => {
   const canViewReports = useHasAnyPermission(['report_view', 'report_create']) && !stableRoleDetection.isClient;
   const canViewCompliance = useHasPermission('compliance_view');
 
-  // RBAC data fetching with error handling
   const {
     data: rbacData,
     isLoading: rbacLoading,
@@ -180,7 +178,25 @@ const Dashboard: React.FC = () => {
     { skip: !canViewUsers }
   );
 
-  // Log RBAC errors but don't let them break the UI
+  // Fetch user's applications
+  const {
+    data: applicationsData,
+    isLoading: applicationsLoading,
+    error: applicationsError
+  } = useGetApplicationsQuery({
+    page: 1,
+    page_size: 100,
+  });
+
+  // Fetch user's ML assessment summary for client users
+  const {
+    data: mlAssessmentData,
+    isLoading: mlAssessmentLoading,
+    error: mlAssessmentError
+  } = useGetUserMLAssessmentSummaryQuery(undefined, {
+    skip: !stableRoleDetection.isClient
+  });
+
   useEffect(() => {
     if (rbacError) {
       console.warn('🟡 RBAC Dashboard API failed - continuing with cached permissions:', rbacError);
@@ -188,8 +204,69 @@ const Dashboard: React.FC = () => {
     if (usersError) {
       console.warn('🟡 Users List API failed - continuing with basic user data:', usersError);
     }
-  }, [rbacError, usersError]);
+    if (applicationsError) {
+      console.warn('🟡 Applications API failed - continuing with fallback data:', applicationsError);
+    }
+    if (mlAssessmentError) {
+      console.warn('🟡 ML Assessment API failed - continuing with fallback data:', mlAssessmentError);
+    }
+  }, [rbacError, usersError, applicationsError, mlAssessmentError]);
 
+  // Debug logging for applications data
+  useEffect(() => {
+    console.log('🔍 Applications Debug:', {
+      isAuthenticated,
+      hasUser: !!user,
+      stableRoleDetection,
+      isClientUser,
+      applicationsLoading,
+      applicationsData,
+      applicationsError
+    });
+  }, [isAuthenticated, user, stableRoleDetection, isClientUser, applicationsLoading, applicationsData, applicationsError]);
+
+
+  // Calculate application statistics
+  const applicationStats = useMemo(() => {
+    // Handle both paginated response and direct array
+    const applications = applicationsData?.results || applicationsData || [];
+    if (!Array.isArray(applications) && !applicationsData) {
+      return {
+        totalApplications: 0,
+        thisMonthCount: 0,
+        change: "No data",
+        trend: "neutral" as const
+      };
+    }
+
+    const totalCount = Array.isArray(applications) ? applications.length : (applicationsData?.count || 0);
+    
+    // Calculate applications from this month (only if we have an array to work with)
+    let thisMonthCount = 0;
+    if (Array.isArray(applications)) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+      
+      const thisMonthApplications = applications.filter(app => {
+        if (!app.submission_date && !app.last_updated) return false;
+        const appDate = new Date(app.submission_date || app.last_updated);
+        return appDate.getMonth() === currentMonth && appDate.getFullYear() === currentYear;
+      });
+      
+      thisMonthCount = thisMonthApplications.length;
+    }
+    
+    const change = thisMonthCount > 0 ? `+${thisMonthCount} this month` : totalCount > 0 ? "View all applications" : "No applications";
+    const trend = thisMonthCount > 0 ? "up" as const : "neutral" as const;
+    
+    return {
+      totalApplications: totalCount,
+      thisMonthCount,
+      change,
+      trend
+    };
+  }, [applicationsData]);
 
   // Create basic user activity data for non-admin users
   const basicUserActivity = canViewUsers ? [] : [
@@ -213,14 +290,11 @@ const Dashboard: React.FC = () => {
 
   // Stabilize client user state to prevent flickering
   useEffect(() => {
-    // Initialize stable state when we have role information
     if (stableIsClientUser === null && roles.length > 0) {
       setStableIsClientUser(isClientUser);
     } else if (isClientUser && stableIsClientUser === false) {
-      // If we were not client user but now we are, update
       setStableIsClientUser(true);
     } else if (!isClientUser && stableIsClientUser === true && roles.length > 0) {
-      // Only change from client user to non-client if we have other roles
       const hasOtherRoles = roles.some(role =>
         ['Administrator', 'Risk Analyst', 'Compliance Auditor', 'Manager'].includes(role)
       );
@@ -263,9 +337,11 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               <RBACStatsCard
                 title="My Applications"
-                value="3"
-                change="+1 this month"
-                trend="up"
+                value={applicationStats.totalApplications.toString()}
+                change={applicationStats.change}
+                trend={applicationStats.trend}
+                isLoading={applicationsLoading}
+                onClick={() => navigate('/home/loan-applications')}
                 icon={
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -275,35 +351,51 @@ const Dashboard: React.FC = () => {
               />
               <RBACStatsCard
                 title="Current Risk Score"
-                value="742"
-                change="Good standing"
-                trend="stable"
+                value={mlAssessmentData?.latest_assessment?.credit_score?.toString() || "Not Available"}
+                change={mlAssessmentData?.latest_assessment ? 
+                  `${mlAssessmentData.latest_assessment.category} (${mlAssessmentData.latest_assessment.risk_level})` : 
+                  "No assessment"
+                }
+                trend={mlAssessmentData?.latest_assessment?.risk_level === 'Low Risk' ? 'up' : 
+                      mlAssessmentData?.latest_assessment?.risk_level === 'High Risk' ? 'down' : 'neutral'
+                }
+                isLoading={mlAssessmentLoading}
                 icon={
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 }
-                color="green"
+                color={mlAssessmentData?.latest_assessment?.risk_level === 'Low Risk' ? 'green' : 
+                      mlAssessmentData?.latest_assessment?.risk_level === 'High Risk' ? 'red' : 'yellow'
+                }
               />
               <RBACStatsCard
-                title="Next Review"
-                value="14 days"
-                change="Upcoming"
-                trend="neutral"
+                title="Model Confidence"
+                value={mlAssessmentData?.latest_assessment?.confidence ? 
+                  `${mlAssessmentData.latest_assessment.confidence.toFixed(2)}%` : 
+                  "Not Available"
+                }
+                change={mlAssessmentData?.latest_assessment?.confidence ? 
+                  `${mlAssessmentData.latest_assessment.confidence >= 90 ? 'High' : 
+                     mlAssessmentData.latest_assessment.confidence >= 70 ? 'Good' : 'Moderate'} confidence` : 
+                  "No assessment"
+                }
+                trend={mlAssessmentData?.latest_assessment?.confidence ? 
+                  (mlAssessmentData.latest_assessment.confidence >= 80 ? 'up' : 
+                   mlAssessmentData.latest_assessment.confidence >= 60 ? 'neutral' : 'down') : 'neutral'
+                }
+                isLoading={mlAssessmentLoading}
                 icon={
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 }
-                color="orange"
+                color={mlAssessmentData?.latest_assessment?.confidence ? 
+                  (mlAssessmentData.latest_assessment.confidence >= 80 ? 'green' : 
+                   mlAssessmentData.latest_assessment.confidence >= 60 ? 'blue' : 'yellow') : 'gray'
+                }
               />
             </div>
-
-            {/* ML Credit Score Widget for Client Users */}
-            <MLCreditScoreWidget 
-              userType="client" 
-              className="mb-8"
-            />
 
             {/* Client User Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
@@ -312,6 +404,7 @@ const Dashboard: React.FC = () => {
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 cursor-pointer"
+                  onClick={() => navigate('/home/loan-applications')}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -329,6 +422,7 @@ const Dashboard: React.FC = () => {
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 cursor-pointer"
+                  onClick={() => navigate('/home/risk-analysis')}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
@@ -346,6 +440,7 @@ const Dashboard: React.FC = () => {
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 cursor-pointer"
+                  onClick={() => navigate('/home/explainability')}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -371,6 +466,7 @@ const Dashboard: React.FC = () => {
             <div className="mb-6">
               <MLCreditScoreWidget userType="admin" />
             </div>
+
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <RBACStatsCard
@@ -886,11 +982,18 @@ const Dashboard: React.FC = () => {
         {stableRoleDetection.isClient && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <ChartContainer title="Your Risk Profile">
-              <ClientRiskProfileChart />
+              <ClientRiskProfileChart 
+                mlAssessmentData={mlAssessmentData}
+                isLoading={mlAssessmentLoading}
+              />
             </ChartContainer>
 
             <ChartContainer title="Application History">
-              <ClientApplicationHistoryChart />
+              <ClientApplicationHistoryChart 
+                applicationsData={applicationsData}
+                isLoading={applicationsLoading}
+                onViewAll={() => navigate('/home/loan-applications')}
+              />
             </ChartContainer>
           </div>
         )}
@@ -898,16 +1001,17 @@ const Dashboard: React.FC = () => {
 
         {/* Recent Activity & Alerts */}
         <div className="space-y-8">
-          {/* User Activity Widget - Admin Only - FULL WIDTH */}
+          {/* User Activity Widget - Admin Only*/}
           {stableRoleDetection.isAdmin && (
             <UserActivityWidget
               users={usersData?.results || (Array.isArray(usersData) ? usersData : basicUserActivity)}
               isLoading={usersLoading}
               title="Recent User Activity"
+              showMLActivity={true}
             />
           )}
 
-          {/* Enhanced System Alerts Widget - FULL WIDTH */}
+          {/* Enhanced System Alerts Widget*/}
           <SystemAlertsWidget
             userType={
               stableRoleDetection.isAdmin ? 'admin' :

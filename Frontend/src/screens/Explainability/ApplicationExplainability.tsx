@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  useGetRiskExplanationQuery,
-  useGenerateRiskExplanationMutation,
-  useGetModelPredictionsQuery,
-  useGetCounterfactualExplanationsQuery 
-} from "../../components/redux/features/api/risk/riskApi";
-import { useGetApplicationQuery } from "../../components/redux/features/api/applications/applicationsApi";
+// Temporarily disable risk API to focus on ML assessment data
+// import { 
+//   useGetRiskExplanationQuery,
+//   useGenerateRiskExplanationMutation,
+//   useGetModelPredictionsQuery,
+//   useGetCounterfactualExplanationsQuery 
+// } from "../../components/redux/features/api/risk/riskApi";
+import { useGetApplicationQuery, useGetApplicationMLAssessmentQuery } from "../../components/redux/features/api/applications/applicationsApi";
 import ShapFeatureImpact from "./components/ShapFeatureImpact";
 import FeatureImportanceScatterMatrix from "./components/FeatureImportanceHeatmap";
 import BiasFairnessAssessment from "./components/BiasFairnessAssessment";
@@ -33,36 +34,41 @@ const ApplicationExplainability: React.FC = () => {
     error: applicationError 
   } = useGetApplicationQuery(applicationId);
   
+  // Get ML Assessment data (primary source of truth)
   const { 
-    data: riskExplanation, 
-    isLoading: explanationLoading, 
-    error: explanationError,
-    refetch: refetchExplanation
-  } = useGetRiskExplanationQuery(applicationId);
+    data: mlAssessment, 
+    isLoading: mlAssessmentLoading,
+    error: mlAssessmentError,
+    refetch: refetchMLAssessment
+  } = useGetApplicationMLAssessmentQuery(applicationId);
   
-  const { 
-    data: modelPredictions, 
-    isLoading: predictionsLoading 
-  } = useGetModelPredictionsQuery(applicationId);
+  // Dummy implementations to replace risk API calls
+  const riskExplanation = null;
+  const explanationLoading = false;
+  const explanationError = null;
+  const refetchExplanation = () => {};
   
-  const { 
-    data: counterfactuals, 
-    isLoading: counterfactualsLoading 
-  } = useGetCounterfactualExplanationsQuery(applicationId);
+  const modelPredictions = null;
+  const predictionsLoading = false;
   
-  const [generateExplanation, { isLoading: isGenerating }] = useGenerateRiskExplanationMutation();
+  const counterfactuals = null;
+  const counterfactualsLoading = false;
+  
+  // Dummy implementation for generate explanation
+  const generateExplanation = async () => {};
+  const isGenerating = false;
   
   const handleGenerateExplanation = async () => {
     try {
-      await generateExplanation(applicationId).unwrap();
-      toast.success('Risk explanation generated successfully');
-      refetchExplanation();
+      // Trigger ML assessment instead of risk explanation
+      await refetchMLAssessment();
+      toast.success('ML assessment refreshed successfully');
     } catch (error) {
-      toast.error('Failed to generate explanation');
+      toast.error('Failed to refresh ML assessment');
     }
   };
   
-  const isLoading = applicationLoading || explanationLoading || predictionsLoading || counterfactualsLoading;
+  const isLoading = applicationLoading || mlAssessmentLoading;
   
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -96,7 +102,7 @@ const ApplicationExplainability: React.FC = () => {
               </div>
             </div>
             <div className="mt-4 sm:mt-0 flex items-center space-x-3">
-              {!riskExplanation && !explanationLoading && (
+              {!mlAssessment && !mlAssessmentLoading && (
                 <button
                   onClick={handleGenerateExplanation}
                   disabled={isGenerating}
@@ -107,16 +113,16 @@ const ApplicationExplainability: React.FC = () => {
                   ) : (
                     <FiBarChart className="h-4 w-4 mr-2" />
                   )}
-                  {isGenerating ? 'Generating...' : 'Generate Explanation'}
+                  {isGenerating ? 'Generating...' : 'Generate ML Assessment'}
                 </button>
               )}
-              {riskExplanation && (
+              {mlAssessment && (
                 <button
-                  onClick={refetchExplanation}
-                  disabled={explanationLoading}
+                  onClick={refetchMLAssessment}
+                  disabled={mlAssessmentLoading}
                   className="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  <FiRefreshCw className={`h-4 w-4 mr-2 ${explanationLoading ? 'animate-spin' : ''}`} />
+                  <FiRefreshCw className={`h-4 w-4 mr-2 ${mlAssessmentLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
               )}
@@ -176,7 +182,7 @@ const ApplicationExplainability: React.FC = () => {
         )}
         
         {/* Error State */}
-        {(applicationError || explanationError) && (
+        {(applicationError || mlAssessmentError) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -195,13 +201,14 @@ const ApplicationExplainability: React.FC = () => {
         )}
         
         {/* Content */}
-        {!isLoading && !applicationError && !explanationError && (
+        {!isLoading && !applicationError && !mlAssessmentError && (
           <>
             {selectedView === 'shap' && (
               <>
                 <ShapFeatureImpact 
                   riskExplanation={riskExplanation}
                   modelPredictions={modelPredictions}
+                  mlAssessment={mlAssessment}
                 />
                 
                 {/* Risk Summary */}
@@ -298,6 +305,7 @@ const ApplicationExplainability: React.FC = () => {
               <FeatureImportanceScatterMatrix 
                 riskExplanation={riskExplanation}
                 modelPredictions={modelPredictions}
+                mlAssessment={mlAssessment}
               />
             )}
             
@@ -305,13 +313,14 @@ const ApplicationExplainability: React.FC = () => {
               <BiasFairnessAssessment 
                 riskExplanation={riskExplanation}
                 application={application}
+                mlAssessment={mlAssessment}
               />
             )}
           </>
         )}
 
         {/* Additional Explanation Section */}
-        {!isLoading && !applicationError && !explanationError && (
+        {!isLoading && !applicationError && !mlAssessmentError && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -356,33 +365,49 @@ const ApplicationExplainability: React.FC = () => {
               </div>
             </div>
             
-            {/* Model Information */}
-            {modelPredictions && modelPredictions.length > 0 && (
+            {/* ML Assessment Information */}
+            {mlAssessment && (
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Model Information
+                  ML Assessment Information
                 </h3>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Model Version:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {modelPredictions[0].model_version}
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Model Version:</span>
+                      <p className="font-bold text-blue-900 dark:text-blue-100">
+                        v{mlAssessment.model_version}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Confidence:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {(modelPredictions[0].confidence * 100).toFixed(1)}%
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Confidence:</span>
+                      <p className="font-bold text-blue-900 dark:text-blue-100">
+                        {mlAssessment.confidence.toFixed(1)}%
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Prediction Date:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {new Date(modelPredictions[0].prediction_date).toLocaleDateString()}
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Risk Level:</span>
+                      <p className={`font-bold ${
+                        mlAssessment.risk_level === 'Low Risk' ? 'text-green-600 dark:text-green-400' :
+                        mlAssessment.risk_level === 'Medium Risk' ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-red-600 dark:text-red-400'
+                      }`}>
+                        {mlAssessment.risk_level}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Assessment Date:</span>
+                      <p className="font-bold text-blue-900 dark:text-blue-100">
+                        {new Date(mlAssessment.prediction_timestamp).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
+                  {mlAssessment.model_accuracy && (
+                    <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Model Accuracy: </span>
+                      <span className="font-bold text-green-600 dark:text-green-400">{mlAssessment.model_accuracy}%</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

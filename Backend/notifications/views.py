@@ -83,6 +83,50 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notifications = self.get_queryset().filter(created_at__gte=week_ago)[:20]
         serializer = self.get_serializer(notifications, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def ml_notifications(self, request):
+        """Get ML processing related notifications"""
+        ml_types = [
+            'ML_PROCESSING_STARTED',
+            'ML_PROCESSING_COMPLETED', 
+            'ML_PROCESSING_FAILED',
+            'CREDIT_SCORE_GENERATED'
+        ]
+        notifications = self.get_queryset().filter(
+            notification_type__in=ml_types
+        ).order_by('-created_at')[:50]
+        
+        serializer = self.get_serializer(notifications, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def ml_status(self, request):
+        """Get ML processing status summary"""
+        ml_notifications = self.get_queryset().filter(
+            notification_type__in=[
+                'ML_PROCESSING_STARTED',
+                'ML_PROCESSING_COMPLETED', 
+                'ML_PROCESSING_FAILED',
+                'CREDIT_SCORE_GENERATED'
+            ],
+            created_at__gte=timezone.now() - timedelta(hours=24)
+        )
+        
+        status_summary = {
+            'processing': ml_notifications.filter(
+                notification_type='ML_PROCESSING_STARTED'
+            ).count(),
+            'completed': ml_notifications.filter(
+                notification_type__in=['ML_PROCESSING_COMPLETED', 'CREDIT_SCORE_GENERATED']
+            ).count(),
+            'failed': ml_notifications.filter(
+                notification_type='ML_PROCESSING_FAILED'
+            ).count(),
+            'total': ml_notifications.count()
+        }
+        
+        return Response(status_summary)
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer

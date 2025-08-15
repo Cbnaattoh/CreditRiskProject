@@ -25,6 +25,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "leaflet": "^1.9.4",
+    "lucide-react": "^0.539.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
     "react-country-region-selector": "^4.0.2",

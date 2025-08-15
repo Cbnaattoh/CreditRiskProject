@@ -5,13 +5,35 @@ import {
   notificationsApi,
   type Notification 
 } from '../../redux/features/api/notifications';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from '../Toast';
+import type { RootState } from '../../redux/store';
 
 export const useNotifications = () => {
   const dispatch = useDispatch();
   const { showToast } = useToast();
-  const { data: unreadCount, refetch: refetchUnreadCount } = useGetUnreadCountQuery();
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const user = useSelector((state: RootState) => state.auth.user);
+  
+  const { data: unreadCount, refetch: refetchUnreadCount } = useGetUnreadCountQuery(undefined, {
+    // Only query when authenticated
+    skip: !isAuthenticated,
+    // Refetch every 30 seconds to ensure fresh notification data
+    pollingInterval: 30000,
+    // Refetch when component refocuses
+    refetchOnFocus: true,
+    // Refetch when reconnecting
+    refetchOnReconnect: true
+  });
+
+  // Refetch notifications when user changes (login/logout)
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      refetchUnreadCount();
+      // Also invalidate all notification cache to force fresh data
+      dispatch(notificationsApi.util.invalidateTags(['Notification']));
+    }
+  }, [isAuthenticated, user?.id, refetchUnreadCount, dispatch]);
 
   const handleNotificationMessage = useCallback((message: any) => {
     if (message.type === 'notify' && message.data) {
@@ -47,6 +69,7 @@ export const useNotifications = () => {
     unreadCount: unreadCount?.count || 0,
     isConnected,
     connectionError,
+    refetchNotifications: refetchUnreadCount,
   };
 };
 
