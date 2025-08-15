@@ -1,0 +1,118 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+README.md
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
+# Documentation
+docs/
+*.md
+!ML_PIPELINE_SETUP.md
+
+# Node.js (if any frontend build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Large files that shouldn't be in containers
+*.zip
+*.tar.gz
+*.rar
+
+# Development scripts
+scripts/dev/
+docker-compose.override.yml
+
+# Cache directories
+.cache/
+.mypy_cache/
+.pytest_cache/
+
+# Logs
+logs/*.log
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Media files (these should be handled by volumes)
+# Uncomment if you want to exclude media files from the image
+# media/
+
+# ML Model files (large files should be downloaded separately)
+# ml_model/models/*.pkl
+# ml_model/models/*.json

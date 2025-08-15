@@ -1,268 +1,232 @@
 """
-Django signals for automatic ML credit assessment generation
+Django Signals for Automated ML Processing
+Automatically triggers ML credit assessment when applications are submitted or updated
 """
+
 import logging
-import sys
-import os
-import time
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import CreditApplication, MLCreditAssessment, ApplicationNote
+from django.core.cache import cache
+from .models import CreditApplication
+from .tasks import process_ml_credit_assessment
 
-# Create specialized logger for ML operations
-ml_logger = logging.getLogger('applications.signals')
-ml_logger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-# Add ML model path to Python path
-ml_model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ml_model')
-if ml_model_path not in sys.path:
-    sys.path.append(ml_model_path)
 
 @receiver(post_save, sender=CreditApplication)
-def auto_generate_ml_assessment(sender, instance, created, **kwargs):
+def trigger_ml_assessment_on_submission(sender, instance, created, **kwargs):
     """
-    Automatically generate ML credit assessment when application status changes to SUBMITTED
-    """
-    # Only trigger for SUBMITTED applications that don't already have ML assessment
-    if instance.status == 'SUBMITTED' and not hasattr(instance, 'ml_assessment'):
-        ml_logger.info("=" * 80)
-        ml_logger.info("🤖 ML MODEL AUTO-TRIGGER ACTIVATED")
-        ml_logger.info("=" * 80)
-        ml_logger.info(f"📋 Application ID: {instance.id}")
-        ml_logger.info(f"👤 Applicant: {instance.applicant.email if instance.applicant else 'Unknown'}")
-        ml_logger.info(f"📊 Status: {instance.status}")
-        ml_logger.info(f"💰 Loan Amount: ${instance.loan_amount or 0:,.2f}")
-        ml_logger.info(f"💼 Job Title: '{instance.job_title}' (empty={not instance.job_title})")
-        
-        try:
-            start_time = time.time()
-            
-            # Check if ML assessment already exists (safety check)
-            if MLCreditAssessment.objects.filter(application=instance).exists():
-                ml_logger.warning(f"⚠️  ML assessment already exists for application {instance.id} - skipping")
-                return
-            
-            ml_logger.info("🔄 Starting ML credit score generation...")
-            result = _generate_credit_score_for_application(instance, created)
-            
-            total_time = time.time() - start_time
-            
-            if result.get('success'):
-                ml_logger.info("✅ ML ASSESSMENT COMPLETED SUCCESSFULLY")
-                ml_logger.info(f"📊 Credit Score: {result['credit_score']}")
-                ml_logger.info(f"🎯 Category: {result['category']}")
-                ml_logger.info(f"⚡ Risk Level: {result['risk_level']}")
-                ml_logger.info(f"🔍 Confidence: {result['confidence']}%")
-                ml_logger.info(f"⏱️  Total Processing Time: {total_time:.2f}s")
-            else:
-                ml_logger.error(f"❌ ML assessment failed: {result.get('error')}")
-            
-            ml_logger.info("=" * 80)
-            
-        except Exception as e:
-            ml_logger.error("❌ CRITICAL ERROR IN ML ASSESSMENT")
-            ml_logger.error(f"Error: {str(e)}")
-            import traceback
-            ml_logger.error(f"Traceback:\n{traceback.format_exc()}")
-            ml_logger.info("=" * 80)
-
-def _generate_credit_score_for_application(application, created=False):
-    """
-    Generate credit score using ML model for an application
-    This is the same logic as in ApplicationSubmitView._generate_credit_score
-    """
-    try:
-        # Import ML model components
-        ml_logger.debug("🔧 Loading ML model components...")
-        try:
-            from src.credit_scorer import get_credit_scorer
-            ml_logger.debug("✅ ML model components loaded successfully")
-        except ImportError as e:
-            ml_logger.error(f'❌ ML model not available during auto-generation: {str(e)}')
-            return {'success': False, 'error': 'ML model not available'}
-        
-        # Fix job title issue: Get from employment info if main job_title is empty
-        job_title = application.job_title
-        ml_logger.debug(f"🏷️  Initial job title: '{job_title}'")
-        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application ID: {application.id}")
-        ml_logger.debug(f"🔍 SIGNAL DEBUG: Has applicant_info relation: {hasattr(application, 'applicant_info')}")
-        
-        # Let's also check if the application was just created vs updated
-        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application was created: {created}")
-        ml_logger.debug(f"🔍 SIGNAL DEBUG: Application status: {application.status}")
-        
-        if not job_title:
-            ml_logger.debug("🔍 Job title empty, checking multiple sources...")
-            ml_logger.debug(f"⏰ TIMING: Application created={created}, status={application.status}")
-            
-            # Strategy 1: Try to get from applicant_info -> employment_history
-            try:
-                if hasattr(application, 'applicant_info') and application.applicant_info:
-                    applicant = application.applicant_info
-                    employment = applicant.employment_history.first()
-                    if employment and employment.job_title:
-                        job_title = employment.job_title
-                        # Update the main job_title field for future use
-                        application.job_title = job_title
-                        application.save()
-                        ml_logger.info(f"✅ Fixed job title mapping from applicant_info: '{job_title}'")
-                    else:
-                        ml_logger.debug("📭 Applicant has no employment history with job title")
-                else:
-                    ml_logger.debug("📭 No applicant_info found on application")
-            except Exception as e:
-                ml_logger.debug(f"📝 Could not fetch from applicant_info: {str(e)}")
-            
-            # Strategy 2: Try to find employment info directly linked to this application
-            if not job_title:
-                try:
-                    from applications.models import EmploymentInfo, Applicant
-                    # Find applicant record for this application
-                    applicant = Applicant.objects.filter(application=application).first()
-                    if applicant:
-                        employment = EmploymentInfo.objects.filter(applicant=applicant).first()
-                        if employment and employment.job_title:
-                            job_title = employment.job_title
-                            application.job_title = job_title
-                            application.save()
-                            ml_logger.info(f"✅ Fixed job title mapping from direct query: '{job_title}'")
-                        else:
-                            ml_logger.debug("📭 No employment records found via direct query")
-                    else:
-                        ml_logger.debug("📭 No applicant record found for this application")
-                except Exception as e:
-                    ml_logger.debug(f"📝 Could not fetch via direct query: {str(e)}")
-            
-            # Strategy 3: Use a reasonable default if still no job title
-            if not job_title:
-                job_title = 'Other'
-                ml_logger.info(f"🔧 Using default job title: '{job_title}' (no employment info available)")
-        else:
-            ml_logger.debug(f"✅ Using existing job title: '{job_title}'")
-        
-        # Prepare data for ML model
-        ml_logger.info("🧮 Preparing ML input data...")
-        ml_data = {
-            'annual_inc': float(application.annual_income or 0),
-            'dti': float(application.debt_to_income_ratio or 12.0),  # Default reasonable value
-            'int_rate': float(application.interest_rate or 15.0),
-            'revol_util': float(application.revolving_utilization or 30.0),
-            'delinq_2yrs': int(application.delinquencies_2yr or 0),
-            'inq_last_6mths': int(application.inquiries_6mo or 1),
-            'emp_length': application.employment_length or '< 1 year',
-            'emp_title': job_title or 'Other',
-            'open_acc': int(application.open_accounts or 5),
-            'collections_12_mths_ex_med': int(application.collections_12mo or 0),
-            'loan_amnt': float(application.loan_amount or 0),
-            'credit_history_length': float(application.credit_history_length or 1.0),
-            'max_bal_bc': float(application.max_bankcard_balance or 1000.0),
-            'total_acc': int(application.total_accounts or 8),
-            'open_rv_12m': int(application.revolving_accounts_12mo or 2),
-            'pub_rec': int(application.public_records or 0),
-            'home_ownership': application.home_ownership or 'RENT'
-        }
-        
-        # Log the prepared ML data in a formatted way
-        ml_logger.info("📋 ML INPUT DATA:")
-        ml_logger.info(f"   💰 Annual Income: ${ml_data['annual_inc']:,.2f}")
-        ml_logger.info(f"   💳 Debt-to-Income: {ml_data['dti']}%")
-        ml_logger.info(f"   📊 Interest Rate: {ml_data['int_rate']}%")
-        ml_logger.info(f"   🔄 Revolving Utilization: {ml_data['revol_util']}%")
-        ml_logger.info(f"   💼 Job: '{ml_data['emp_title']}'")
-        ml_logger.info(f"   ⏳ Employment Length: {ml_data['emp_length']}")
-        ml_logger.info(f"   🏠 Home Ownership: {ml_data['home_ownership']}")
-        ml_logger.info(f"   💸 Loan Amount: ${ml_data['loan_amnt']:,.2f}")
-        ml_logger.info(f"   🏦 Total Accounts: {ml_data['total_acc']}")
-        ml_logger.info(f"   📅 Credit History: {ml_data['credit_history_length']} years")
-        
-        # Get ML prediction
-        ml_logger.info("🤖 Initializing ML model scorer...")
-        scorer = get_credit_scorer()
-        ml_logger.info("⚡ Running ML model prediction...")
-        
-        prediction_start = time.time()
-        result = scorer.predict_credit_score(ml_data)
-        prediction_time = time.time() - prediction_start
-        
-        ml_logger.info(f"📊 ML prediction completed in {prediction_time:.3f}s")
-        
-        if result['success']:
-            ml_logger.info("🎯 ML PREDICTION RESULTS:")
-            ml_logger.info(f"   📈 Credit Score: {result['credit_score']}")
-            ml_logger.info(f"   🏷️  Category: {result['category']}")
-            ml_logger.info(f"   ⚠️  Risk Level: {result['risk_level']}")
-            ml_logger.info(f"   🎯 Confidence: {result['confidence']}%")
-            ml_logger.info(f"   🇬🇭 Ghana Job Category: {result.get('job_category', 'N/A')}")
-            ml_logger.info(f"   📊 Model Version: {result.get('model_version', 'Unknown')}")
-            
-            # Store prediction result in MLCreditAssessment model
-            ml_logger.info("💾 Saving ML assessment to database...")
-            processing_time = int(prediction_time * 1000)  # Convert to milliseconds
-            
-            ml_assessment, created = MLCreditAssessment.objects.update_or_create(
-                application=application,
-                defaults={
-                    'credit_score': result['credit_score'],
-                    'category': result['category'],
-                    'risk_level': result['risk_level'],
-                    'confidence': result['confidence'],
-                    'ghana_job_category': result.get('job_category', 'Other'),
-                    'ghana_employment_score': result.get('ghana_employment_score', 50.0),
-                    'ghana_job_stability_score': result.get('ghana_job_stability_score', 50),
-                    'model_version': result.get('model_version', '2.0.0'),
-                    'confidence_factors': result.get('confidence_factors', {}),
-                    'processing_time_ms': processing_time,
-                    'features_used': list(ml_data.keys())
-                }
-            )
-            
-            action = "Created" if created else "Updated"
-            ml_logger.info(f"✅ {action} ML assessment record in database")
-            
-            # Create audit trail note
-            ml_logger.debug("📝 Creating audit trail note...")
-            note_content = f"""Automatic ML Credit Score Generation:
-- {action} ML assessment via Django signal
-- Credit Score: {result['credit_score']} ({result['category']})
-- Risk Level: {result['risk_level']}
-- Confidence: {result['confidence']}%
-- Ghana Job: {job_title or 'Other'}
-- Model Version: {result.get('model_version', '2.0.0')}
-- Processing Time: {processing_time}ms
-- Generated automatically when status changed to SUBMITTED"""
-            
-            ApplicationNote.objects.create(
-                application=application,
-                author=application.applicant,
-                note=note_content,
-                is_internal=True
-            )
-            
-            ml_logger.debug("✅ Audit trail note created")
-            ml_logger.info(f"🏁 Auto-generated ML credit score for application {application.id}: {result['credit_score']}")
-            
-            return {
-                'success': True,
-                'credit_score': result['credit_score'],
-                'category': result['category'],
-                'risk_level': result['risk_level'],
-                'confidence': result['confidence'],
-                'model_version': result.get('model_version', '2.0.0')
-            }
-        else:
-            ml_logger.error(f"❌ ML prediction failed for application {application.id}")
-            ml_logger.error(f"Error details: {result.get('error')}")
-            return {
-                'success': False,
-                'error': result.get('error', 'Prediction failed')
-            }
+    Trigger ML assessment when application is submitted or significantly updated.
     
-    except Exception as e:
-        ml_logger.error(f"💥 EXCEPTION in credit score generation for application {application.id}")
-        ml_logger.error(f"Exception: {str(e)}")
-        import traceback
-        ml_logger.error(f"Full traceback:\n{traceback.format_exc()}")
-        return {
-            'success': False,
-            'error': f'Credit score generation failed: {str(e)}'
+    Args:
+        sender: CreditApplication model class
+        instance: CreditApplication instance
+        created: True if this is a new instance
+        **kwargs: Additional signal arguments
+    """
+    # Only trigger ML processing for submitted applications
+    if instance.status != 'SUBMITTED':
+        return
+    
+    # For new submitted applications, always process
+    if created:
+        logger.info(f"New application submitted: {instance.reference_number} - Triggering ML assessment")
+        process_ml_credit_assessment.delay(str(instance.id))
+        return
+    
+    # For updated applications, check if ML-relevant fields changed
+    if _has_ml_relevant_changes(instance):
+        logger.info(f"ML-relevant changes detected for {instance.reference_number} - Triggering ML reassessment")
+        process_ml_credit_assessment.delay(str(instance.id), force_reprocess=True)
+
+
+@receiver(pre_save, sender=CreditApplication)
+def cache_previous_ml_data(sender, instance, **kwargs):
+    """
+    Cache previous ML-relevant data before save to detect changes.
+    
+    Args:
+        sender: CreditApplication model class
+        instance: CreditApplication instance
+        **kwargs: Additional signal arguments
+    """
+    # Only cache for existing instances
+    if not instance.pk:
+        return
+    
+    try:
+        # Get current instance from database
+        current = CreditApplication.objects.get(pk=instance.pk)
+        
+        # Cache ML-relevant fields
+        ml_fields = {
+            'annual_income': current.annual_income,
+            'debt_to_income_ratio': current.debt_to_income_ratio,
+            'interest_rate': current.interest_rate,
+            'revolving_utilization': current.revolving_utilization,
+            'delinquencies_2yr': current.delinquencies_2yr,
+            'inquiries_6mo': current.inquiries_6mo,
+            'employment_length': current.employment_length,
+            'open_accounts': current.open_accounts,
+            'collections_12mo': current.collections_12mo,
+            'loan_amount': current.loan_amount,
+            'credit_history_length': current.credit_history_length,
+            'max_bankcard_balance': current.max_bankcard_balance,
+            'total_accounts': current.total_accounts,
+            'revolving_accounts_12mo': current.revolving_accounts_12mo,
+            'public_records': current.public_records,
+            'home_ownership': current.home_ownership,
+            'job_title': current.job_title,
+            'status': current.status
         }
+        
+        cache_key = f"ml_fields_{instance.pk}"
+        cache.set(cache_key, ml_fields, timeout=300)  # 5 minutes
+        
+    except CreditApplication.DoesNotExist:
+        # Instance doesn't exist yet, skip caching
+        pass
+    except Exception as e:
+        logger.error(f"Failed to cache ML fields for application {instance.pk}: {str(e)}")
+
+
+def _has_ml_relevant_changes(instance):
+    """
+    Check if ML-relevant fields have changed significantly.
+    
+    Args:
+        instance: CreditApplication instance
+        
+    Returns:
+        True if ML-relevant changes detected, False otherwise
+    """
+    cache_key = f"ml_fields_{instance.pk}"
+    previous_fields = cache.get(cache_key)
+    
+    if not previous_fields:
+        return False
+    
+    # List of fields that trigger ML reprocessing if changed
+    ml_sensitive_fields = [
+        'annual_income',
+        'debt_to_income_ratio',
+        'loan_amount',
+        'credit_history_length',
+        'employment_length',
+        'job_title',
+        'revolving_utilization',
+        'delinquencies_2yr',
+        'home_ownership'
+    ]
+    
+    # Check for significant changes
+    changes_detected = []
+    
+    for field in ml_sensitive_fields:
+        current_value = getattr(instance, field)
+        previous_value = previous_fields.get(field)
+        
+        # Check if values are significantly different
+        if _is_significant_change(field, previous_value, current_value):
+            changes_detected.append(f"{field}: {previous_value} -> {current_value}")
+    
+    if changes_detected:
+        logger.info(f"ML-relevant changes detected for {instance.reference_number}: {', '.join(changes_detected)}")
+        return True
+    
+    return False
+
+
+def _is_significant_change(field_name, old_value, new_value):
+    """
+    Determine if a field change is significant enough to trigger ML reprocessing.
+    
+    Args:
+        field_name: Name of the field
+        old_value: Previous value
+        new_value: Current value
+        
+    Returns:
+        True if change is significant, False otherwise
+    """
+    # Handle None values
+    if old_value is None and new_value is None:
+        return False
+    if old_value is None or new_value is None:
+        return True
+    
+    # String fields - any change is significant
+    if isinstance(new_value, str):
+        return str(old_value).strip() != str(new_value).strip()
+    
+    # Numeric fields - check for significant percentage change
+    if isinstance(new_value, (int, float)) and isinstance(old_value, (int, float)):
+        if old_value == 0:
+            return new_value != 0
+        
+        # Calculate percentage change
+        percentage_change = abs((new_value - old_value) / old_value) * 100
+        
+        # Different thresholds for different fields
+        thresholds = {
+            'annual_income': 10,  # 10% change
+            'debt_to_income_ratio': 5,  # 5% change
+            'loan_amount': 10,  # 10% change
+            'credit_history_length': 15,  # 15% change
+            'revolving_utilization': 10,  # 10% change
+            'delinquencies_2yr': 0,  # Any change
+            'max_bankcard_balance': 20,  # 20% change
+        }
+        
+        threshold = thresholds.get(field_name, 15)  # Default 15%
+        return percentage_change >= threshold
+    
+    # For other types, any change is significant
+    return old_value != new_value
+
+
+@receiver(post_save, sender=CreditApplication)
+def cleanup_ml_cache(sender, instance, **kwargs):
+    """
+    Clean up cached ML fields after processing.
+    
+    Args:
+        sender: CreditApplication model class
+        instance: CreditApplication instance
+        **kwargs: Additional signal arguments
+    """
+    cache_key = f"ml_fields_{instance.pk}"
+    cache.delete(cache_key)
+
+
+# Manual trigger functions for admin/API use
+def trigger_manual_ml_assessment(application_id, force_reprocess=False):
+    """
+    Manually trigger ML assessment for an application.
+    
+    Args:
+        application_id: UUID or ID of the application
+        force_reprocess: Force reprocessing even if assessment exists
+        
+    Returns:
+        Celery task result
+    """
+    logger.info(f"Manual ML assessment triggered for application {application_id}")
+    return process_ml_credit_assessment.delay(str(application_id), force_reprocess)
+
+
+def trigger_batch_ml_assessment(application_ids, force_reprocess=False):
+    """
+    Manually trigger batch ML assessment for multiple applications.
+    
+    Args:
+        application_ids: List of application UUIDs/IDs
+        force_reprocess: Force reprocessing even if assessments exist
+        
+    Returns:
+        Celery task result
+    """
+    from .tasks import batch_process_ml_assessments
+    
+    logger.info(f"Manual batch ML assessment triggered for {len(application_ids)} applications")
+    return batch_process_ml_assessments.delay(application_ids, force_reprocess)
