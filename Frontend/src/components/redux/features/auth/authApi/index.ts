@@ -155,56 +155,8 @@ export const authApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Auth"],
     }),
 
-    register: builder.mutation<RegisterResponse, RegisterRequest>({
-      query: (credentials) => {
-        const formData = new FormData();
-
-        formData.append("first_name", credentials.first_name);
-        formData.append("last_name", credentials.last_name);
-        formData.append("email", credentials.email);
-        formData.append("phone_number", credentials.phone_number || "");
-        formData.append("password", credentials.password);
-        formData.append("confirm_password", credentials.confirm_password);
-        formData.append("user_type", credentials.user_type);
-        formData.append(
-          "enable_mfa",
-          credentials.mfa_enabled ? "true" : "false"
-        );
-        formData.append(
-          "terms_accepted",
-          credentials.terms_accepted ? "true" : "false"
-        );
-
-        if (
-          credentials.profile_picture &&
-          credentials.profile_picture instanceof File
-        ) {
-          formData.append("profile_picture", credentials.profile_picture);
-        }
-
-        return {
-          url: "auth/register/",
-          method: "POST" as const,
-          body: formData,
-        };
-      },
-      transformErrorResponse: (response) => {
-        console.log("🔴 Error response received:", response);
-        if (
-          typeof response.data === "string" &&
-          response.data.includes("<!DOCTYPE html>")
-        ) {
-          return {
-            status: response.status,
-            data: {
-              detail: "Registration server error",
-            },
-          };
-        }
-        return response;
-      },
-      invalidatesTags: ["Auth"],
-    }),
+    // Note: Registration is now handled by the progressive registration wizard
+    // using the registrationApi service with step-by-step validation
 
     verifyMFA: builder.mutation<MFAVerifyResponse, MFACredentials>({
       query: (credentials) => ({
@@ -420,7 +372,7 @@ export const authApi = apiSlice.injectEndpoints({
 
 export const {
   useLoginMutation,
-  useRegisterMutation,
+  // useRegisterMutation, // Removed - now handled by registrationApi
   useVerifyMFAMutation,
   useSetupMFAMutation,
   useLogoutMutation,

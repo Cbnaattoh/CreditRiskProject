@@ -20,7 +20,7 @@ import { useToast, ToastContainer } from "../../../components/utils/Toast";
 import MFAForm from "./components/MFAForm";
 import TabNavigation from "./components/TabNavigation";
 import LoginForm from "./components/LoginForm";
-import RegisterForm from "./components/RegisterForm";
+import RegistrationWizard from "./components/RegistrationWizard";
 import SidePanel from "./components/SidePanel";
 import BackgroundElements from "./components/BackgroundElements";
 import type {
@@ -47,7 +47,7 @@ const Login: React.FC = () => {
   const dispatch = useAppDispatch();
   const authState = useAppSelector((state) => state.auth);
   const { toasts, removeToast, success, error, info } = useToast();
-  const { loginMethods, mfaFormMethods, registerMethods, resetForms } =
+  const { loginMethods, mfaFormMethods, resetForms } =
     useFormManagement();
 
   const tempToken = useAppSelector((state) => state.auth.tempToken);
@@ -253,7 +253,6 @@ const Login: React.FC = () => {
         const result = await login({
           email: data.email,
           password: data.password,
-          enableMFA: data.enableMFA,
         }).unwrap();
 
         console.log('🔵 Login result:', result);
@@ -514,8 +513,7 @@ const Login: React.FC = () => {
                   />
                 )
               ) : (
-                <RegisterForm
-                  registerMethods={registerMethods}
+                <RegistrationWizard
                   setActiveTab={setActiveTab}
                   showSuccessToast={success}
                   showErrorToast={error}

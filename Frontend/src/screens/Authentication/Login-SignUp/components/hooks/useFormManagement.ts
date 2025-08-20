@@ -39,6 +39,9 @@ export const useFormManagement = () => {
       mfa_enabled: false,
       terms_accepted: false,
       profile_picture: undefined,
+      ghana_card_number: "",
+      ghana_card_front_image: undefined,
+      ghana_card_back_image: undefined,
     },
   });
 
@@ -59,7 +62,7 @@ export const useFormManagement = () => {
 
   return {
     loginMethods,
-    registerMethods,
+    registerMethods, // Keep for backward compatibility in case other components use it
     mfaFormMethods,
     resetForms,
   };

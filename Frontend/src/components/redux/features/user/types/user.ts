@@ -98,6 +98,9 @@ export interface RegisterRequest {
   profile_picture?: File;
   mfa_enabled?: boolean;
   terms_accepted: boolean;
+  ghana_card_number: string;
+  ghana_card_front_image: File;
+  ghana_card_back_image: File;
 }
 
 export interface RegisterResponse {

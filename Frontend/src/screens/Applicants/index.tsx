@@ -55,7 +55,6 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   
   const [deleteApplication, { isLoading: isDeleting }] = useDeleteApplicationMutation();
   
-  // Determine the page title based on route
   const getPageTitle = () => {
     if (showClientView) return "My Applications";
     if (location.pathname.includes('customers')) return "Customers";
@@ -63,10 +62,8 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     return "Credit Applications";
   };
 
-  // Determine if we should show client-specific UI (backend handles filtering automatically)
   const shouldShowClientUI = showClientView || isClientUser;
   
-  // Fetch applications from API (backend automatically filters by user role)
   const {
     data: applicationsData,
     isLoading,
@@ -78,7 +75,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     ...(statusFilter !== "ALL" && { status: statusFilter }),
   });
 
-  // API data received successfully
+
   if (applicationsData) {
     console.log('✅ Applicants: Loaded', applicationsData.length || applicationsData.count || 0, 'applications');
     console.log('✅ User type for filtering:', { 
@@ -89,28 +86,25 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
     });
   }
 
-  // Fetch risk analysis for selected applicant
   const { data: riskAnalysis, isLoading: riskLoading } =
     useGetRiskAnalysisQuery(selectedApplicant?.id || "", {
       skip: !selectedApplicant?.id,
     });
 
-  // Fetch ML assessment details for selected applicant
   const { data: mlAssessmentDetails, isLoading: mlAssessmentLoading } =
     useGetApplicationMLAssessmentQuery(selectedApplicant?.id || "", {
       skip: !selectedApplicant?.id,
     });
 
-  // Enhanced applications with computed fields
+
   const enhancedApplications = useMemo(() => {
-    // Handle both paginated response and direct array
     const applications = applicationsData?.results || applicationsData || [];
     if (!Array.isArray(applications)) return [];
 
     return applications.map((app): EnhancedApplication => {
       const applicantInfo = app.applicant_info;
       const riskAssessment = app.risk_assessment;
-      const mlAssessment = app.ml_assessment; // ML Credit Assessment
+      const mlAssessment = app.ml_assessment;
       const documents = app.documents || [];
 
       return {
@@ -122,7 +116,6 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
           : "Unknown Applicant",
         email: applicantInfo?.email || "No email provided",
         phone_number: applicantInfo?.phone_number || "No phone provided",
-        // Use ML assessment data first, fallback to traditional risk assessment
         risk_score: mlAssessment?.credit_score 
           ? Math.round(((850 - mlAssessment.credit_score) / 550) * 100) // Convert credit score to risk percentage (850-300 = 550 range)
           : riskAssessment?.risk_score
@@ -208,7 +201,6 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   };
 
   const canDeleteApplication = (application: EnhancedApplication) => {
-    // Only allow deletion of DRAFT and SUBMITTED applications
     return application.status === 'DRAFT' || application.status === 'SUBMITTED';
   };
 

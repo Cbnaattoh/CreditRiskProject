@@ -39,6 +39,18 @@ export const registrationSchema = z
       errorMap: () => ({ message: "You must accept the terms and conditions" }),
     }),
     mfa_enabled: z.boolean().optional(),
+    ghana_card_number: z
+      .string()
+      .min(1, "Ghana Card number is required")
+      .regex(/^GHA-\d{9}-\d$/, "Invalid format. Use: GHA-725499847-1 (GHA-9digits-1digit)"),
+    ghana_card_front_image: z.instanceof(FileList).refine(
+      (files) => files && files.length > 0,
+      "Ghana Card front image is required"
+    ),
+    ghana_card_back_image: z.instanceof(FileList).refine(
+      (files) => files && files.length > 0,
+      "Ghana Card back image is required"
+    ),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",
@@ -75,6 +87,18 @@ export const frontendRegistrationSchema = z
     user_type: z.enum(["CLIENT", "AUDITOR", "ANALYST"]),
     terms_accepted: z.boolean().optional(),
     mfa_enabled: z.boolean().optional(),
+    ghana_card_number: z
+      .string()
+      .min(1, "Ghana Card number is required")
+      .regex(/^GHA-\d{9}-\d$/, "Invalid format. Use: GHA-725499847-1 (GHA-9digits-1digit)"),
+    ghana_card_front_image: z.instanceof(FileList).refine(
+      (files) => files && files.length > 0,
+      "Ghana Card front image is required"
+    ),
+    ghana_card_back_image: z.instanceof(FileList).refine(
+      (files) => files && files.length > 0,
+      "Ghana Card back image is required"
+    ),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",

@@ -7,6 +7,7 @@ import { securityApi } from "./features/api/security/securityApi";
 import { mlApi } from "./features/api/ml/mlApi";
 import authReducer from "./features/auth/authSlice";
 import userReducer from "./features/user/userSlice";
+import { registrationApi } from "../../services/registrationApi";
 import { loadAuthState, saveAuthState } from "../utils/services/authPersist";
 import { loadUserState, saveUserState } from "../utils/services/userPersist";
 import { authUserSyncMiddleware } from "../utils/middleware/authUserSyncMiddleware";
@@ -35,6 +36,7 @@ export const store = configureStore({
     [notificationsApi.reducerPath]: notificationsApi.reducer,
     [securityApi.reducerPath]: securityApi.reducer,
     [mlApi.reducerPath]: mlApi.reducer,
+    [registrationApi.reducerPath]: registrationApi.reducer,
     auth: authReducer,
     user: userReducer,
   },
@@ -64,6 +66,7 @@ export const store = configureStore({
       .concat(notificationsApi.middleware)
       .concat(securityApi.middleware)
       .concat(mlApi.middleware)
+      .concat(registrationApi.middleware)
       .concat(authUserSyncMiddleware),
   devTools: process.env.NODE_ENV !== "production",
 });
@@ -111,6 +114,7 @@ export const resetApplicationState = () => {
   store.dispatch(notificationsApi.util.resetApiState());
   store.dispatch(securityApi.util.resetApiState());
   store.dispatch(mlApi.util.resetApiState());
+  store.dispatch(registrationApi.util.resetApiState());
 };
 
 // Function to check and log current state consistency
