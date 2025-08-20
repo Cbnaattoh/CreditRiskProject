@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Verification Code</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+        }
+        .otp-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .otp-code {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 8px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .otp-label {
+            color: #e5e7eb;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .instructions {
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid #10b981;
+        }
+        .instructions h3 {
+            color: #059669;
+            margin-top: 0;
+            font-size: 16px;
+        }
+        .instructions ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            color: #374151;
+            margin-bottom: 5px;
+        }
+        .security-notice {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 25px 0;
+        }
+        .security-notice .icon {
+            color: #d97706;
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        .security-notice p {
+            margin: 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+        .expiry-info {
+            text-align: center;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .expiry-info .time {
+            font-size: 18px;
+            font-weight: bold;
+            color: #dc2626;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .footer .company {
+            font-weight: bold;
+            color: #4f46e5;
+        }
+        .support-link {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        .support-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 25px;
+            }
+            .otp-code {
+                font-size: 28px;
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">{{ company_name|default:"CreditRisk Assessment Platform" }}</div>
+            <h1 class="title">Verification Code</h1>
+            <p class="subtitle">Complete your account verification</p>
+        </div>
+
+        <div class="otp-container">
+            <div class="otp-code">{{ otp_code }}</div>
+            <div class="otp-label">Your Verification Code</div>
+        </div>
+
+        <div class="expiry-info">
+            <p>This code will expire in <span class="time">{{ expiry_minutes|default:"10" }} minutes</span></p>
+        </div>
+
+        <div class="instructions">
+            <h3>🔐 Instructions:</h3>
+            <ul>
+                <li>Enter this code in the verification field on our website</li>
+                <li>This code is case-sensitive and must be entered exactly as shown</li>
+                <li>If you didn't request this code, please ignore this email</li>
+                <li>For security, this code can only be used once</li>
+            </ul>
+        </div>
+
+        <div class="security-notice">
+            <p>
+                <span class="icon">🛡️</span>
+                <strong>Security Notice:</strong> Never share this verification code with anyone. 
+                {{ company_name|default:"Our team" }} will never ask for your verification code 
+                via phone, email, or any other method.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p class="company">{{ company_name|default:"CreditRisk Assessment Platform" }}</p>
+            <p>
+                Need help? Contact our support team at 
+                <a href="mailto:{{ support_email|default:'support@creditrisk.com' }}" class="support-link">
+                    {{ support_email|default:"support@creditrisk.com" }}
+                </a>
+            </p>
+            <p>
+                This email was sent to {{ user_email }}. 
+                If you have questions, reply to this email or contact support.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

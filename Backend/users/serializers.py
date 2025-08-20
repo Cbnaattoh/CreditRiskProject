@@ -619,6 +619,22 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
+    ghana_card_number = serializers.CharField(
+        required=True,
+        max_length=20,
+        write_only=True,
+        help_text='Ghana Card identification number'
+    )
+    ghana_card_front_image = serializers.ImageField(
+        required=True,
+        write_only=True,
+        help_text='Ghana Card front image (with photo and personal details)'
+    )
+    ghana_card_back_image = serializers.ImageField(
+        required=True,
+        write_only=True,
+        help_text='Ghana Card back image (with ID number and address)'
+    )
 
     user_type = serializers.ChoiceField(
         choices=[('CLIENT', 'Client User')],
@@ -638,7 +654,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'password', 'confirm_password', 'first_name', 'last_name',
-            'phone_number', 'profile_picture', 'user_type', 'enable_mfa', 'terms_accepted'
+            'phone_number', 'profile_picture', 'user_type', 'enable_mfa', 'terms_accepted',
+            'ghana_card_number', 'ghana_card_front_image', 'ghana_card_back_image'
         ]
         extra_kwargs = {
             'first_name': {'required': True, 'min_length': 2},
@@ -734,6 +751,64 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         
         return value
     
+    def validate_ghana_card_number(self, value):
+        """Validate Ghana Card number format and uniqueness"""
+        if not value:
+            raise serializers.ValidationError("Ghana Card number is required.")
+        
+        # Normalize the value
+        normalized_value = value.upper().strip()
+        
+        # Ghana Card format: GHA-XXXXXXXXX-X (13 characters including hyphens)
+        import re
+        pattern = r'^GHA-\d{9}-\d$'
+        if not re.match(pattern, normalized_value):
+            raise serializers.ValidationError(
+                "Ghana Card number must be in format: GHA-XXXXXXXXX-X (e.g., GHA-123456789-1)"
+            )
+        
+        # Check for uniqueness
+        existing_user = User.objects.filter(ghana_card_number=normalized_value).first()
+        if existing_user:
+            raise serializers.ValidationError(
+                f"A user with Ghana Card number {normalized_value} already exists. "
+                "Each Ghana Card can only be used once for registration."
+            )
+        
+        return normalized_value
+    
+    def validate_ghana_card_front_image(self, value):
+        """Validate Ghana Card front image"""
+        if not value:
+            raise serializers.ValidationError("Ghana Card front image is required.")
+        
+        # Check file size (10MB limit for card images)
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError("Ghana Card front image must be smaller than 10MB.")
+        
+        # Check file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/webp']
+        if hasattr(value, 'content_type') and value.content_type not in allowed_types:
+            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card front.")
+        
+        return value
+    
+    def validate_ghana_card_back_image(self, value):
+        """Validate Ghana Card back image"""
+        if not value:
+            raise serializers.ValidationError("Ghana Card back image is required.")
+        
+        # Check file size (10MB limit for card images)
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError("Ghana Card back image must be smaller than 10MB.")
+        
+        # Check file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/webp']
+        if hasattr(value, 'content_type') and value.content_type not in allowed_types:
+            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card back.")
+        
+        return value
+    
     def validate(self, data):
         """Cross-field validation"""
         if data['password'] != data['confirm_password']:
@@ -750,11 +825,41 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create user with profile and proper role assignment"""
         profile_picture = validated_data.pop('profile_picture', None)
+        ghana_card_number = validated_data.pop('ghana_card_number', None)
+        ghana_card_front_image = validated_data.pop('ghana_card_front_image', None)
+        ghana_card_back_image = validated_data.pop('ghana_card_back_image', None)
         enable_mfa = validated_data.pop('enable_mfa', False)
         validated_data.pop('confirm_password', None)
         validated_data.pop('terms_accepted', None)
         
         try:
+            # Process Ghana Card before creating user
+            ghana_card_result = None
+            if ghana_card_front_image and ghana_card_back_image and ghana_card_number:
+                from .ghana_card_service import GhanaCardService
+                
+                ghana_card_result = GhanaCardService.process_ghana_card_dual_sided(
+                    ghana_card_front_image,
+                    ghana_card_back_image,
+                    ghana_card_number,
+                    validated_data['first_name'],
+                    validated_data['last_name']
+                )
+                
+                # Check if both verifications failed
+                if not ghana_card_result['name_verified'] and not ghana_card_result['number_verified']:
+                    # Both failed - this is definitely not a valid Ghana Card
+                    error_message = f"Both verifications failed. Name: {ghana_card_result['message']}. Number: Could not extract card number from Ghana Card back image. Please ensure the back image is clear and shows the full card number."
+                    raise serializers.ValidationError({
+                        'ghana_card_front_image': error_message
+                    })
+                elif not ghana_card_result['name_verified']:
+                    # Only name verification failed - allow with warning
+                    logger.warning(f"Ghana Card name verification failed but number verified: {ghana_card_result['message']}")
+                elif not ghana_card_result['number_verified']:
+                    # Only number verification failed - allow with warning
+                    logger.warning(f"Ghana Card number verification failed but name verified")
+            
             # Force CLIENT user type for security
             validated_data['user_type'] = 'CLIENT'
             
@@ -765,7 +870,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 last_name=validated_data['last_name'],
                 phone_number=validated_data.get('phone_number', ''),
                 user_type='CLIENT',
-                mfa_enabled=False  # Never enable MFA during registration
+                mfa_enabled=False,  # Never enable MFA during registration
+                ghana_card_number=ghana_card_number,
+                ghana_card_front_image=ghana_card_front_image,
+                ghana_card_back_image=ghana_card_back_image,
+                ghana_card_name_verified=ghana_card_result['name_verified'] if ghana_card_result else False,
+                ghana_card_number_verified=ghana_card_result['number_verified'] if ghana_card_result else False,
+                ghana_card_extracted_name=ghana_card_result['extracted_name'] if ghana_card_result else '',
+                ghana_card_extracted_number=ghana_card_result['extracted_number'] if ghana_card_result else ''
             )
             
             # If user requested MFA, mark setup as pending

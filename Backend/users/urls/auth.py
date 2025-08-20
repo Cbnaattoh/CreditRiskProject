@@ -17,6 +17,14 @@ from ..views import (
     PermissionLogViewSet,
     RBACDashboardView
 )
+from ..progressive_validation import (
+    validate_step1_basic_info,
+    validate_step2_identity,
+    process_ghana_card_ocr,
+    validate_step4_security,
+    send_verification_code,
+    verify_code
+)
 
 app_name = 'auth'
 
@@ -47,5 +55,13 @@ urlpatterns = [
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('password-change/',PasswordChangeView.as_view(), name='password_change'),
     path('password-change/<int:user_id>/', PasswordChangeView.as_view(), name='admin-password-change'),
-    path('password-change-required/', PasswordChangeRequiredView.as_view(), name='password-change-required'),  
+    path('password-change-required/', PasswordChangeRequiredView.as_view(), name='password-change-required'),
+    
+    # Progressive Registration Validation
+    path('register/validate/step1/', validate_step1_basic_info, name='validate-step1'),
+    path('register/validate/step2/', validate_step2_identity, name='validate-step2'),
+    path('register/validate/ghana-card/', process_ghana_card_ocr, name='validate-ghana-card'),
+    path('register/validate/step4/', validate_step4_security, name='validate-step4'),
+    path('register/verification/send/', send_verification_code, name='send-verification'),
+    path('register/verification/verify/', verify_code, name='verify-code'),
 ]

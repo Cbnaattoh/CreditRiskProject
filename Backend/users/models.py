@@ -143,6 +143,20 @@ class User(AbstractUser):
     password_change_required = models.BooleanField(default=False, help_text="True if user must change password on next login")
     is_temp_password = models.BooleanField(default=False, help_text="True if current password is temporary")
     created_by_admin = models.BooleanField(default=False, help_text="True if user was created by admin")
+    
+    # Ghana Card fields
+    ghana_card_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        help_text="Ghana Card ID number",
+        db_index=True  # Add index for faster lookups
+    )
+    ghana_card_front_image = models.ImageField(upload_to='ghana_cards/front/', blank=True, null=True, help_text="Ghana Card front image (with photo and name)")
+    ghana_card_back_image = models.ImageField(upload_to='ghana_cards/back/', blank=True, null=True, help_text="Ghana Card back image (with ID number and address)")
+    ghana_card_name_verified = models.BooleanField(default=False, help_text="True if name on Ghana Card matches profile name")
+    ghana_card_number_verified = models.BooleanField(default=False, help_text="True if Ghana Card number was successfully extracted")
+    ghana_card_extracted_name = models.CharField(max_length=300, blank=True, help_text="Name extracted from Ghana Card front using OCR")
+    ghana_card_extracted_number = models.CharField(max_length=20, blank=True, help_text="ID number extracted from Ghana Card back using OCR")
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -155,6 +169,21 @@ class User(AbstractUser):
         if not self.email:
             raise ValidationError("Email is required")
         self.email = self.__class__.objects.normalize_email(self.email).lower()
+        
+        # Validate Ghana Card number uniqueness
+        if self.ghana_card_number:
+            # Normalize Ghana Card number to uppercase
+            self.ghana_card_number = self.ghana_card_number.upper().strip()
+            
+            # Check for duplicate Ghana Card numbers
+            existing_user = User.objects.filter(
+                ghana_card_number=self.ghana_card_number
+            ).exclude(pk=self.pk).first()
+            
+            if existing_user:
+                raise ValidationError({
+                    'ghana_card_number': f'A user with Ghana Card number {self.ghana_card_number} already exists.'
+                })
 
     
     def save(self, *args, **kwargs):

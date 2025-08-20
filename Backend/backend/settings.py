@@ -226,7 +226,8 @@ else:
     EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@riskguard.com')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@creditrisk.com')
+SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@creditrisk.com')
 
 # Password reset timeout (2 hours)
 PASSWORD_RESET_TIMEOUT = 7200
@@ -357,6 +358,12 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    # Custom headers for enterprise API features
+    'x-request-id',
+    'x-timestamp',
+    'x-request-timestamp',
+    'cache-control',
+    'x-processing-time-ms',
 ]
 
 # For development only - remove in production
