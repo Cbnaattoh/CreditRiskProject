@@ -1,7 +1,9 @@
 import FormSection from "../../FormSection";
 import { FormInput } from "../../FormInput";
+import { EnhancedFormInput } from "../../FormInput/EnhancedFormInput";
 import type { UseFormRegister, FieldErrors } from "react-hook-form";
 import type { FormData } from "../../types";
+import { getFieldHelper } from "../../../../../data/formHelpers";
 
 export const EmploymentStep = ({
   register,
@@ -12,7 +14,7 @@ export const EmploymentStep = ({
 }) => (
   <FormSection title="Employment Details">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <FormInput
+      <EnhancedFormInput
         label="Employment Status"
         name="employmentStatus"
         type="select"
@@ -25,10 +27,9 @@ export const EmploymentStep = ({
           { value: "unemployed", label: "Unemployed" },
           { value: "retired", label: "Retired" },
         ]}
-        tooltip="Your current work situation - this affects your loan eligibility and terms"
-        helperText="Select the option that best describes your current employment"
+        useEnhancedHelper={true}
       />
-      <FormInput
+      <EnhancedFormInput
         label="Job Title"
         name="jobTitle"
         register={register}
@@ -36,54 +37,55 @@ export const EmploymentStep = ({
         required
         type="select"
         options={[
-          { value: "Select...", label: "Select..." },
-          { value: "Bank Manager", label: "Bank Manager" },
-          { value: "Government Worker", label: "Government Worker" },
-          { value: "Teacher", label: "Teacher" },
-          { value: "Doctor", label: "Doctor" },
-          { value: "Nurse", label: "Nurse" },
-          { value: "Engineer", label: "Engineer" },
-          { value: "Lawyer", label: "Lawyer" },
-          { value: "Accountant", label: "Accountant" },
-          { value: "Software Developer", label: "Software Developer" },
-          { value: "Marketing Manager", label: "Marketing Manager" },
-          { value: "Sales Representative", label: "Sales Representative" },
-          { value: "Business Owner", label: "Business Owner" },
-          { value: "Trader", label: "Trader" },
-          { value: "Farmer", label: "Farmer" },
-          { value: "Fisherman", label: "Fisherman" },
-          { value: "Driver", label: "Driver" },
-          { value: "Mechanic", label: "Mechanic" },
-          { value: "Electrician", label: "Electrician" },
-          { value: "Security Guard", label: "Security Guard" },
-          { value: "Chef", label: "Chef" },
-          { value: "Waiter", label: "Waiter" },
-          { value: "House Help", label: "House Help" },
-          { value: "Cleaner", label: "Cleaner" },
-          { value: "Mining Engineer", label: "Mining Engineer" },
-          { value: "Oil & Gas Worker", label: "Oil & Gas Worker" },
-          { value: "Construction Worker", label: "Construction Worker" },
-          { value: "Real Estate Agent", label: "Real Estate Agent" },
-          { value: "Journalist", label: "Journalist" },
-          { value: "Artist", label: "Artist" },
-          { value: "Musician", label: "Musician" },
-          { value: "Other", label: "Other" }
+       { value: "Software Engineer", label: "Software Engineer" },
+            { value: "Teacher", label: "Teacher" },
+            { value: "Nurse", label: "Nurse" },
+            { value: "Doctor", label: "Doctor" },
+            { value: "Banker", label: "Banker" },
+            { value: "Trader", label: "Trader" },
+            { value: "Farmer", label: "Farmer" },
+            { value: "Driver", label: "Driver" },
+            { value: "Mechanic", label: "Mechanic" },
+            { value: "Electrician", label: "Electrician" },
+            { value: "Accountant", label: "Accountant" },
+            { value: "Manager", label: "Manager" },
+            { value: "Sales Person", label: "Sales Person" },
+            { value: "Secretary", label: "Secretary" },
+            { value: "Security Guard", label: "Security Guard" },
+            { value: "Government Worker", label: "Government Worker" },
+            { value: "Business Owner", label: "Business Owner" },
+            { value: "Mining Engineer", label: "Mining Engineer" },
+            { value: "Oil Worker", label: "Oil Worker" },
+            { value: "Bank Manager", label: "Bank Manager" },
+            { value: "Financial Analyst", label: "Financial Analyst" },
+            { value: "Pharmacist", label: "Pharmacist" },
+            { value: "Lawyer", label: "Lawyer" },
+            { value: "Architect", label: "Architect" },
+            { value: "Civil Servant", label: "Civil Servant" },
+            { value: "Lecturer", label: "Lecturer" },
+            { value: "Hotel Worker", label: "Hotel Worker" },
+            { value: "Restaurant Worker", label: "Restaurant Worker" },
+            { value: "Market Trader", label: "Market Trader" },
+            { value: "Shop Owner", label: "Shop Owner" },
+            { value: "Cocoa Farmer", label: "Cocoa Farmer" },
+            { value: "Fisherman", label: "Fisherman" },
+            { value: "House Help", label: "House Help" },
+            { value: "Cleaner", label: "Cleaner" },
+            { value: "Other", label: "Other" }
         ]}
-        helperText="Select your specific job title - this affects your employment stability score in Ghana"
-        tooltip="Your job title is analyzed for employment stability in Ghana's job market"
+        useEnhancedHelper={true}
       />
 
-      <FormInput
+      <EnhancedFormInput
         label="Company Name"
         name="employer"
         register={register}
         error={errors.employer}
         required
-        placeholder="ABC Company Ltd"
-        helperText="Full name of your employer or business"
-        tooltip="For self-employed, enter your business name or 'Self-Employed'"
+        placeholder={getFieldHelper('employer')?.example || "ABC Company Ltd"}
+        useEnhancedHelper={true}
       />
-      <FormInput
+      <EnhancedFormInput
         label="Years at Current Job"
         name="yearsEmployed"
         type="number"
@@ -93,14 +95,12 @@ export const EmploymentStep = ({
         min="0"
         max="50"
         step="0.1"
-        placeholder="2.5"
-        helperText="How long you've been with your current employer"
-        tooltip="Use decimals for partial years (e.g., 2.5 for 2 years and 6 months)"
-        example="2.5 (for 2 years, 6 months)"
+        placeholder={getFieldHelper('yearsEmployed')?.example || "2.5"}
+        useEnhancedHelper={true}
       />
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-      <FormInput
+      <EnhancedFormInput
         label="Monthly Income (GHS)"
         name="monthlyIncome"
         type="number"
@@ -109,19 +109,16 @@ export const EmploymentStep = ({
         required
         min="0"
         step="0.01"
-        placeholder="5000.00"
-        tooltip="Your gross monthly income before taxes and deductions"
-        helperText="Include salary, allowances, and regular bonuses"
-        example="5,500.00 (salary + transport allowance)"
+        placeholder={getFieldHelper('monthlyIncome')?.example || "5000.00"}
+        useEnhancedHelper={true}
       />
-      <FormInput
+      <EnhancedFormInput
         label="Employment Start Date"
         name="employmentStartDate"
         type="date"
         register={register}
         error={errors.employmentStartDate}
-        helperText="When you started your current job (optional)"
-        tooltip="This helps verify your employment duration"
+        useEnhancedHelper={true}
       />
     </div>
   </FormSection>

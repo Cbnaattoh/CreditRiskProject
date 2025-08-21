@@ -188,14 +188,4 @@ export const {
   useGetMLDocumentationQuery,
 } = mlApi;
 
-// Export types for external use
-export type {
-  MLPredictionInput,
-  MLPredictionOutput,
-  BatchPredictionInput,
-  BatchPredictionOutput,
-  MLModelHealth,
-  MLDocumentation,
-  GhanaEmploymentAnalysis,
-  ModelInfo,
-};
+// Types are already exported as interfaces above

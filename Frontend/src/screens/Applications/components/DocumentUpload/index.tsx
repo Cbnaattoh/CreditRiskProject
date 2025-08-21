@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "react-hot-toast";
+import { useToast } from "../../../../components/utils/Toast";
 import {
   FiUpload,
   FiX,
@@ -140,7 +140,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ file, isOpen, onClose }) =>
           src={fileUrl}
           alt={file.name}
           className="max-w-full max-h-[70vh] object-contain"
-          onError={() => toast.error('Failed to load image preview')}
+          onError={() => error('Failed to load image preview')}
         />
       );
     } else if (fileType === 'application/pdf') {
@@ -212,7 +212,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ file, isOpen, onClose }) =>
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
-                  toast.success('Download started');
+                  success('Download started');
                 }}
                 className="p-2 text-gray-400 hover:text-green-600 rounded-lg hover:bg-gray-100 transition-colors"
                 title="Download"
@@ -259,6 +259,9 @@ export const DocumentUpload = ({
   const [previewFile, setPreviewFile] = useState<UploadedFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  
+  // Toast system
+  const { success, error } = useToast();
 
   const toggleCategory = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -560,7 +563,7 @@ export const DocumentUpload = ({
                                       a.click();
                                       document.body.removeChild(a);
                                       URL.revokeObjectURL(url);
-                                      toast.success('Download started');
+                                      success('Download started');
                                     }}
                                     className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                     title="Download"

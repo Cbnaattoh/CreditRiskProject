@@ -1,7 +1,9 @@
 import FormSection from "../../FormSection";
 import { FormInput } from "../../FormInput";
+import { EnhancedFormInput } from "../../FormInput/EnhancedFormInput";
 import type { UseFormRegister, FieldErrors } from "react-hook-form";
 import type { FormData } from "../../types";
+import { getFieldHelper } from "../../../../../data/formHelpers";
 
 export const FinancialsStep = ({
   register,
@@ -13,7 +15,7 @@ export const FinancialsStep = ({
   <>
     <FormSection title="Financial Information">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormInput
+        <EnhancedFormInput
           label="Annual Income (GHS)"
           name="annualIncome"
           type="number"
@@ -22,12 +24,10 @@ export const FinancialsStep = ({
           required
           min="0"
           step="0.01"
-          placeholder="60000.00"
-          tooltip="Your total yearly income before taxes from all sources"
-          helperText="Include salary, bonuses, business income, and other earnings"
-          example="GHS 60,000 per year equals GHS 5,000 per month"
+          placeholder={getFieldHelper('annualIncome')?.example || "60000.00"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Collections in Past 12 Months (excluding medical)"
           name="collections12mo"
           type="number"
@@ -37,10 +37,9 @@ export const FinancialsStep = ({
           max="10"
           step="1"
           placeholder="0"
-          tooltip="Accounts sent to collections in the last 12 months (not including medical bills)"
-          helperText="Collections seriously hurt credit scores - 0 is strongly preferred"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Debt-to-Income Ratio (%)"
           name="dti"
           type="number"
@@ -51,11 +50,9 @@ export const FinancialsStep = ({
           max="100"
           step="0.01"
           placeholder="30.5"
-          tooltip="Percentage of your monthly income that goes to debt payments (loans, credit cards, etc.)"
-          helperText="Calculate: (Total monthly debt payments ÷ Monthly income) × 100. You can enter decimal values like 30.5%"
-          example="30.25% means GHS 1,512.50 debt payments on GHS 5,000 income"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Loan Amount (GHS)"
           name="loanAmount"
           type="number"
@@ -64,12 +61,10 @@ export const FinancialsStep = ({
           required
           min="1000"
           step="0.01"
-          placeholder="50000.00"
-          tooltip="The amount you want to borrow"
-          helperText="Consider your repayment ability when choosing the amount"
-          example="50,000 for business expansion or home improvement"
+          placeholder={getFieldHelper('loanAmount')?.example || "50000.00"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Interest Rate (%)"
           name="interestRate"
           type="number"
@@ -79,12 +74,10 @@ export const FinancialsStep = ({
           min="0"
           max="50"
           step="0.1"
-          placeholder="12.5"
-          tooltip="The annual interest rate offered by your lender"
-          helperText="This rate affects your monthly payments and total loan cost"
-          example="12.5% is a typical rate for personal loans in Ghana"
+          placeholder={getFieldHelper('interestRate')?.example || "12.5"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Credit History Length (years)"
           name="creditHistoryLength"
           type="number"
@@ -95,11 +88,9 @@ export const FinancialsStep = ({
           max="50"
           step="0.1"
           placeholder="5"
-          tooltip="How long you've been using credit (loans, credit cards, hire purchase)"
-          helperText="If you're new to credit, enter 0 or the number of months divided by 12"
-          example="5 years of using loans or credit cards"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Credit Utilization Rate (%)"
           name="revolvingUtilization"
           type="number"
@@ -109,11 +100,9 @@ export const FinancialsStep = ({
           max="150"
           step="0.1"
           placeholder="30.0"
-          tooltip="Percentage of your available credit limit that you're currently using"
-          helperText="Lower utilization (below 30%) indicates better credit management"
-          example="If you have GHS 10,000 credit limit and owe GHS 3,000, your utilization is 30%"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Maximum Balance on Bankcards (GHS)"
           name="maxBankcardBalance"
           type="number"
@@ -122,10 +111,9 @@ export const FinancialsStep = ({
           min="0"
           step="100"
           placeholder="5000"
-          tooltip="The highest balance you've ever had on any bankcard or credit card"
-          helperText="This helps assess your credit usage patterns and financial management"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Number of Delinquencies in Past 2 Years"
           name="delinquencies2yr"
           type="number"
@@ -135,10 +123,9 @@ export const FinancialsStep = ({
           max="20"
           step="1"
           placeholder="0"
-          tooltip="Times you were 30+ days late on loan or credit card payments in the last 2 years"
-          helperText="Lower is better - 0 delinquencies shows reliable payment history"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Total Number of Accounts"
           name="totalAccounts"
           type="number"
@@ -149,10 +136,9 @@ export const FinancialsStep = ({
           max="100"
           step="1"
           placeholder="15"
-          tooltip="Total number of credit accounts you've ever had (loans, credit cards, hire purchase)"
-          helperText="This includes both current and closed accounts - shows your credit experience"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Credit Inquiries in Last 6 Months"
           name="inquiries6mo"
           type="number"
@@ -162,10 +148,9 @@ export const FinancialsStep = ({
           max="20"
           step="1"
           placeholder="1"
-          tooltip="Number of times lenders checked your credit report in the last 6 months"
-          helperText="Too many inquiries (>6) may indicate credit seeking behavior and affect your score"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="New Revolving Accounts (Last 12 Months)"
           name="revolvingAccounts12mo"
           type="number"
@@ -175,10 +160,9 @@ export const FinancialsStep = ({
           max="20"
           step="1"
           placeholder="1"
-          tooltip="Credit cards or revolving credit accounts opened in the last 12 months"
-          helperText="Opening too many new accounts quickly may indicate financial stress"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Employment Length"
           name="employmentLength"
           type="select"
@@ -198,10 +182,9 @@ export const FinancialsStep = ({
             { value: "9 years", label: "9 years" },
             { value: "10+ years", label: "10+ years" }
           ]}
-          tooltip="How long you have been employed at your current job"
-          helperText="This affects your employment stability score in Ghana"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Job Title"
           name="jobTitle"
           type="select"
@@ -245,10 +228,9 @@ export const FinancialsStep = ({
             { value: "Cleaner", label: "Cleaner" },
             { value: "Other", label: "Other" }
           ]}
-          tooltip="Your current job title - important for Ghana employment analysis"
-          helperText="This helps assess job stability and income expectations in Ghana's job market"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Number of Public Records"
           name="publicRecords"
           type="number"
@@ -258,10 +240,9 @@ export const FinancialsStep = ({
           max="10"
           step="1"
           placeholder="0"
-          tooltip="Bankruptcies, liens, judgments, and other public financial records"
-          helperText="Public records negatively impact credit scores - 0 is ideal"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Number of Open Accounts"
           name="openAccounts"
           type="number"
@@ -271,10 +252,9 @@ export const FinancialsStep = ({
           max="50"
           step="1"
           placeholder="8"
-          tooltip="Currently active credit accounts (loans, credit cards you're still paying)"
-          helperText="This shows your current credit obligations - consider both usage and management"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Home Ownership"
           name="homeOwnership"
           type="select"
@@ -287,15 +267,14 @@ export const FinancialsStep = ({
             { value: "MORTGAGE", label: "Mortgage" },
             { value: "OTHER", label: "Other" }
           ]}
-          tooltip="Your current housing situation"
-          helperText="Home ownership status affects your financial stability assessment"
+          useEnhancedHelper={true}
         />
       </div>
     </FormSection>
     
     <FormSection title="Additional Financial Details">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormInput
+        <EnhancedFormInput
           label="Total Assets (GHS)"
           name="totalAssets"
           type="number"
@@ -304,11 +283,9 @@ export const FinancialsStep = ({
           min="0"
           step="0.01"
           placeholder="100000.00"
-          tooltip="Total value of everything you own (property, vehicles, savings, investments)"
-          helperText="Include real estate, cars, bank accounts, stocks, and other valuable items"
-          example="House (GHS 80,000) + Car (GHS 15,000) + Savings (GHS 5,000) = GHS 100,000"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Total Liabilities (GHS)"
           name="totalLiabilities"
           type="number"
@@ -317,11 +294,9 @@ export const FinancialsStep = ({
           min="0"
           step="0.01"
           placeholder="50000.00"
-          tooltip="Total amount you owe on all debts (mortgages, loans, credit cards)"
-          helperText="Include outstanding balances on all borrowed money"
-          example="Mortgage (GHS 40,000) + Car loan (GHS 8,000) + Credit cards (GHS 2,000) = GHS 50,000"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Monthly Expenses (GHS)"
           name="monthlyExpenses"
           type="number"
@@ -330,11 +305,9 @@ export const FinancialsStep = ({
           min="0"
           step="0.01"
           placeholder="3000.00"
-          tooltip="Your total monthly spending on all necessities and lifestyle expenses"
-          helperText="Include rent, food, utilities, transport, insurance, and other regular costs"
-          example="Rent (GHS 1,200) + Food (GHS 800) + Utilities (GHS 300) + Transport (GHS 400) + Other (GHS 300) = GHS 3,000"
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Have you ever filed for bankruptcy?"
           name="hasBankruptcy"
           type="select"
@@ -344,9 +317,7 @@ export const FinancialsStep = ({
             { value: "false", label: "No" },
             { value: "true", label: "Yes" }
           ]}
-          tooltip="Whether you have ever declared bankruptcy or insolvency"
-          helperText="Bankruptcy significantly affects creditworthiness - be honest as this is verifiable"
-          example="Most applicants select 'No' - only select 'Yes' if you have legally declared bankruptcy"
+          useEnhancedHelper={true}
         />
       </div>
     </FormSection>

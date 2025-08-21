@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast, Toaster } from "react-hot-toast";
+import { useToast, ToastContainer } from "../../components/utils/Toast";
 import StepIndicator from "./components/StepIndicator";
 import ButtonGroup from "./components/ButtonGroup";
 import { PersonalInfoStep } from "./components/Steps/PersonalInfo";
@@ -19,54 +20,42 @@ import type {
 import { FormDataTransformer } from "./components/types";
 import { useAuth } from "../Authentication/Login-SignUp/components/hooks/useAuth";
 import { useCreateApplicationMutation, useUploadDocumentMutation } from "../../components/redux/features/api/applications/applicationsApi";
+import { 
+  loanApplicationSchema, 
+  validatePersonalInfoStep, 
+  validateEmploymentStep, 
+  validateFinancialStep, 
+  validateCompleteForm 
+} from "../../schemas/validationSchemas";
+import { useFormValidation } from "../../hooks/useFormValidation";
 
-// Form validation utility
-const validateFormData = (data: FormData): { isValid: boolean; errors: string[] } => {
-  const errors: string[] = [];
+// Enhanced form validation using Zod with step-by-step validation
+const validateFormDataByStep = (data: FormData, step: number): { isValid: boolean; errors: string[] } => {
+  let validationResult;
   
-  // Required field validation
-  if (!data.firstName?.trim()) errors.push("First name is required");
-  if (!data.lastName?.trim()) errors.push("Last name is required");
-  if (!data.email?.trim()) errors.push("Email is required");
-  if (!data.phone?.trim()) errors.push("Phone number is required");
-  if (!data.dob) errors.push("Date of birth is required");
-  if (!data.nationalIDNumber?.trim()) errors.push("National ID is required");
-  if (!data.residentialAddress?.trim()) errors.push("Residential address is required");
-  if (!data.city?.trim()) errors.push("City is required");
-  if (!data.region?.trim()) errors.push("Region is required");
-  
-  // Email validation
-  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.push("Invalid email format");
+  switch (step) {
+    case 0: // Personal Info step
+      validationResult = validatePersonalInfoStep(data);
+      break;
+    case 1: // Employment step
+      validationResult = validateEmploymentStep(data);
+      break;
+    case 2: // Financial step
+      validationResult = validateFinancialStep(data);
+      break;
+    case 4: // Final review - validate complete form
+      validationResult = validateCompleteForm(data);
+      break;
+    default:
+      return { isValid: true, errors: [] };
   }
   
-  // Phone validation (Ghana format)
-  if (data.phone && !/^(\+233|0)[2-9]\d{8}$/.test(data.phone)) {
-    errors.push("Invalid Ghana phone number format");
+  if (!validationResult.isValid) {
+    const errorMessages = Object.values(validationResult.errors).map(error => error.message);
+    return { isValid: false, errors: errorMessages };
   }
   
-  // Age validation
-  if (data.dob) {
-    const birthDate = new Date(data.dob);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    if (age < 18) errors.push("Applicant must be at least 18 years old");
-    if (age > 100) errors.push("Invalid date of birth");
-  }
-  
-  // Financial validation
-  if (data.annualIncome && data.annualIncome < 0) {
-    errors.push("Annual income cannot be negative");
-  }
-  
-  if (data.dti && (data.dti < 0 || data.dti > 100)) {
-    errors.push("Debt-to-income ratio must be between 0% and 100%");
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
+  return { isValid: true, errors: [] };
 };
 
 const STEPS: FormStep[] = [
@@ -82,14 +71,36 @@ const Applications: React.FC = () => {
   const [createApplication, { isLoading: isCreating }] = useCreateApplicationMutation();
   const [uploadDocument] = useUploadDocumentMutation();
   
+  // Toast system
+  const { success, error, info, toasts, removeToast } = useToast();
+  
   const {
     register,
     handleSubmit,
     watch,
     setValue,
     reset,
-    formState: { errors },
-  } = useForm<FormData>();
+    trigger,
+    formState: { errors, isValid },
+  } = useForm<FormData>({
+    resolver: zodResolver(loanApplicationSchema),
+    mode: 'onChange', // Enable real-time validation
+    defaultValues: {
+      // Set sensible defaults for numeric fields
+      annualIncome: 0,
+      loanAmount: 0,
+      interestRate: 0,
+      dti: 0,
+      creditHistoryLength: 0,
+      totalAccounts: 0,
+      delinquencies2yr: 0,
+      inquiries6mo: 0,
+      revolvingAccounts12mo: 0,
+      publicRecords: 0,
+      openAccounts: 0,
+      collections12mo: 0,
+    }
+  });
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -98,6 +109,16 @@ const Applications: React.FC = () => {
   const [prefilledFields, setPrefilledFields] = useState<Record<string, boolean>>({});
   const hasPrefilledRef = useRef(false);
   const hasShownToastRef = useRef(false);
+  
+  // Initialize form validation hook
+  const { validateStep, getValidationStatus } = useFormValidation({ 
+    trigger, 
+    errors 
+  });
+  
+  // Get current validation status
+  const validationStatus = getValidationStatus();
+  
 
   // Prefill form with user data when authenticated (only once)
   useEffect(() => {
@@ -132,18 +153,38 @@ const Applications: React.FC = () => {
       
       // Show prefilled notification only once
       if (!hasShownToastRef.current) {
-        toast.success('Form prefilled with your account information', {
-          duration: 3000,
-          position: 'top-right',
-        });
+        success('Form prefilled with your account information');
         hasShownToastRef.current = true;
       }
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, success]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < STEPS.length - 1) {
+      // Get current form data
+      const formData = watch();
+      
+      // Map step index to validation type
+      const stepValidationMap = ['personal', 'employment', 'financial', 'complete'] as const;
+      const validationType = stepValidationMap[currentStep];
+      
+      // Only validate steps that have validation rules
+      if (validationType) {
+        const isStepValid = await validateStep(validationType, formData);
+        
+        if (!isStepValid) {
+          error('Please fix the validation errors before proceeding');
+          return;
+        }
+      }
+      
       setCurrentStep(currentStep + 1);
+      
+      // Show success message for step completion
+      const stepNames = ['Personal Information', 'Employment', 'Financial Information', 'Documents'];
+      if (currentStep < stepNames.length) {
+        success(`${stepNames[currentStep]} completed! ✅`);
+      }
     }
   };
 
@@ -207,10 +248,7 @@ const Applications: React.FC = () => {
       const result = await createApplication(draftData).unwrap();
       setApplicationId(result.id!);
       
-      toast.success('Draft saved successfully! 📝', {
-        duration: 4000,
-        position: 'top-right',
-      });
+      success('Draft saved successfully! 📝');
     } catch (error: any) {
       console.error('Draft save error:', error);
       const apiError = error?.data as ApiError;
@@ -224,10 +262,7 @@ const Applications: React.FC = () => {
         errorMessage = error.message;
       }
       
-      toast.error(`❌ ${errorMessage}`, {
-        duration: 5000,
-        position: 'top-right',
-      });
+      error(`❌ ${errorMessage}`);
     } finally {
       setIsSavingDraft(false);
     }
@@ -236,17 +271,10 @@ const Applications: React.FC = () => {
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
-          // Validate form data before transformation
-      const validationResult = validateFormData(data);
-      if (!validationResult.isValid) {
-        throw new Error(`Form validation failed: ${validationResult.errors.join(', ')}`);
-      }
-      
-      // Additional check for critical fields
-      const criticalFields = ['firstName', 'lastName', 'dob', 'gender', 'maritalStatus', 'nationalIDNumber', 'phone', 'email'];
-      const missingFields = criticalFields.filter(field => !data[field as keyof FormData]);
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      // Comprehensive Zod validation before transformation
+      const isFormValid = await validateStep('complete', data);
+      if (!isFormValid) {
+        throw new Error('Please fix all validation errors before submitting the application');
       }
       
       // Transform form data to backend API structure using the transformer
@@ -278,10 +306,7 @@ const Applications: React.FC = () => {
         await Promise.all(uploadPromises);
       }
       
-      toast.success('Application submitted successfully!', {
-        duration: 4000,
-        position: 'top-right',
-      });
+      success('Application submitted successfully!');
       
       // Reset form after successful submission
       setTimeout(() => {
@@ -336,10 +361,7 @@ const Applications: React.FC = () => {
         errorMessage += ` (Debug: ${JSON.stringify(apiError || error)})`;
       }
       
-      toast.error(errorMessage, {
-        duration: 8000,
-        position: 'top-right',
-      });
+      error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -364,10 +386,7 @@ const Applications: React.FC = () => {
 
         setUploadedFiles((prev) => [...prev, ...newFiles]);
         
-        toast.success(`${newFiles.length} file(s) uploaded successfully!`, {
-          duration: 3000,
-          position: 'top-right',
-        });
+        success(`${newFiles.length} file(s) uploaded successfully!`);
       }
     },
     []
@@ -464,33 +483,37 @@ const Applications: React.FC = () => {
             </div>
           )}
           
-          <StepIndicator
-            steps={STEPS.map((step, i) => ({
-              ...step,
-              isActive: i === currentStep,
-              isCompleted: i < currentStep,
-            }))}
-            currentStep={currentStep}
-            setCurrentStep={setCurrentStep}
-          />
+          <div className="mb-6">
+            <StepIndicator
+              steps={STEPS.map((step, i) => ({
+                ...step,
+                isActive: i === currentStep,
+                isCompleted: i < currentStep,
+              }))}
+              currentStep={currentStep}
+              setCurrentStep={setCurrentStep}
+            />
+          </div>
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStep}
-              initial={{
-                opacity: 0,
-                x: currentStep > STEPS.indexOf(STEPS[currentStep]) ? 50 : -50,
-              }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{
-                opacity: 0,
-                x: currentStep > STEPS.indexOf(STEPS[currentStep]) ? -50 : 50,
-              }}
-              transition={{ duration: 0.3 }}
-            >
-              {renderStep()}
-            </motion.div>
-          </AnimatePresence>
+          <div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{
+                  opacity: 0,
+                  x: currentStep > STEPS.indexOf(STEPS[currentStep]) ? 50 : -50,
+                }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{
+                  opacity: 0,
+                  x: currentStep > STEPS.indexOf(STEPS[currentStep]) ? -50 : 50,
+                }}
+                transition={{ duration: 0.3 }}
+              >
+                {renderStep()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
           <ButtonGroup
             onPrevious={currentStep > 0 ? handlePrevious : undefined}
@@ -504,7 +527,11 @@ const Applications: React.FC = () => {
           />
         </div>
       </main>
-      <Toaster />
+      <ToastContainer
+        toasts={toasts}
+        removeToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 };

@@ -1,8 +1,10 @@
 import FormSection from "../../FormSection";
 import { FormInput } from "../../FormInput";
+import { EnhancedFormInput } from "../../FormInput/EnhancedFormInput";
 import { LocationInput } from "../../LocationInput";
 import type { UseFormRegister, FieldErrors, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import type { FormData } from "../../types";
+import { getFieldHelper } from "../../../../../data/formHelpers";
 
 export const PersonalInfoStep = ({
   register,
@@ -20,55 +22,61 @@ export const PersonalInfoStep = ({
   <>
     <FormSection title="A. Basic Identity">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <FormInput
+        <EnhancedFormInput
           label="First Name"
           name="firstName"
           register={register}
           error={errors.firstName}
           required
-          placeholder="John"
+          placeholder={getFieldHelper('firstName')?.example || "John"}
           disabled={prefilledFields.firstName}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Other Names"
           name="otherNames"
           register={register}
           error={errors.otherNames}
+          placeholder={getFieldHelper('otherNames')?.example}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Last Name"
           name="lastName"
           register={register}
           error={errors.lastName}
           required
-          placeholder="Doe"
+          placeholder={getFieldHelper('lastName')?.example || "Doe"}
           disabled={prefilledFields.lastName}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Date of Birth"
           name="dob"
           type="date"
           register={register}
           error={errors.dob}
           required
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="National ID Number"
           name="nationalIDNumber"
           register={register}
           error={errors.nationalIDNumber}
           required
-          placeholder="GHA-XXXXXXXXX-X"
+          placeholder={getFieldHelper('nationalIDNumber')?.example || "GHA-XXXXXXXXX-X"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="SSNIT Number"
           name="ssnitNumber"
           register={register}
           error={errors.ssnitNumber}
-          required
-          placeholder="PXXXXXXXXXX"
+          placeholder={getFieldHelper('ssnitNumber')?.example || "PXXXXXXXXXX"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Gender"
           name="gender"
           type="select"
@@ -81,8 +89,9 @@ export const PersonalInfoStep = ({
             { value: "other", label: "Other" },
             { value: "prefer_not_to_say", label: "Prefer not to say" },
           ]}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Marital Status"
           name="maritalStatus"
           type="select"
@@ -95,62 +104,60 @@ export const PersonalInfoStep = ({
             { value: "divorced", label: "Divorced" },
             { value: "widowed", label: "Widowed" },
           ]}
+          useEnhancedHelper={true}
         />
       </div>
     </FormSection>
 
     <FormSection title="B. Contact Details">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <FormInput
+        <EnhancedFormInput
           label="Phone Number"
           name="phone"
           type="tel"
           register={register}
           error={errors.phone}
           required
-          placeholder="0202344444"
+          placeholder={getFieldHelper('phone')?.example || "0202344444"}
           disabled={prefilledFields.phone}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Email"
           name="email"
           type="email"
           register={register}
           error={errors.email}
           required
-          placeholder="your@email.com"
+          placeholder={getFieldHelper('email')?.example || "your@email.com"}
           disabled={prefilledFields.email}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Residential Address"
           name="residentialAddress"
           register={register}
           error={errors.residentialAddress}
           required
-          placeholder="House No. 123, Street Name, East Legon"
-          helperText="Your current home address including house number and street"
-          tooltip="This should match the address on your official documents"
+          placeholder={getFieldHelper('residentialAddress')?.example || "House No. 123, Street Name, East Legon"}
+          useEnhancedHelper={true}
         />
-        <FormInput
+        <EnhancedFormInput
           label="Digital Address"
           name="digitalAddress"
           register={register}
           error={errors.digitalAddress}
-          required
-          placeholder="GE-3445-345"
-          tooltip="Ghana Post GPS address - found on your Ghana Post GPS app or utility bills"
-          helperText="Your official Ghana Post GPS address"
-          example="GE-123-4567"
+          placeholder={getFieldHelper('digitalAddress')?.example || "GE-3445-345"}
+          useEnhancedHelper={true}
         />
 
-        <FormInput
+        <EnhancedFormInput
           label="Landmark"
           name="landmark"
           register={register}
           error={errors.landmark}
-          placeholder="Near church/school/etc."
-          helperText="Notable location near your address to help with identification"
-          example="Near SDA Church, Behind Shell Filling Station"
+          placeholder={getFieldHelper('landmark')?.example || "Near church/school/etc."}
+          useEnhancedHelper={true}
         />
 
         {/* <LocationInput register={register} errors={errors} /> */}
