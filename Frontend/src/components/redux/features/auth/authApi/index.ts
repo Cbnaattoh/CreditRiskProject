@@ -367,6 +367,8 @@ export const authApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
+
+    // Note: User profile endpoints moved to userApi for better separation of concerns
   }),
 });
 
@@ -386,6 +388,7 @@ export const {
   useConfirmPasswordResetMutation,
   useVerifyEmailMutation,
   useResendVerificationEmailMutation,
+  // Note: User profile endpoints moved to userApi
 } = authApi;
 
 export type { LoginCredentials, BaseResponse, StatusResponse };

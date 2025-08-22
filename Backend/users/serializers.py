@@ -1,6 +1,9 @@
 from rest_framework import serializers, exceptions
 from django.contrib.auth import get_user_model, authenticate
-from .models import UserProfile, LoginHistory, Permission, Role, UserRole, PermissionLog
+from .models import (
+    UserProfile, LoginHistory, Permission, Role, UserRole, PermissionLog,
+    UserPreferences, UserSession, SecurityEvent
+)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
@@ -971,22 +974,49 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # Read-only user fields (protected from editing)
     id = serializers.IntegerField(source='user.id', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_type = serializers.CharField(source='user.user_type', read_only=True)
     phone_number = serializers.CharField(source='user.phone_number', read_only=True)
+    
+    # Computed fields
     full_name = serializers.SerializerMethodField()
     profile_picture_url = serializers.SerializerMethodField()
+    completion_score = serializers.SerializerMethodField()
+    
+    # Editable profile fields with validation
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
+    bio = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
     class Meta:
         model = UserProfile
-        fields = ['id','email', 'first_name', 'last_name','full_name', 'phone_number', 'user_type','profile_picture', 'profile_picture_url', 'company', 'job_title', 
-                 'department', 'bio', 'timezone']
+        fields = [
+            # Read-only user info
+            'id', 'email', 'first_name', 'last_name', 'full_name', 'phone_number', 'user_type',
+            
+            # Editable profile fields
+            'profile_picture', 'profile_picture_url', 'company', 'job_title', 'department', 
+            'bio', 'timezone', 'date_of_birth', 'phone_secondary', 'address',
+            
+            # Professional links
+            'linkedin_url', 'portfolio_url',
+            
+            # Emergency contact
+            'emergency_contact_name', 'emergency_contact_phone',
+            
+            # Analytics
+            'completion_score', 'last_profile_update'
+        ]
+        
         extra_kwargs = {
             'profile_picture': {'required': False},
-            'bio': {'max_length': 500}
+            'bio': {'max_length': 500},
+            'timezone': {'default': 'UTC'},
+            'linkedin_url': {'allow_blank': True},
+            'portfolio_url': {'allow_blank': True},
         }
     
     def get_full_name(self, obj):
@@ -998,6 +1028,74 @@ class UserProfileSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.profile_picture.url)
         return None
+    
+    def get_completion_score(self, obj):
+        return obj.calculate_completion_score()
+    
+    def validate_linkedin_url(self, value):
+        """Validate LinkedIn URL format"""
+        if value and 'linkedin.com' not in value.lower():
+            raise serializers.ValidationError("Please enter a valid LinkedIn URL")
+        return value
+    
+    
+    def validate_portfolio_url(self, value):
+        """Validate portfolio URL format"""
+        if value:
+            import re
+            url_pattern = re.compile(
+                r'^https?://'  # http:// or https://
+                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+'  # domain...
+                r'(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # host...
+                r'localhost|'  # localhost...
+                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                r'(?::\d+)?'  # optional port
+                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            if not url_pattern.match(value):
+                raise serializers.ValidationError("Please enter a valid URL")
+        return value
+    
+    def validate(self, data):
+        """Cross-field validation"""
+        # Ensure emergency contact fields are both provided or both empty
+        emergency_name = data.get('emergency_contact_name', '')
+        emergency_phone = data.get('emergency_contact_phone', '')
+        
+        if bool(emergency_name) != bool(emergency_phone):
+            raise serializers.ValidationError({
+                "emergency_contact": "Both emergency contact name and phone must be provided together"
+            })
+        
+        return data
+    
+    def update(self, instance, validated_data):
+        """Custom update method with auto-population and restrictions"""
+        # Auto-populate timezone if not provided
+        if not validated_data.get('timezone') and not instance.timezone:
+            validated_data['timezone'] = 'UTC'
+        
+        # Store old profile picture for cleanup if changed
+        old_profile_picture = instance.profile_picture
+        
+        # Update the instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        
+        # Clean up old profile picture if a new one was uploaded
+        if 'profile_picture' in validated_data and old_profile_picture and old_profile_picture != instance.profile_picture:
+            try:
+                old_profile_picture.delete(save=False)
+            except Exception as e:
+                # Log but don't fail the update
+                import logging
+                logging.warning(f"Failed to delete old profile picture: {str(e)}")
+        
+        # Recalculate completion score after update
+        instance.calculate_completion_score()
+        
+        return instance
 
 class LoginHistorySerializer(serializers.ModelSerializer):
     user_email = serializers.CharField(source='user.email', read_only=True)
@@ -1227,3 +1325,208 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
         
         logger.info(f"Admin {admin_user.email} created user {user.email} with role {role.name}")
         return user
+
+
+class UserPreferencesSerializer(serializers.ModelSerializer):
+    """Serializer for UserPreferences model"""
+    customization_level = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserPreferences
+        fields = [
+            'id', 'theme', 'compact_view', 'animations_enabled', 'sidebar_collapsed',
+            'email_notifications', 'push_notifications', 'notification_frequency',
+            'security_alerts', 'marketing_emails', 'language', 'timezone',
+            'date_format', 'time_format', 'auto_save', 'session_timeout',
+            'profile_visibility', 'activity_tracking', 'data_sharing',
+            'custom_settings', 'customization_level', 'updated_at'
+        ]
+        read_only_fields = ['id', 'customization_level', 'updated_at']
+    
+    def get_customization_level(self, obj):
+        """Calculate customization level percentage"""
+        total_preferences = 15  # Total number of main preference fields
+        configured_preferences = sum([
+            1 for field in ['theme', 'language', 'timezone', 'date_format', 'time_format']
+            if getattr(obj, field, None) and getattr(obj, field) != 'auto'
+        ])
+        configured_preferences += sum([
+            1 for field in ['compact_view', 'animations_enabled', 'email_notifications',
+                           'push_notifications', 'security_alerts', 'auto_save',
+                           'activity_tracking'] 
+            if getattr(obj, field, None) is not None
+        ])
+        configured_preferences += len(obj.custom_settings) if obj.custom_settings else 0
+        
+        return min(int((configured_preferences / total_preferences) * 100), 100)
+    
+    def validate_session_timeout(self, value):
+        """Validate session timeout is within reasonable bounds"""
+        if value < 5 or value > 1440:  # 5 minutes to 24 hours
+            raise serializers.ValidationError("Session timeout must be between 5 minutes and 24 hours")
+        return value
+
+
+class UserSessionSerializer(serializers.ModelSerializer):
+    """Serializer for UserSession model"""
+    time_since_login = serializers.SerializerMethodField()
+    is_current_session = serializers.SerializerMethodField()
+    device_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserSession
+        fields = [
+            'id', 'session_key', 'ip_address', 'device_type', 'browser', 'os',
+            'location', 'created_at', 'last_activity', 'is_active',
+            'terminated_by_user', 'security_score', 'time_since_login',
+            'is_current_session', 'device_info'
+        ]
+        read_only_fields = [
+            'id', 'session_key', 'created_at', 'last_activity', 'security_score',
+            'time_since_login', 'is_current_session', 'device_info'
+        ]
+    
+    def get_time_since_login(self, obj):
+        """Get human-readable time since login"""
+        delta = timezone.now() - obj.created_at
+        if delta.days > 0:
+            return f"{delta.days} days ago"
+        elif delta.seconds > 3600:
+            return f"{delta.seconds // 3600} hours ago"
+        elif delta.seconds > 60:
+            return f"{delta.seconds // 60} minutes ago"
+        else:
+            return "Just now"
+    
+    def get_is_current_session(self, obj):
+        """Check if this is the current session"""
+        request = self.context.get('request')
+        if request and hasattr(request, 'session'):
+            return request.session.session_key == obj.session_key
+        return False
+    
+    def get_device_info(self, obj):
+        """Get formatted device information"""
+        return {
+            'device': f"{obj.device_type or 'Unknown'} - {obj.browser or 'Unknown Browser'}",
+            'os': obj.os or 'Unknown OS',
+            'location': obj.location or 'Unknown Location'
+        }
+
+
+class SecurityEventSerializer(serializers.ModelSerializer):
+    """Serializer for SecurityEvent model"""
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    time_ago = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SecurityEvent
+        fields = [
+            'id', 'user', 'user_email', 'event_type', 'severity', 'description',
+            'ip_address', 'user_agent', 'metadata', 'created_at', 'resolved',
+            'resolved_at', 'resolved_by', 'time_ago'
+        ]
+        read_only_fields = ['id', 'user_email', 'created_at', 'time_ago']
+    
+    def get_time_ago(self, obj):
+        """Get human-readable time since event"""
+        delta = timezone.now() - obj.created_at
+        if delta.days > 0:
+            return f"{delta.days} days ago"
+        elif delta.seconds > 3600:
+            return f"{delta.seconds // 3600} hours ago"
+        elif delta.seconds > 60:
+            return f"{delta.seconds // 60} minutes ago"
+        else:
+            return "Just now"
+
+
+class EnhancedUserProfileSerializer(serializers.ModelSerializer):
+    """Enhanced serializer for UserProfile with completion tracking"""
+    completion_score = serializers.SerializerMethodField()
+    missing_fields = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserProfile
+        fields = [
+            'profile_picture', 'company', 'job_title', 'department', 'bio', 'timezone',
+            'date_of_birth', 'phone_secondary', 'address', 'linkedin_url',
+            'emergency_contact_name', 'emergency_contact_phone', 'completion_score',
+            'missing_fields', 'last_profile_update'
+        ]
+        read_only_fields = ['completion_score', 'missing_fields', 'last_profile_update']
+    
+    def get_completion_score(self, obj):
+        """Get profile completion score"""
+        return obj.calculate_completion_score()
+    
+    def get_missing_fields(self, obj):
+        """Get list of missing profile fields"""
+        field_mapping = {
+            'profile_picture': 'Profile Picture',
+            'company': 'Company',
+            'job_title': 'Job Title',
+            'department': 'Department',
+            'bio': 'Bio',
+            'date_of_birth': 'Date of Birth',
+            'phone_secondary': 'Secondary Phone',
+            'address': 'Address',
+            'linkedin_url': 'LinkedIn Profile',
+            'emergency_contact_name': 'Emergency Contact Name',
+            'emergency_contact_phone': 'Emergency Contact Phone'
+        }
+        
+        missing = []
+        for field, display_name in field_mapping.items():
+            if not getattr(obj, field, None):
+                missing.append({
+                    'field': field,
+                    'display_name': display_name,
+                    'required': field in ['company', 'job_title']  # Mark some as required
+                })
+        
+        return missing
+
+
+class SettingsOverviewSerializer(serializers.Serializer):
+    """Serializer for settings overview/dashboard"""
+    profile_completion = serializers.IntegerField()
+    security_score = serializers.IntegerField()
+    active_sessions = serializers.IntegerField()
+    recent_security_events = serializers.IntegerField()
+    mfa_enabled = serializers.BooleanField()
+    last_password_change = serializers.DateTimeField()
+    preferences_configured = serializers.IntegerField()
+    
+    # Quick settings preview
+    current_theme = serializers.CharField()
+    notification_status = serializers.CharField()
+    language_preference = serializers.CharField()
+    auto_save_enabled = serializers.BooleanField()
+
+
+class BulkPreferencesUpdateSerializer(serializers.Serializer):
+    """Serializer for bulk updating user preferences"""
+    preferences = serializers.DictField()
+    
+    def validate_preferences(self, value):
+        """Validate the preferences dictionary"""
+        valid_fields = [
+            'theme', 'compact_view', 'animations_enabled', 'sidebar_collapsed',
+            'email_notifications', 'push_notifications', 'notification_frequency',
+            'security_alerts', 'marketing_emails', 'language', 'timezone',
+            'date_format', 'time_format', 'auto_save', 'session_timeout',
+            'profile_visibility', 'activity_tracking', 'data_sharing'
+        ]
+        
+        invalid_fields = []
+        for key in value.keys():
+            if key not in valid_fields and not key.startswith('custom_'):
+                invalid_fields.append(key)
+        
+        if invalid_fields:
+            raise serializers.ValidationError(
+                f"Invalid preference fields: {', '.join(invalid_fields)}"
+            )
+        
+        return value

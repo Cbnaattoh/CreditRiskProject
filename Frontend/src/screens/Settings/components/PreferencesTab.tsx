@@ -21,6 +21,14 @@ import {
 } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../../components/redux/features/auth/authSlice";
+import { 
+  useGetUserPreferencesQuery,
+  useUpdateUserPreferencesMutation,
+  useBulkUpdatePreferencesMutation
+} from "../../../components/redux/features/api/settings/settingsApi";
+import { useToast } from "../../../components/utils/Toast";
+import { useOptimizedRealTime } from "../../../hooks/useRealTimeSettings";
+import { RealTimeIndicator } from "../../../components/ui/RealTimeIndicator";
 
 interface PreferenceItem {
   id: string;
@@ -34,19 +42,31 @@ interface PreferenceItem {
 
 export const PreferencesTab: React.FC = () => {
   const user = useSelector(selectCurrentUser);
+  const { showToast } = useToast();
+  
+  // Real-time updates for preferences
+  const realTimeData = useOptimizedRealTime(['preferences'], 90000); // Reduced to 1.5 minutes
+  
+  // Enhanced API queries
+  const { data: userPreferences, isLoading: preferencesLoading, refetch: refetchPreferences } = useGetUserPreferencesQuery();
+  const [updatePreferences, { isLoading: isUpdating }] = useUpdateUserPreferencesMutation();
+  const [bulkUpdatePreferences, { isLoading: isBulkUpdating }] = useBulkUpdatePreferencesMutation();
+  
   const [preferences, setPreferences] = useState({
-    darkMode: false,
-    notifications: true,
-    emailUpdates: true,
-    language: 'en',
-    timezone: 'UTC',
-    soundEnabled: true,
-    animationsEnabled: true,
-    autoSave: true,
-    compactView: false
+    darkMode: userPreferences?.theme === 'dark',
+    notifications: userPreferences?.push_notifications ?? true,
+    emailUpdates: userPreferences?.email_notifications ?? true,
+    language: userPreferences?.language || 'en',
+    timezone: userPreferences?.timezone || 'UTC',
+    soundEnabled: true, // This would be a custom setting
+    animationsEnabled: userPreferences?.animations_enabled ?? true,
+    autoSave: userPreferences?.auto_save ?? true,
+    compactView: userPreferences?.compact_view ?? false
   });
-  const [customizationLevel, setCustomizationLevel] = useState(78);
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Use backend customization level
+  const customizationLevel = userPreferences?.customization_level || 78;
 
   useEffect(() => {
     setIsAnimating(true);
@@ -54,18 +74,102 @@ export const PreferencesTab: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleToggle = (key: string) => {
+  // Sync preferences when backend data loads
+  useEffect(() => {
+    if (userPreferences) {
+      setPreferences({
+        darkMode: userPreferences.theme === 'dark',
+        notifications: userPreferences.push_notifications,
+        emailUpdates: userPreferences.email_notifications,
+        language: userPreferences.language,
+        timezone: userPreferences.timezone,
+        soundEnabled: userPreferences.custom_settings?.sound_enabled ?? true,
+        animationsEnabled: userPreferences.animations_enabled,
+        autoSave: userPreferences.auto_save,
+        compactView: userPreferences.compact_view
+      });
+    }
+  }, [userPreferences]);
+
+  const handleToggle = async (key: string) => {
+    const newValue = !preferences[key];
+    
+    // Optimistically update UI
     setPreferences(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: newValue
     }));
+
+    // Map frontend keys to backend keys
+    const backendKeyMap = {
+      darkMode: { theme: newValue ? 'dark' : 'light' },
+      notifications: { push_notifications: newValue },
+      emailUpdates: { email_notifications: newValue },
+      animationsEnabled: { animations_enabled: newValue },
+      autoSave: { auto_save: newValue },
+      compactView: { compact_view: newValue },
+      soundEnabled: { custom_settings: { ...userPreferences?.custom_settings, sound_enabled: newValue } }
+    };
+
+    try {
+      const updateData = backendKeyMap[key] || {};
+      await updatePreferences(updateData).unwrap();
+      showToast(`${key} updated successfully`, 'success');
+    } catch (error) {
+      // Revert on error
+      setPreferences(prev => ({
+        ...prev,
+        [key]: !newValue
+      }));
+      showToast('Failed to update preference', 'error');
+    }
   };
 
-  const handleSelect = (key: string, value: string) => {
+  const handleSelect = async (key: string, value: string) => {
+    const oldValue = preferences[key];
+    
+    // Optimistically update UI
     setPreferences(prev => ({
       ...prev,
       [key]: value
     }));
+
+    try {
+      const updateData = {
+        [key]: value
+      };
+      await updatePreferences(updateData).unwrap();
+      showToast(`${key} updated successfully`, 'success');
+    } catch (error) {
+      // Revert on error
+      setPreferences(prev => ({
+        ...prev,
+        [key]: oldValue
+      }));
+      showToast('Failed to update preference', 'error');
+    }
+  };
+
+  const handleBulkSave = async () => {
+    try {
+      const backendPreferences = {
+        theme: preferences.darkMode ? 'dark' : 'light',
+        push_notifications: preferences.notifications,
+        email_notifications: preferences.emailUpdates,
+        language: preferences.language,
+        timezone: preferences.timezone,
+        animations_enabled: preferences.animationsEnabled,
+        auto_save: preferences.autoSave,
+        compact_view: preferences.compactView,
+        custom_sound_enabled: preferences.soundEnabled
+      };
+
+      await bulkUpdatePreferences({ preferences: backendPreferences }).unwrap();
+      showToast('All preferences saved successfully!', 'success');
+      refetchPreferences();
+    } catch (error) {
+      showToast('Failed to save preferences', 'error');
+    }
   };
 
   const preferenceCategories = {
@@ -184,6 +288,14 @@ export const PreferencesTab: React.FC = () => {
       transition={{ duration: 0.4, ease: "easeInOut" }}
       className="space-y-6"
     >
+      {/* Real-time Status Indicator */}
+      <div className="flex justify-end mb-4">
+        <RealTimeIndicator 
+          position="inline" 
+          showDetails={true}
+          onRefresh={realTimeData.refreshAll}
+        />
+      </div>
       {/* Enhanced Preferences Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-white/95 via-pink-50/20 to-purple-50/30 dark:from-gray-800/95 dark:via-pink-900/10 dark:to-purple-900/15 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-8">
         {/* Decorative Elements */}
@@ -453,7 +565,7 @@ export const PreferencesTab: React.FC = () => {
               <div className="text-gray-500 dark:text-gray-400">Notifications</div>
             </div>
             <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-xl">
-              <div className="font-medium text-gray-900 dark:text-white">{preferences.language.toUpperCase()}</div>
+              <div className="font-medium text-gray-900 dark:text-white">{(preferences.language || 'en').toUpperCase()}</div>
               <div className="text-gray-500 dark:text-gray-400">Language</div>
             </div>
             <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-xl">
@@ -466,15 +578,27 @@ export const PreferencesTab: React.FC = () => {
         {/* Save Button */}
         <div className="flex justify-end">
           <motion.button
+            onClick={handleBulkSave}
+            disabled={isBulkUpdating}
             whileHover={{ scale: 1.05, y: -3 }}
             whileTap={{ scale: 0.95 }}
-            className="group relative overflow-hidden flex items-center space-x-4 px-12 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white rounded-2xl font-bold shadow-2xl hover:shadow-3xl hover:shadow-purple-500/30 transition-all duration-300"
+            className="group relative overflow-hidden flex items-center space-x-4 px-12 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 disabled:from-pink-400 disabled:via-purple-400 disabled:to-indigo-400 text-white rounded-2xl font-bold shadow-2xl hover:shadow-3xl hover:shadow-purple-500/30 transition-all duration-300 disabled:cursor-not-allowed"
           >
             {/* Shine effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             
-            <FiHeart className="h-5 w-5 relative z-10" />
-            <span className="relative z-10 text-lg">Save My Preferences</span>
+            {isBulkUpdating ? (
+              <motion.div
+                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full relative z-10"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+            ) : (
+              <FiHeart className="h-5 w-5 relative z-10" />
+            )}
+            <span className="relative z-10 text-lg">
+              {isBulkUpdating ? 'Saving...' : 'Save My Preferences'}
+            </span>
             
             <motion.div
               className="w-2 h-2 bg-white rounded-full relative z-10"

@@ -1,4 +1,4 @@
-import React, { useState, memo, useMemo } from "react";
+import React, { useState, memo, useMemo, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -427,6 +427,7 @@ const Sidebar: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
     index: number;
     isSubItem?: boolean;
   }> = memo(({ item, index, isSubItem = false }) => {
+
     const isActive =
       location.pathname === item.path ||
       (item.path !== "/home" && location.pathname.startsWith(item.path));

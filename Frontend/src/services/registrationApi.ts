@@ -96,7 +96,7 @@ export interface VerificationCodeResponse {
   message: string;
   otp_sent: boolean;
   expires_in_seconds?: number;
-  demo_otp?: string; // Only for development
+  demo_otp?: string;
 }
 
 export interface CodeVerificationRequest {
@@ -112,46 +112,38 @@ export interface CodeVerificationResponse {
   error?: string;
 }
 
-// Enhanced base query with retry logic and error handling
+// Base query with retry logic and error handling
 const baseQueryWithRetry: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = retry(
   fetchBaseQuery({
     baseUrl: `${BASE_URL}/auth/`,
     credentials: 'include',
     prepareHeaders: (headers, { getState, endpoint }) => {
-      // Only set Content-Type for non-FormData requests
-      // FormData requests need the browser to set multipart/form-data automatically
       const isFormDataEndpoint = endpoint === 'processGhanaCardOCR' || endpoint === 'completeRegistration';
-      
+
       if (!isFormDataEndpoint) {
         headers.set('Content-Type', 'application/json');
       }
-      
-      // Add request ID for tracking
+
       headers.set('X-Request-ID', crypto.randomUUID());
-      
-      // Add timestamp for performance monitoring
+
       headers.set('X-Request-Timestamp', Date.now().toString());
-      
-      // Add client cache control
+
       headers.set('Cache-Control', 'no-cache');
-      
-      // Add compression preference
+
       headers.set('Accept-Encoding', 'gzip, deflate, br');
-      
+
       return headers;
     },
-    timeout: 30000, // 30 second timeout
+    timeout: 30000,
   }),
   {
     maxRetries: 3,
     retryCondition: (error, args, extraOptions) => {
-      // Retry on network errors, timeouts, or 5xx server errors
-      return error.status === 'FETCH_ERROR' || 
-             error.status === 'TIMEOUT_ERROR' ||
-             (typeof error.status === 'number' && error.status >= 500);
+      return error.status === 'FETCH_ERROR' ||
+        error.status === 'TIMEOUT_ERROR' ||
+        (typeof error.status === 'number' && error.status >= 500);
     },
     retryDelay: (attempt, args, baseQuery) => {
-      // Exponential backoff: 1000ms, 2000ms, 4000ms
       return Math.min(1000 * Math.pow(2, attempt), 8000);
     },
   }
@@ -160,68 +152,63 @@ const baseQueryWithRetry: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuer
 // Performance optimization and monitoring
 class PerformanceMonitor {
   private static metrics: Map<string, number[]> = new Map();
-  
+
   static recordMetric(endpoint: string, duration: number) {
     if (!this.metrics.has(endpoint)) {
       this.metrics.set(endpoint, []);
     }
-    
+
     const durations = this.metrics.get(endpoint)!;
     durations.push(duration);
-    
-    // Keep only last 10 measurements for average calculation
+
     if (durations.length > 10) {
       durations.shift();
     }
   }
-  
+
   static getAverageTime(endpoint: string): number {
     const durations = this.metrics.get(endpoint) || [];
     if (durations.length === 0) return 0;
-    
+
     return durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
   }
-  
+
   static isSlowEndpoint(endpoint: string): boolean {
-    return this.getAverageTime(endpoint) > 3000; // Consider >3s as slow
+    return this.getAverageTime(endpoint) > 3000;
   }
 }
 
-// Enhanced performance monitoring with metrics collection
-const performanceMonitoringBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = 
+const performanceMonitoringBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
   async (args, api, extraOptions) => {
     const startTime = performance.now();
     const endpoint = typeof args === 'string' ? args : args.url;
-    
+
     try {
       const result = await baseQueryWithRetry(args, api, extraOptions);
       const endTime = performance.now();
       const duration = endTime - startTime;
-      
-      // Record metrics
+
       PerformanceMonitor.recordMetric(endpoint, duration);
-      
-      // Enhanced logging with context
+
       const logLevel = duration > 5000 ? 'error' : duration > 2000 ? 'warn' : 'log';
       console[logLevel](`[API] ${endpoint}: ${duration.toFixed(2)}ms (avg: ${PerformanceMonitor.getAverageTime(endpoint).toFixed(2)}ms)`);
-      
-      // Add performance headers to response
+
       if (result.meta) {
         result.meta.performanceMs = duration;
         result.meta.averageMs = PerformanceMonitor.getAverageTime(endpoint);
         result.meta.isSlowEndpoint = PerformanceMonitor.isSlowEndpoint(endpoint);
       }
-      
+
       return result;
     } catch (error) {
       const endTime = performance.now();
       const duration = endTime - startTime;
-      
+
       console.error(`[API Error] ${endpoint} failed after ${duration.toFixed(2)}ms:`, error);
-      
+
       // Record failed request metrics
       PerformanceMonitor.recordMetric(`${endpoint}_error`, duration);
-      
+
       throw error;
     }
   };
@@ -232,7 +219,7 @@ export const registrationApi = createApi({
   baseQuery: performanceMonitoringBaseQuery,
   tagTypes: ['ValidationCache', 'OCRResult'],
   endpoints: (builder) => ({
-    
+
     // Step 1: Basic Information Validation
     validateStep1: builder.mutation<ValidationResponse, Step1ValidationRequest>({
       query: (data) => ({
@@ -242,7 +229,6 @@ export const registrationApi = createApi({
       }),
       invalidatesTags: ['ValidationCache'],
       transformResponse: (response: ValidationResponse) => {
-        // Add client-side validation enhancements
         return {
           ...response,
           client_timestamp: Date.now(),
@@ -268,13 +254,12 @@ export const registrationApi = createApi({
       },
     }),
 
-    // Step 3: Ghana Card OCR Processing (Industry-Grade)
+    // Step 3: Ghana Card OCR Processing
     processGhanaCardOCR: builder.mutation<OCRProcessingResponse, FormData>({
       query: (formData) => ({
         url: 'register/validate/ghana-card/',
         method: 'POST',
         body: formData,
-        // Don't set Content-Type header - let browser set it for FormData
         headers: {},
       }),
       invalidatesTags: ['OCRResult'],
@@ -285,7 +270,6 @@ export const registrationApi = createApi({
           ocr_version: '3.0',
         };
       },
-      // Custom error handling for OCR
       transformErrorResponse: (response: FetchBaseQueryError) => {
         return {
           status: response.status,
@@ -323,7 +307,7 @@ export const registrationApi = createApi({
         return {
           ...response,
           client_timestamp: Date.now(),
-          expires_at: response.expires_in_seconds 
+          expires_at: response.expires_in_seconds
             ? Date.now() + (response.expires_in_seconds * 1000)
             : undefined,
         };
@@ -352,7 +336,6 @@ export const registrationApi = createApi({
         url: 'register/',
         method: 'POST',
         body: formData,
-        // Don't set Content-Type header - let browser set it for FormData
         headers: {},
       }),
       invalidatesTags: ['ValidationCache', 'OCRResult'],
@@ -368,10 +351,9 @@ export const registrationApi = createApi({
       }),
     }),
 
-    // Real-time Email Availability Check with enhanced caching
+
     checkEmailAvailability: builder.query<{ available: boolean; suggestions?: string[] }, string>({
       query: (email) => `register/check-email/?email=${encodeURIComponent(email)}`,
-      // Cache for 5 minutes for email checks
       keepUnusedDataFor: 300,
       providesTags: (result, error, email) => [
         { type: 'ValidationCache', id: `email_${email}` },
@@ -385,7 +367,6 @@ export const registrationApi = createApi({
     // Ghana Card Number Format Validation with regional caching
     validateGhanaCardFormat: builder.query<{ valid: boolean; formatted?: string; region?: string }, string>({
       query: (cardNumber) => `register/validate-ghana-card/?number=${encodeURIComponent(cardNumber)}`,
-      // Cache for 30 minutes for card format validation
       keepUnusedDataFor: 1800,
       providesTags: (result, error, cardNumber) => [
         { type: 'ValidationCache', id: `card_${cardNumber}` },
@@ -403,7 +384,6 @@ export const registrationApi = createApi({
         method: 'POST',
         body: { password },
       }),
-      // Cache for 60 seconds for password strength analysis
       keepUnusedDataFor: 60,
       providesTags: (result, error, password) => [
         { type: 'ValidationCache', id: `password_${password?.length || 0}` },
@@ -417,7 +397,6 @@ export const registrationApi = createApi({
   }),
 });
 
-// Export hooks for use in components
 export const {
   useValidateStep1Mutation,
   useValidateStep2Mutation,
@@ -434,7 +413,7 @@ export const {
   useLazyAnalyzePasswordStrengthQuery,
 } = registrationApi;
 
-// Comprehensive monitoring and analytics
+
 export class RegistrationAnalytics {
   private static events: Array<{
     type: string;
@@ -453,12 +432,10 @@ export class RegistrationAnalytics {
       sessionId: this.sessionId,
     });
 
-    // Keep only last 100 events in memory
     if (this.events.length > 100) {
       this.events.shift();
     }
 
-    // Log important events
     console.log(`[Analytics] ${type}:`, data);
   }
 
@@ -467,9 +444,9 @@ export class RegistrationAnalytics {
   }
 
   static trackValidationComplete(step: number, success: boolean, duration: number) {
-    this.trackEvent('validation_complete', { 
-      step, 
-      success, 
+    this.trackEvent('validation_complete', {
+      step,
+      success,
       duration,
       timestamp: Date.now()
     });
@@ -480,9 +457,9 @@ export class RegistrationAnalytics {
   }
 
   static trackOCRComplete(success: boolean, confidence: number, duration: number) {
-    this.trackEvent('ocr_complete', { 
-      success, 
-      confidence, 
+    this.trackEvent('ocr_complete', {
+      success,
+      confidence,
       duration,
       timestamp: Date.now()
     });
@@ -493,8 +470,8 @@ export class RegistrationAnalytics {
   }
 
   static trackRegistrationComplete(success: boolean, duration: number) {
-    this.trackEvent('registration_complete', { 
-      success, 
+    this.trackEvent('registration_complete', {
+      success,
       duration,
       timestamp: Date.now()
     });
@@ -535,49 +512,41 @@ export class RegistrationAnalytics {
   }
 }
 
-// Helper functions for common operations
+
 export class RegistrationService {
-  /**
-   * Create FormData for OCR processing with proper formatting
-   */
   static createOCRFormData(
-    frontImage: File, 
-    backImage: File, 
+    frontImage: File,
+    backImage: File,
     personalInfo: { first_name: string; last_name: string; ghana_card_number: string }
   ): FormData {
     const formData = new FormData();
-    
+
     formData.append('ghana_card_front_image', frontImage);
     formData.append('ghana_card_back_image', backImage);
     formData.append('first_name', personalInfo.first_name);
     formData.append('last_name', personalInfo.last_name);
     formData.append('ghana_card_number', personalInfo.ghana_card_number);
-    
-    // Add metadata for processing
+
     formData.append('client_timestamp', Date.now().toString());
     formData.append('ocr_version', '3.0');
-    
+
     return formData;
   }
 
-  /**
-   * Validate image file before upload
-   */
   static validateImageFile(file: File): { valid: boolean; error?: string } {
-    // Check file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return { valid: false, error: 'Please upload a JPEG, PNG, or WebP image' };
     }
 
-    // Check file size (max 10MB)
+
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       return { valid: false, error: 'Image must be smaller than 10MB' };
     }
 
-    // Check minimum size (avoid tiny images)
-    const minSize = 10 * 1024; // 10KB
+
+    const minSize = 10 * 1024;
     if (file.size < minSize) {
       return { valid: false, error: 'Image file appears to be too small or corrupted' };
     }
@@ -585,32 +554,25 @@ export class RegistrationService {
     return { valid: true };
   }
 
-  /**
-   * Format Ghana Card number with proper dashes
-   */
   static formatGhanaCardNumber(input: string): string {
-    // Remove all non-alphanumeric characters except dashes
     let cleaned = input.replace(/[^A-Za-z0-9-]/g, '').toUpperCase();
-    
-    // Handle different input patterns
+
+
     if (cleaned.startsWith('GHA')) {
-      // Remove existing dashes after GHA
       cleaned = cleaned.replace(/^GHA-?/, 'GHA');
       const digits = cleaned.substring(3).replace(/[^0-9]/g, '');
-      
+
       if (digits.length >= 10) {
         return `GHA-${digits.substring(0, 9)}-${digits.charAt(9)}`;
       } else if (digits.length >= 3) {
         return `GHA-${digits}`;
       }
     }
-    
+
     return cleaned;
   }
 
-  /**
-   * Debounced validation helper
-   */
+
   static debounce<T extends (...args: any[]) => any>(
     func: T,
     wait: number
@@ -622,12 +584,9 @@ export class RegistrationService {
     };
   }
 
-  /**
-   * Error message translator for user-friendly messages
-   */
   static translateErrorMessage(error: string | string[]): string {
     const errorStr = Array.isArray(error) ? error[0] : error;
-    
+
     const errorMap: Record<string, string> = {
       'This field is required': 'This information is required to continue',
       'Invalid email address': 'Please enter a valid email address',

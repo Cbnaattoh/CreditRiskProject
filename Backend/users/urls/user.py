@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from ..views import (
     UserProfileView,
     LoginHistoryView,
@@ -44,4 +44,7 @@ urlpatterns = [
 
     # Security and Monitoring
     path('security-audit/', SecurityAuditView.as_view(), name='security-audit'),
+    
+    # Advanced Settings Management
+    path('settings/', include('users.urls.settings'), name='settings'),
 ]

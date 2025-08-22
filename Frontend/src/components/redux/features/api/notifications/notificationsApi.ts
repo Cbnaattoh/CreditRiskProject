@@ -53,6 +53,16 @@ export interface ClearReadResponse {
   deleted: number;
 }
 
+export interface DeleteNotificationResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface BulkDeleteResponse {
+  deleted: number;
+  message?: string;
+}
+
 export const notificationsApi = createApi({
   reducerPath: 'notificationsApi',
   baseQuery: fetchBaseQuery({
@@ -125,6 +135,44 @@ export const notificationsApi = createApi({
       invalidatesTags: ['Notification'],
     }),
 
+    // Delete individual notification
+    deleteNotification: builder.mutation<DeleteNotificationResponse, number>({
+      query: (id) => ({
+        url: `notifications/${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Notification'],
+    }),
+
+    // Delete all notifications (with optional filter)
+    deleteAllNotifications: builder.mutation<BulkDeleteResponse, { read_only?: boolean }>({
+      query: (params) => ({
+        url: 'notifications/bulk_delete/',
+        method: 'DELETE',
+        body: params,
+      }),
+      invalidatesTags: ['Notification'],
+    }),
+
+    // Archive notification (soft delete - industry standard)
+    archiveNotification: builder.mutation<DeleteNotificationResponse, number>({
+      query: (id) => ({
+        url: `notifications/${id}/archive/`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Notification'],
+    }),
+
+    // Bulk archive notifications
+    bulkArchiveNotifications: builder.mutation<BulkDeleteResponse, { notification_ids: number[] }>({
+      query: (params) => ({
+        url: 'notifications/bulk_archive/',
+        method: 'POST',
+        body: params,
+      }),
+      invalidatesTags: ['Notification'],
+    }),
+
     // Create notification (admin only)
     createNotification: builder.mutation<Notification, NotificationCreateRequest>({
       query: (notification) => ({
@@ -152,6 +200,16 @@ export const notificationsApi = createApi({
       query: (action) => `audit-logs/by_action/?action=${action}`,
       providesTags: ['AuditLog'],
     }),
+
+    // Auto-cleanup old read notifications (older than X days)
+    autoCleanupNotifications: builder.mutation<ClearReadResponse, { days_old?: number }>({
+      query: (params) => ({
+        url: 'notifications/auto_cleanup/',
+        method: 'DELETE',
+        body: params,
+      }),
+      invalidatesTags: ['Notification'],
+    }),
   }),
 });
 
@@ -163,8 +221,13 @@ export const {
   useMarkNotificationReadMutation,
   useMarkAllNotificationsReadMutation,
   useClearReadNotificationsMutation,
+  useDeleteNotificationMutation,
+  useDeleteAllNotificationsMutation,
+  useArchiveNotificationMutation,
+  useBulkArchiveNotificationsMutation,
   useCreateNotificationMutation,
   useGetAuditLogsQuery,
   useGetRecentAuditLogsQuery,
   useGetAuditLogsByActionQuery,
+  useAutoCleanupNotificationsMutation,
 } = notificationsApi;

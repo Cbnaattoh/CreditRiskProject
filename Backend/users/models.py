@@ -386,19 +386,282 @@ class UserProfile(models.Model):
     bio = models.TextField(blank=True, max_length=500)
     timezone = models.CharField(max_length=50, default='UTC')
     
+    # Extended profile fields
+    date_of_birth = models.DateField(null=True, blank=True)
+    phone_secondary = models.CharField(max_length=17, blank=True, help_text="Secondary phone number")
+    address = models.TextField(blank=True, max_length=500)
+    
+    # Professional links (relevant for credit assessment)
+    linkedin_url = models.URLField(blank=True, help_text="LinkedIn profile URL")
+    portfolio_url = models.URLField(blank=True, help_text="Professional website/portfolio URL")
+    
+    # Emergency contact information
+    emergency_contact_name = models.CharField(max_length=100, blank=True)
+    emergency_contact_phone = models.CharField(max_length=17, blank=True)
+    
+    # Profile analytics
+    profile_completion_score = models.PositiveSmallIntegerField(default=0, help_text="Profile completion percentage")
+    last_profile_update = models.DateTimeField(auto_now=True)
+    
     def __str__(self):
         return f"{self.user.email}'s Profile"
     
+    def calculate_completion_score(self):
+        """Calculate profile completion percentage"""
+        # Core fields (weighted more heavily)
+        core_fields = [
+            self.profile_picture, self.company, self.job_title, self.bio
+        ]
+        # Extended fields
+        extended_fields = [
+            self.department, self.date_of_birth, self.phone_secondary, self.address,
+            self.emergency_contact_name, self.emergency_contact_phone
+        ]
+        # Optional professional fields (bonus points)
+        professional_fields = [
+            self.linkedin_url, self.portfolio_url
+        ]
+        
+        # Calculate completion score with weights
+        core_completed = sum(1 for field in core_fields if field)
+        extended_completed = sum(1 for field in extended_fields if field)
+        professional_completed = sum(1 for field in professional_fields if field)
+        
+        # Weighted scoring: core fields = 60%, extended = 30%, professional = 10%
+        core_score = (core_completed / len(core_fields)) * 60
+        extended_score = (extended_completed / len(extended_fields)) * 30
+        professional_score = (professional_completed / len(professional_fields)) * 10
+        
+        score = int(core_score + extended_score + professional_score)
+        
+        if score != self.profile_completion_score:
+            self.profile_completion_score = score
+            self.save(update_fields=['profile_completion_score'])
+        
+        return score
+    
+
+class UserPreferences(models.Model):
+    """Store user preferences and settings"""
+    THEME_CHOICES = [
+        ('light', 'Light'),
+        ('dark', 'Dark'),
+        ('auto', 'Auto'),
+    ]
+    
+    LANGUAGE_CHOICES = [
+        ('en', 'English'),
+        ('es', 'Spanish'),
+        ('fr', 'French'),
+        ('de', 'German'),
+        ('ja', 'Japanese'),
+        ('zh', 'Chinese'),
+    ]
+    
+    NOTIFICATION_FREQUENCY_CHOICES = [
+        ('instant', 'Instant'),
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('never', 'Never'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    
+    # Appearance preferences
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light')
+    compact_view = models.BooleanField(default=False)
+    animations_enabled = models.BooleanField(default=True)
+    sidebar_collapsed = models.BooleanField(default=False)
+    
+    # Notification preferences
+    email_notifications = models.BooleanField(default=True)
+    push_notifications = models.BooleanField(default=True)
+    notification_frequency = models.CharField(max_length=10, choices=NOTIFICATION_FREQUENCY_CHOICES, default='instant')
+    security_alerts = models.BooleanField(default=True)
+    marketing_emails = models.BooleanField(default=False)
+    
+    # System preferences
+    language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default='en')
+    timezone = models.CharField(max_length=50, default='UTC')
+    date_format = models.CharField(max_length=20, default='YYYY-MM-DD')
+    time_format = models.CharField(max_length=10, default='24h', choices=[('12h', '12 Hour'), ('24h', '24 Hour')])
+    auto_save = models.BooleanField(default=True)
+    session_timeout = models.PositiveIntegerField(default=30, help_text="Session timeout in minutes")
+    
+    # Privacy preferences
+    profile_visibility = models.CharField(max_length=20, default='private', 
+                                        choices=[('public', 'Public'), ('private', 'Private'), ('team', 'Team Only')])
+    activity_tracking = models.BooleanField(default=True)
+    data_sharing = models.BooleanField(default=False)
+    
+    # Advanced preferences (JSON for flexibility)
+    custom_settings = models.JSONField(default=dict, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['theme']),
+            models.Index(fields=['language']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email}'s Preferences"
+    
+    def get_preference(self, key, default=None):
+        """Get a custom preference value"""
+        return self.custom_settings.get(key, default)
+    
+    def set_preference(self, key, value):
+        """Set a custom preference value"""
+        self.custom_settings[key] = value
+        self.save(update_fields=['custom_settings'])
+
+
+class UserSession(models.Model):
+    """Track active user sessions for security and management"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+    session_key = models.CharField(max_length=40, unique=True, db_index=True)
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.CharField(max_length=500, blank=True)
+    device_type = models.CharField(max_length=50, blank=True)  # mobile, desktop, tablet
+    browser = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=200, blank=True)  # City, Country
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    terminated_by_user = models.BooleanField(default=False)
+    
+    # Security flags
+    is_suspicious = models.BooleanField(default=False)
+    security_score = models.PositiveSmallIntegerField(default=100)  # 0-100
+    
+    class Meta:
+        ordering = ['-last_activity']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['session_key']),
+            models.Index(fields=['ip_address', 'created_at']),
+            models.Index(fields=['last_activity']),
+            models.Index(fields=['expires_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.device_type} - {self.created_at}"
+    
+    def is_expired(self):
+        """Check if session is expired"""
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+    
+    def terminate(self, by_user=False):
+        """Terminate the session"""
+        self.is_active = False
+        self.terminated_by_user = by_user
+        self.save(update_fields=['is_active', 'terminated_by_user'])
+    
+    def calculate_security_score(self):
+        """Calculate security score based on various factors"""
+        score = 100
+        
+        # Reduce score for suspicious activities
+        if self.is_suspicious:
+            score -= 30
+        
+        # Reduce score for old sessions
+        days_active = (timezone.now() - self.created_at).days
+        if days_active > 30:
+            score -= min(20, days_active)
+        
+        # Reduce score for unknown locations (this would need geolocation service)
+        if not self.location:
+            score -= 5
+        
+        self.security_score = max(0, score)
+        return self.security_score
+
+
+class SecurityEvent(models.Model):
+    """Log security events for audit and monitoring"""
+    EVENT_TYPES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('password_change', 'Password Change'),
+        ('mfa_enable', 'MFA Enabled'),
+        ('mfa_disable', 'MFA Disabled'),
+        ('profile_update', 'Profile Updated'),
+        ('preferences_update', 'Preferences Updated'),
+        ('suspicious_activity', 'Suspicious Activity'),
+        ('session_terminated', 'Session Terminated'),
+        ('permission_granted', 'Permission Granted'),
+        ('permission_denied', 'Permission Denied'),
+    ]
+    
+    SEVERITY_LEVELS = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='security_events')
+    event_type = models.CharField(max_length=30, choices=EVENT_TYPES)
+    severity = models.CharField(max_length=10, choices=SEVERITY_LEVELS, default='low')
+    description = models.TextField()
+    
+    # Context information
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=500, blank=True)
+    session = models.ForeignKey(UserSession, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Additional metadata
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_events')
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['event_type', 'created_at']),
+            models.Index(fields=['severity', 'resolved']),
+            models.Index(fields=['ip_address', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.event_type} - {self.severity}"
+
 
 class LoginHistory(models.Model):
-    """ Login history tracking"""
+    """ Enhanced login history tracking"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
     ip_address = models.GenericIPAddressField()
-    user_agent = models.CharField(max_length=255, blank=True)
+    user_agent = models.CharField(max_length=500, blank=True)
+    device_info = models.JSONField(default=dict, blank=True)  # Store parsed device information
+    location = models.CharField(max_length=200, blank=True)
+    
     was_successful = models.BooleanField()
     failure_reason = models.CharField(max_length=100, blank=True, null=True)
+    mfa_used = models.BooleanField(default=False)
+    
     login_timestamp = models.DateTimeField(default=timezone.now)
+    logout_timestamp = models.DateTimeField(null=True, blank=True)
     session_duration = models.DurationField(null=True, blank=True)
+    session = models.ForeignKey(UserSession, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Risk assessment
+    risk_score = models.PositiveSmallIntegerField(default=0)  # 0-100
+    is_suspicious = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-login_timestamp']
@@ -406,11 +669,20 @@ class LoginHistory(models.Model):
             models.Index(fields=['user', 'login_timestamp']),
             models.Index(fields=['ip_address', 'login_timestamp']),
             models.Index(fields=['was_successful', 'login_timestamp']),
+            models.Index(fields=['risk_score']),
+            models.Index(fields=['is_suspicious']),
         ]
     
     def __str__(self):
         status = "Success" if self.was_successful else f"Failed ({self.failure_reason})"
         return f"{self.user.email} - {status} - {self.login_timestamp}"
+    
+    def calculate_session_duration(self):
+        """Calculate and update session duration"""
+        if self.logout_timestamp and self.login_timestamp:
+            self.session_duration = self.logout_timestamp - self.login_timestamp
+            return self.session_duration
+        return None
 
 
 

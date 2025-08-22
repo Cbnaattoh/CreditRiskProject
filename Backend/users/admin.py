@@ -2,7 +2,10 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
-from .models import User, UserProfile, LoginHistory, Permission, Role, UserRole, PermissionLog
+from .models import (
+    User, UserProfile, LoginHistory, Permission, Role, UserRole, PermissionLog,
+    UserPreferences, UserSession, SecurityEvent
+)
 
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -110,3 +113,124 @@ class PermissionLogAdmin(admin.ModelAdmin):
      
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(UserPreferences)
+class UserPreferencesAdmin(admin.ModelAdmin):
+    list_display = ['user_email', 'theme', 'language', 'timezone', 'customization_level', 'updated_at']
+    list_filter = ['theme', 'language', 'email_notifications', 'push_notifications', 'auto_save']
+    search_fields = ['user__email']
+    readonly_fields = ['created_at', 'updated_at', 'customization_level']
+    
+    fieldsets = (
+        ('User', {'fields': ('user',)}),
+        ('Appearance', {
+            'fields': ('theme', 'compact_view', 'animations_enabled', 'sidebar_collapsed'),
+        }),
+        ('Notifications', {
+            'fields': ('email_notifications', 'push_notifications', 'notification_frequency', 
+                      'security_alerts', 'marketing_emails'),
+        }),
+        ('System', {
+            'fields': ('language', 'timezone', 'date_format', 'time_format', 
+                      'auto_save', 'session_timeout'),
+        }),
+        ('Privacy', {
+            'fields': ('profile_visibility', 'activity_tracking', 'data_sharing'),
+        }),
+        ('Advanced', {
+            'fields': ('custom_settings',),
+            'classes': ('collapse',),
+        }),
+        ('Metadata', {
+            'fields': ('customization_level', 'created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'User Email'
+    
+    def customization_level(self, obj):
+        # Calculate customization level (simplified)
+        configured_count = sum([
+            1 for field in ['theme', 'language', 'timezone'] 
+            if getattr(obj, field, None) and getattr(obj, field) != 'auto'
+        ])
+        return f"{min(configured_count * 25, 100)}%"
+    customization_level.short_description = 'Customization Level'
+
+
+@admin.register(UserSession)
+class UserSessionAdmin(admin.ModelAdmin):
+    list_display = ['user_email', 'device_type', 'browser', 'location', 'created_at', 
+                   'last_activity', 'is_active', 'security_score']
+    list_filter = ['is_active', 'device_type', 'browser', 'terminated_by_user', 'is_suspicious']
+    search_fields = ['user__email', 'ip_address', 'location', 'session_key']
+    readonly_fields = ['created_at', 'last_activity', 'security_score']
+    ordering = ['-last_activity']
+    date_hierarchy = 'created_at'
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'User Email'
+    
+    def has_add_permission(self, request):
+        return False  # Sessions are created automatically
+
+
+@admin.register(SecurityEvent)
+class SecurityEventAdmin(admin.ModelAdmin):
+    list_display = ['user_email', 'event_type', 'severity', 'description', 
+                   'created_at', 'resolved', 'resolved_by']
+    list_filter = ['event_type', 'severity', 'resolved', 'created_at']
+    search_fields = ['user__email', 'description', 'ip_address']
+    readonly_fields = ['created_at']
+    ordering = ['-created_at']
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Event Details', {
+            'fields': ('user', 'event_type', 'severity', 'description'),
+        }),
+        ('Context', {
+            'fields': ('ip_address', 'user_agent', 'session'),
+        }),
+        ('Metadata', {
+            'fields': ('metadata',),
+            'classes': ('collapse',),
+        }),
+        ('Resolution', {
+            'fields': ('resolved', 'resolved_at', 'resolved_by'),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at',),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'User Email'
+    
+    actions = ['mark_resolved', 'mark_unresolved']
+    
+    def mark_resolved(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.update(
+            resolved=True,
+            resolved_at=timezone.now(),
+            resolved_by=request.user
+        )
+        self.message_user(request, f'{updated} events marked as resolved.')
+    mark_resolved.short_description = 'Mark selected events as resolved'
+    
+    def mark_unresolved(self, request, queryset):
+        updated = queryset.update(
+            resolved=False,
+            resolved_at=None,
+            resolved_by=None
+        )
+        self.message_user(request, f'{updated} events marked as unresolved.')
+    mark_unresolved.short_description = 'Mark selected events as unresolved'

@@ -32,6 +32,14 @@ export interface UserProfile extends BaseUser {
   department?: string;
   bio?: string;
   timezone?: string;
+  // Enhanced fields for credit risk assessment
+  phone_secondary?: string;
+  address?: string;
+  date_of_birth?: string;
+  linkedin_url?: string;
+  portfolio_url?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
 }
 
 export interface CompleteUser extends BaseUser {
@@ -43,6 +51,14 @@ export interface CompleteUser extends BaseUser {
   department?: string;
   bio?: string;
   timezone?: string;
+  // Enhanced fields for credit risk assessment
+  phone_secondary?: string;
+  address?: string;
+  date_of_birth?: string;
+  linkedin_url?: string;
+  portfolio_url?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
 }
 
 export interface LoginResponse {
@@ -198,6 +214,14 @@ export const transformUserProfile = (backendProfile: any): UserProfile => ({
   department: backendProfile.department,
   bio: backendProfile.bio,
   timezone: backendProfile.timezone,
+  // Enhanced fields for credit risk assessment
+  phone_secondary: backendProfile.phone_secondary,
+  address: backendProfile.address,
+  date_of_birth: backendProfile.date_of_birth,
+  linkedin_url: backendProfile.linkedin_url,
+  portfolio_url: backendProfile.portfolio_url,
+  emergency_contact_name: backendProfile.emergency_contact_name,
+  emergency_contact_phone: backendProfile.emergency_contact_phone,
   date_joined: backendProfile.date_joined || new Date().toISOString(),
   last_login: backendProfile.last_login || null,
 });

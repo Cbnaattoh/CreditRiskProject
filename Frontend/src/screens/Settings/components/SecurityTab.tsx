@@ -25,6 +25,17 @@ import {
   selectMfaCompleted,
 } from "../../../components/redux/features/auth/authSlice";
 import { MFASetupModal } from "../../../components/MFA";
+import { 
+  useGetUserSessionsQuery,
+  useGetSecurityEventsQuery,
+  useGetSecurityEventsSummaryQuery,
+  useTerminateSessionMutation,
+  useTerminateAllOtherSessionsMutation,
+  useGetSettingsOverviewQuery
+} from "../../../components/redux/features/api/settings/settingsApi";
+import { useToast } from "../../../components/utils/Toast";
+import { useOptimizedRealTime } from "../../../hooks/useRealTimeSettings";
+import { RealTimeIndicator } from "../../../components/ui/RealTimeIndicator";
 
 interface SecurityItem {
   id: string;
@@ -39,6 +50,19 @@ export const SecurityTab: React.FC = () => {
   const user = useSelector(selectCurrentUser);
   const requiresMFASetup = useSelector(selectRequiresMFASetup);
   const mfaCompleted = useSelector(selectMfaCompleted);
+  const { showToast } = useToast();
+  
+  // Real-time updates for security data
+  const realTimeData = useOptimizedRealTime(['security'], 60000); // Reduced to 1 minute for security data
+  
+  // Enhanced API queries
+  const { data: userSessions, isLoading: sessionsLoading, refetch: refetchSessions } = useGetUserSessionsQuery();
+  const { data: securityEvents, isLoading: eventsLoading } = useGetSecurityEventsQuery();
+  const { data: securitySummary, isLoading: summaryLoading } = useGetSecurityEventsSummaryQuery();
+  const { data: settingsOverview, isLoading: overviewLoading } = useGetSettingsOverviewQuery();
+  const [terminateSession, { isLoading: isTerminating }] = useTerminateSessionMutation();
+  const [terminateAllOthers, { isLoading: isTerminatingAll }] = useTerminateAllOtherSessionsMutation();
+  
   const [settings, setSettings] = useState({
     mfaEnabled: user?.mfa_enabled || false,
     loginNotifications: true,
@@ -46,15 +70,27 @@ export const SecurityTab: React.FC = () => {
     sessionTimeout: true,
   });
   const [showMFAModal, setShowMFAModal] = useState(false);
-  const [securityScore, setSecurityScore] = useState(92);
-  const [threatDetections, setThreatDetections] = useState(3);
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Calculate dynamic values from backend data
+  const securityScore = settingsOverview?.security_score || 92;
+  const threatDetections = securitySummary?.recent_activity || 3;
 
   useEffect(() => {
     setIsAnimating(true);
     const timer = setTimeout(() => setIsAnimating(false), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Sync local settings with backend user data and auth state
+  useEffect(() => {
+    if (user) {
+      setSettings(prev => ({
+        ...prev,
+        mfaEnabled: user.mfa_enabled || false,
+      }));
+    }
+  }, [user?.mfa_enabled, mfaCompleted, requiresMFASetup]);
 
   const handleToggle = (key: string) => {
     setSettings(prev => ({
@@ -63,17 +99,77 @@ export const SecurityTab: React.FC = () => {
     }));
   };
 
+  const handleTerminateSession = async (sessionId: number) => {
+    try {
+      await terminateSession(sessionId).unwrap();
+      showToast('Session terminated successfully', 'success');
+      refetchSessions();
+    } catch (error) {
+      showToast('Failed to terminate session', 'error');
+    }
+  };
+
+  const handleTerminateAllOthers = async () => {
+    try {
+      const result = await terminateAllOthers().unwrap();
+      showToast(result.message, 'success');
+      refetchSessions();
+    } catch (error) {
+      showToast('Failed to terminate sessions', 'error');
+    }
+  };
+
   const getMFAStatus = () => {
-    if (requiresMFASetup) return 'warning';
-    if (settings.mfaEnabled && mfaCompleted) return 'enabled';
-    if (settings.mfaEnabled && !mfaCompleted) return 'warning';
+    // Check backend user data first for most accurate status
+    const userMfaEnabled = user?.mfa_enabled;
+    
+    // If user has MFA enabled in backend, and no setup is required, consider it enabled
+    if (userMfaEnabled && !requiresMFASetup) {
+      return 'enabled';
+    }
+    
+    // If setup is explicitly required, show warning
+    if (requiresMFASetup) {
+      return 'warning';
+    }
+    
+    // Check local state with MFA completion status
+    if (settings.mfaEnabled && mfaCompleted) {
+      return 'enabled';
+    }
+    
+    // If MFA is enabled but not completed, show warning
+    if (settings.mfaEnabled && !mfaCompleted) {
+      return 'warning';
+    }
+    
     return 'disabled';
   };
 
   const getMFAAction = () => {
-    if (requiresMFASetup) return 'Complete Setup';
-    if (settings.mfaEnabled && mfaCompleted) return 'Manage';
-    if (settings.mfaEnabled && !mfaCompleted) return 'Complete Setup';
+    // Check backend user data first for most accurate status
+    const userMfaEnabled = user?.mfa_enabled;
+    
+    // If user has MFA enabled in backend, and no setup is required, show manage
+    if (userMfaEnabled && !requiresMFASetup) {
+      return 'Manage';
+    }
+    
+    // If setup is explicitly required, show complete setup
+    if (requiresMFASetup) {
+      return 'Complete Setup';
+    }
+    
+    // Check local state with MFA completion status
+    if (settings.mfaEnabled && mfaCompleted) {
+      return 'Manage';
+    }
+    
+    // If MFA is enabled but not completed, show complete setup
+    if (settings.mfaEnabled && !mfaCompleted) {
+      return 'Complete Setup';
+    }
+    
     return 'Enable';
   };
 
@@ -81,9 +177,17 @@ export const SecurityTab: React.FC = () => {
     {
       id: 'mfa',
       title: 'Multi-Factor Authentication',
-      description: requiresMFASetup 
-        ? 'Complete your MFA setup to secure your account'
-        : 'Add an extra layer of security with MFA',
+      description: (() => {
+        const userMfaEnabled = user?.mfa_enabled;
+        
+        if (userMfaEnabled && !requiresMFASetup) {
+          return 'MFA is active and protecting your account';
+        }
+        if (requiresMFASetup) {
+          return 'Complete your MFA setup to secure your account';
+        }
+        return 'Add an extra layer of security with MFA';
+      })(),
       icon: <FiShield className="h-5 w-5" />,
       status: getMFAStatus(),
       action: getMFAAction()
@@ -137,29 +241,8 @@ export const SecurityTab: React.FC = () => {
     }
   };
 
-  const recentSessions = [
-    {
-      id: 1,
-      device: 'Chrome on Windows',
-      location: 'New York, NY',
-      time: '2 hours ago',
-      current: true,
-    },
-    {
-      id: 2,
-      device: 'Safari on iPhone',
-      location: 'New York, NY',
-      time: '1 day ago',
-      current: false,
-    },
-    {
-      id: 3,
-      device: 'Firefox on MacOS',
-      location: 'Los Angeles, CA',
-      time: '3 days ago',
-      current: false,
-    },
-  ];
+  // Use real session data from backend
+  const recentSessions = userSessions?.slice(0, 5) || [];
 
   return (
     <motion.div
@@ -170,6 +253,14 @@ export const SecurityTab: React.FC = () => {
       transition={{ duration: 0.4, ease: "easeInOut" }}
       className="space-y-6"
     >
+      {/* Real-time Status Indicator */}
+      <div className="flex justify-end mb-4">
+        <RealTimeIndicator 
+          position="inline" 
+          showDetails={true}
+          onRefresh={realTimeData.refreshAll}
+        />
+      </div>
       {/* Enhanced Security Overview Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-white/95 via-emerald-50/20 to-green-50/30 dark:from-gray-800/95 dark:via-emerald-900/10 dark:to-green-900/15 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-8">
         {/* Decorative Elements */}
@@ -425,14 +516,35 @@ export const SecurityTab: React.FC = () => {
               </div>
             </div>
             
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border border-blue-200 dark:border-blue-700 rounded-2xl text-blue-700 dark:text-blue-300 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              <FiEye className="h-4 w-4 group-hover:scale-110 transition-transform" />
-              <span>View All</span>
-            </motion.button>
+            <div className="flex items-center space-x-3">
+              <motion.button
+                onClick={handleTerminateAllOthers}
+                disabled={isTerminatingAll || recentSessions.length <= 1}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20 border border-red-200 dark:border-red-700 rounded-2xl text-red-700 dark:text-red-300 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isTerminatingAll ? (
+                  <motion.div
+                    className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                ) : (
+                  <FiX className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                )}
+                <span>End All Others</span>
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border border-blue-200 dark:border-blue-700 rounded-2xl text-blue-700 dark:text-blue-300 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                <FiEye className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                <span>View All ({userSessions?.length || 0})</span>
+              </motion.button>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -456,23 +568,29 @@ export const SecurityTab: React.FC = () => {
                   </motion.div>
                   <div className="space-y-1">
                     <p className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      {session.device}
+                      {session.device_info?.device || `${session.device_type} - ${session.browser}`}
                     </p>
                     <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                       <div className="flex items-center space-x-1">
                         <FiGlobe className="h-3 w-3" />
-                        <span>{session.location}</span>
+                        <span>{session.location || 'Unknown Location'}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <FiClock className="h-3 w-3" />
-                        <span>{session.time}</span>
+                        <span>{session.time_since_login}</span>
+                      </div>
+                      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                        <FiShield className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                          Score: {session.security_score}%
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="relative z-10 flex items-center space-x-4">
-                  {session.current ? (
+                  {session.is_current_session ? (
                     <motion.div
                       className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-300 dark:border-green-700 rounded-full"
                       animate={{ scale: [1, 1.05, 1] }}
@@ -487,14 +605,30 @@ export const SecurityTab: React.FC = () => {
                     </motion.div>
                   ) : (
                     <div className="flex items-center space-x-3">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 px-3 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-full font-medium">Inactive</span>
+                      <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                        session.is_active 
+                          ? 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30' 
+                          : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50'
+                      }`}>
+                        {session.is_active ? 'Active' : 'Inactive'}
+                      </span>
                       <motion.button
+                        onClick={() => handleTerminateSession(session.id)}
+                        disabled={isTerminating}
                         whileHover={{ scale: 1.05, y: -1 }}
                         whileTap={{ scale: 0.95 }}
-                        className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                        className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <FiX className="h-3 w-3 group-hover:rotate-90 transition-transform duration-300" />
-                        <span className="text-sm">Revoke</span>
+                        {isTerminating ? (
+                          <motion.div
+                            className="w-3 h-3 border border-red-500/30 border-t-red-500 rounded-full"
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          />
+                        ) : (
+                          <FiX className="h-3 w-3 group-hover:rotate-90 transition-transform duration-300" />
+                        )}
+                        <span className="text-sm">End Session</span>
                       </motion.button>
                     </div>
                   )}

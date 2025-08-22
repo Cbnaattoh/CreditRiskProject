@@ -5,10 +5,12 @@ import {
   FiUser,
   FiShield,
   FiSettings,
+  FiHome,
 } from "react-icons/fi";
-import { AccountTab } from "./components/AccountTab";
+import { EnhancedAccountTab } from "./components/EnhancedAccountTab";
 import { SecurityTab } from "./components/SecurityTab";
 import { PreferencesTab } from "./components/PreferencesTab";
+import SettingsDashboard from "./components/SettingsDashboard";
 
 // Types
 interface Tab {
@@ -110,8 +112,10 @@ const AccountSettings: React.FC = () => {
         return 'Security';
       case 'preferences':
         return 'Preferences';
-      default:
+      case 'account':
         return 'Account';
+      default:
+        return 'Dashboard';
     }
   };
 
@@ -126,6 +130,9 @@ const AccountSettings: React.FC = () => {
         break;
       case 'Preferences':
         newParams.set('tab', 'preferences');
+        break;
+      case 'Account':
+        newParams.set('tab', 'account');
         break;
       default:
         newParams.delete('tab');
@@ -162,9 +169,14 @@ const AccountSettings: React.FC = () => {
           <Tabs
             tabs={[
               {
+                label: "Dashboard",
+                icon: <FiHome className="h-5 w-5" />,
+                content: <SettingsDashboard />
+              },
+              {
                 label: "Account",
                 icon: <FiUser className="h-5 w-5" />,
-                content: <AccountTab />
+                content: <EnhancedAccountTab />
               },
               {
                 label: "Security", 

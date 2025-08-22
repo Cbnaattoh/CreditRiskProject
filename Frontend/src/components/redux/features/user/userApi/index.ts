@@ -18,6 +18,14 @@ interface UserUpdateRequest {
   bio?: string;
   timezone?: string;
   profile_picture?: File;
+  // Enhanced fields for credit risk assessment
+  phone_secondary?: string;
+  address?: string;
+  date_of_birth?: string;
+  linkedin_url?: string;
+  portfolio_url?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
 }
 
 interface UserUpdateResponse {
@@ -62,47 +70,128 @@ export const userApi = apiSlice.injectEndpoints({
       },
     }),
 
+    // Enhanced user profile query with real-time updates for credit risk system
+    getEnhancedUserProfile: builder.query<UserProfileResponse, void>({
+      query: () => ({
+        url: "users/me/",
+        method: "GET",
+      }),
+      transformResponse: (response: any) => transformUserProfile(response),
+      async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data } = await queryFulfilled;
+          
+          // Only dispatch user update if data has actually changed to prevent unnecessary re-renders
+          const currentUser = (getState() as any).auth?.user;
+          
+          // Compare only key fields that affect sidebar rendering
+          const keyFields = ['id', 'email', 'first_name', 'last_name', 'user_type', 'roles', 'permissions'];
+          const hasChanged = !currentUser || keyFields.some(field => 
+            currentUser[field] !== data[field]
+          );
+          
+          if (hasChanged) {
+            dispatch(setUser(data));
+          }
+        } catch (error) {
+          console.error("Get enhanced user profile failed:", error);
+        }
+      },
+      providesTags: ["User", "UserProfile"],
+      // Removed aggressive polling to prevent sidebar re-renders
+      // Real-time updates will be handled by useRealTimeSettings hook when needed
+      refetchOnReconnect: true,
+      transformErrorResponse: (response) => {
+        if (
+          typeof response.data === "string" &&
+          response.data.includes("<!DOCTYPE html>")
+        ) {
+          return {
+            status: response.status,
+            data: { detail: "Enhanced user profile server error" },
+          };
+        }
+        return response;
+      },
+    }),
+
+    // Upload profile picture endpoint
+    uploadProfilePicture: builder.mutation<UserUpdateResponse, FormData>({
+      query: (formData) => ({
+        url: "users/me/",
+        method: "PATCH",
+        body: formData,
+      }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if (data.user) {
+            dispatch(setUser(data.user));
+          }
+        } catch (error) {
+          console.error("Upload profile picture failed:", error);
+        }
+      },
+      invalidatesTags: ["User", "UserProfile"],
+      transformErrorResponse: (response) => {
+        if (
+          typeof response.data === "string" &&
+          response.data.includes("<!DOCTYPE html>")
+        ) {
+          return {
+            status: response.status,
+            data: { detail: "Profile picture upload server error" },
+          };
+        }
+        return response;
+      },
+    }),
+
     updateUserProfile: builder.mutation<UserUpdateResponse, UserUpdateRequest>({
       query: (updateData) => {
-        const formData = new FormData();
+        // Check if we have a file upload (profile_picture)
+        const hasFileUpload = updateData.profile_picture && updateData.profile_picture instanceof File;
+        
+        if (hasFileUpload) {
+          // Use FormData for file uploads
+          const formData = new FormData();
 
-        if (updateData.first_name !== undefined) {
-          formData.append("first_name", updateData.first_name);
-        }
-        if (updateData.last_name !== undefined) {
-          formData.append("last_name", updateData.last_name);
-        }
-        if (updateData.phone_number !== undefined) {
-          formData.append("phone_number", updateData.phone_number);
-        }
-        if (updateData.company !== undefined) {
-          formData.append("company", updateData.company);
-        }
-        if (updateData.job_title !== undefined) {
-          formData.append("job_title", updateData.job_title);
-        }
-        if (updateData.department !== undefined) {
-          formData.append("department", updateData.department);
-        }
-        if (updateData.bio !== undefined) {
-          formData.append("bio", updateData.bio);
-        }
-        if (updateData.timezone !== undefined) {
-          formData.append("timezone", updateData.timezone);
-        }
+          // Only append non-empty string values
+          Object.entries(updateData).forEach(([key, value]) => {
+            if (key === 'profile_picture') {
+              if (value instanceof File) {
+                formData.append(key, value);
+              }
+            } else if (value !== undefined && value !== null && value !== '') {
+              formData.append(key, String(value));
+            }
+          });
 
-        if (
-          updateData.profile_picture &&
-          updateData.profile_picture instanceof File
-        ) {
-          formData.append("profile_picture", updateData.profile_picture);
-        }
+          return {
+            url: "users/me/",
+            method: "PATCH",
+            body: formData,
+          };
+        } else {
+          // Use JSON for non-file updates
+          const jsonData: Record<string, any> = {};
+          
+          // Only include non-empty values
+          Object.entries(updateData).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              jsonData[key] = value;
+            }
+          });
 
-        return {
-          url: "users/me/update/",
-          method: "PATCH",
-          body: formData,
-        };
+          return {
+            url: "users/me/",
+            method: "PATCH",
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(jsonData),
+          };
+        }
       },
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
@@ -184,7 +273,9 @@ export const userApi = apiSlice.injectEndpoints({
 
 export const {
   useGetUserProfileQuery,
+  useGetEnhancedUserProfileQuery,
   useUpdateUserProfileMutation,
+  useUploadProfilePictureMutation,
   useGetUserLoginHistoryQuery,
 } = userApi;
 

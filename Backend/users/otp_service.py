@@ -37,7 +37,7 @@ class OTPConfig:
     length: int = 6
     expiry_minutes: int = 10
     max_attempts: int = 3
-    rate_limit_window: int = 60  # seconds
+    rate_limit_window: int = 60
     max_requests_per_window: int = 3
     
 class OTPSecurityManager:

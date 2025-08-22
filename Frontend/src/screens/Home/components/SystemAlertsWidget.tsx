@@ -6,7 +6,11 @@ import {
   useGetUnreadCountQuery,
   useGetRecentAuditLogsQuery,
   useMarkNotificationReadMutation,
-  useMarkAllNotificationsReadMutation 
+  useMarkAllNotificationsReadMutation,
+  useDeleteNotificationMutation,
+  useDeleteAllNotificationsMutation,
+  useArchiveNotificationMutation,
+  useClearReadNotificationsMutation
 } from '../../../components/redux/features/api/notifications/notificationsApi';
 import { useGetRBACDashboardQuery } from '../../../components/redux/features/api/RBAC/rbacApi';
 
@@ -24,6 +28,9 @@ interface SystemAlert {
   type: 'notification' | 'system' | 'security' | 'ml_processing';
   actionable?: boolean;
   onAction?: () => void;
+  notificationId?: number;
+  onDelete?: () => void;
+  onArchive?: () => void;
 }
 
 export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
@@ -49,6 +56,65 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
   // Mutations
   const [markNotificationRead] = useMarkNotificationReadMutation();
   const [markAllRead] = useMarkAllNotificationsReadMutation();
+  const [deleteNotification] = useDeleteNotificationMutation();
+  const [deleteAllNotifications] = useDeleteAllNotificationsMutation();
+  const [archiveNotification] = useArchiveNotificationMutation();
+  const [clearReadNotifications] = useClearReadNotificationsMutation();
+
+  // Create notification action handlers that refresh data
+  const handleMarkNotificationRead = async (id: number) => {
+    try {
+      await markNotificationRead(id).unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllRead().unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (id: number) => {
+    try {
+      await deleteNotification(id).unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
+
+  const handleArchiveNotification = async (id: number) => {
+    try {
+      await archiveNotification(id).unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to archive notification:', error);
+    }
+  };
+
+  const handleClearReadNotifications = async () => {
+    try {
+      await clearReadNotifications().unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to clear read notifications:', error);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    try {
+      await deleteAllNotifications({}).unwrap();
+      // This will automatically invalidate and refetch due to RTK Query cache invalidation
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+    }
+  };
 
   // Transform backend data to alerts
   const systemAlerts = useMemo(() => {
@@ -94,7 +160,10 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
           time: notification.time_ago || formatTime(notification.created_at),
           type: alertType,
           actionable: !notification.is_read,
-          onAction: () => markNotificationRead(notification.id)
+          notificationId: notification.id,
+          onAction: () => handleMarkNotificationRead(notification.id),
+          onDelete: () => handleDeleteNotification(notification.id),
+          onArchive: () => handleArchiveNotification(notification.id)
         });
       });
     }
@@ -409,14 +478,35 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
             )}
 
             {/* Quick actions */}
-            {unreadCount && unreadCount.count > 0 && (
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => markAllRead()}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                >
-                  Mark All as Read ({unreadCount.count})
-                </button>
+            {((unreadCount && unreadCount.count > 0) || (notifications && notifications.length > 0)) && (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                {unreadCount && unreadCount.count > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    Mark All as Read ({unreadCount.count})
+                  </button>
+                )}
+                
+                {/* Bulk delete actions for notifications */}
+                {notifications && notifications.length > 0 && (
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleClearReadNotifications}
+                      disabled={!notifications.some(n => n.is_read)}
+                      className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Clear Read
+                    </button>
+                    <button
+                      onClick={handleDeleteAllNotifications}
+                      className="flex-1 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                    >
+                      Delete All
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>

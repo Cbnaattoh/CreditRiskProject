@@ -1154,6 +1154,7 @@ class RegisterView(generics.CreateAPIView):
 class UserProfileView(generics.RetrieveUpdateAPIView):
     """User profile management with RBAC Permissions"""
     serializer_class = UserProfileSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_permissions(self):
         """Apply RBAC based on action and ownership"""
@@ -1222,10 +1223,23 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             return profile
     
     def update(self, request, *args, **kwargs):
-        """Override update with proper logging"""
+        """Override update with comprehensive validation and logging"""
         try:
+            # Log incoming request data for debugging
+            logger.info(f"Profile update request - Content-Type: {request.content_type}")
+            logger.info(f"Profile update request - Data keys: {list(request.data.keys()) if hasattr(request.data, 'keys') else 'No keys'}")
+            
             profile = self.get_object()
             
+            # Prevent updating sensitive user fields through profile endpoint
+            restricted_fields = {'email', 'username', 'password', 'ghana_card_number', 'user_type', 'is_staff', 'is_superuser'}
+            if any(field in request.data for field in restricted_fields):
+                return Response(
+                    {"detail": "Cannot update restricted user fields through this endpoint"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Log admin access
             if profile.user != request.user:
                 logger.info(
                     f"Admin {request.user.email} updated profile of {profile.user.email}",
@@ -1237,13 +1251,80 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
                     }
                 )
             
-            return super().update(request, *args, **kwargs)
+            # Enhanced profile picture validation
+            if 'profile_picture' in request.data:
+                profile_picture = request.data['profile_picture']
+                
+                # Skip validation for None values (removal) or strings (existing URLs)
+                if profile_picture is not None and hasattr(profile_picture, 'content_type'):
+                    # Validate file type
+                    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+                    if profile_picture.content_type not in allowed_types:
+                        return Response(
+                            {"detail": "File must be a valid image (JPEG, PNG, GIF, or WebP)"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    # Validate file size (5MB limit)
+                    max_size = 5 * 1024 * 1024  # 5MB
+                    if profile_picture.size > max_size:
+                        return Response(
+                            {"detail": "Image size must be less than 5MB"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    # Basic file validation (size and type already checked above)
+            
+            # Store old values for change tracking
+            old_values = {}
+            for field in request.data.keys():
+                if hasattr(profile, field):
+                    old_values[field] = getattr(profile, field)
+            
+            # Use partial update
+            kwargs['partial'] = True
+            response = super().update(request, *args, **kwargs)
+            
+            # Log successful update with changes
+            if response.status_code == 200:
+                changes = {}
+                for field, old_value in old_values.items():
+                    new_value = getattr(profile, field, None)
+                    if old_value != new_value:
+                        changes[field] = {'old': str(old_value), 'new': str(new_value)}
+                
+                if changes:
+                    logger.info(
+                        f"Profile updated for {profile.user.email}",
+                        extra={
+                            'user_id': profile.user.id,
+                            'action': 'profile_update_success',
+                            'changes': changes,
+                            'updated_by': request.user.id if profile.user != request.user else None
+                        }
+                    )
+            
+            return response
+            
+        except ValidationError as e:
+            logger.warning(f"Profile update validation failed: {str(e)}")
+            return Response(
+                {"detail": "Validation failed", "errors": e.detail if hasattr(e, 'detail') else str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error - {str(e)}")
+            return Response(
+                {"detail": f"Invalid JSON format: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             logger.error(f"Profile update failed: {str(e)}")
             return Response(
-                {"detail": "Profile update failed"},
+                {"detail": f"Profile update failed: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
 
 
 
