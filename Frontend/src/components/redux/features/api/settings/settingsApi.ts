@@ -95,6 +95,112 @@ export interface BulkPreferencesUpdate {
   preferences: Record<string, any>;
 }
 
+// Credit Worthiness Index interfaces
+export interface CreditWorthinessIndex {
+  credit_index: number;
+  credit_tier: 'excellent' | 'good' | 'developing';
+  tier_label: string;
+  risk_category: 'low' | 'medium' | 'high';
+  factors: {
+    profile_data: {
+      score: number;
+      weight: number;
+      contribution: number;
+      status: 'complete' | 'incomplete';
+    };
+    identity_verified: {
+      verified: boolean;
+      weight: number;
+      contribution: number;
+      status: 'verified' | 'pending';
+    };
+    security_level: {
+      mfa_enabled: boolean;
+      weight: number;
+      contribution: number;
+      status: 'high' | 'standard';
+    };
+    government_id: {
+      provided: boolean;
+      weight: number;
+      contribution: number;
+      status: 'provided' | 'missing';
+    };
+  };
+  last_updated: string;
+  recommendations: Array<{
+    type: string;
+    priority: 'high' | 'medium' | 'low';
+    title: string;
+    description: string;
+    impact: string;
+  }>;
+}
+
+// Compliance Status interfaces
+export interface ComplianceStatus {
+  overall_status: 'compliant' | 'mostly_compliant' | 'pending';
+  status_label: string;
+  status_color: 'green' | 'amber' | 'red';
+  compliance_score: number;
+  checks: {
+    kyc_verification: {
+      status: boolean;
+      required: boolean;
+      weight: number;
+    };
+    data_completeness: {
+      status: boolean;
+      score: number;
+      threshold: number;
+      required: boolean;
+      weight: number;
+    };
+    security_standards: {
+      status: boolean;
+      mfa_enabled: boolean;
+      password_strength: boolean;
+      required: boolean;
+      weight: number;
+    };
+  };
+  last_updated: string;
+  next_review_due: string;
+}
+
+// Activity Analytics interfaces
+export interface ActivityAnalytics {
+  account_age: {
+    days: number;
+    formatted: string;
+  };
+  last_activity: {
+    date: string | null;
+    days_since: number | null;
+    display: string;
+    pattern: 'new_user' | 'active' | 'regular' | 'dormant';
+    pattern_label: string;
+    pattern_color: 'gray' | 'green' | 'amber' | 'red';
+  };
+  risk_assessment: {
+    level: 'low' | 'medium' | 'high';
+    label: string;
+    color: 'green' | 'amber' | 'red';
+    factors: string[];
+  };
+  insights: {
+    message: string;
+    pattern: string;
+    engagement_score: number;
+  };
+  recent_metrics: {
+    sessions_count: number;
+    security_events: number;
+    period_days: number;
+  };
+  last_updated: string;
+}
+
 // UserProfile interface
 export interface EnhancedUserProfile {
   profile_picture?: string;
@@ -240,6 +346,31 @@ export const settingsApi = apiSlice.injectEndpoints({
       refetchOnReconnect: true,
     }),
 
+    // Enterprise Account Analytics endpoints
+    getCreditWorthinessIndex: builder.query<CreditWorthinessIndex, void>({
+      query: () => 'users/settings/overview/credit_worthiness_index/',
+      providesTags: ['CreditWorthiness', 'SettingsOverview'],
+      pollingInterval: 60000, // Update every minute for real-time credit scoring
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }),
+
+    getComplianceStatus: builder.query<ComplianceStatus, void>({
+      query: () => 'users/settings/overview/compliance_status/',
+      providesTags: ['ComplianceStatus', 'SettingsOverview'],
+      pollingInterval: 90000, // Update every 1.5 minutes for compliance monitoring
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }),
+
+    getActivityAnalytics: builder.query<ActivityAnalytics, void>({
+      query: () => 'users/settings/overview/activity_analytics/',
+      providesTags: ['ActivityAnalytics', 'SettingsOverview'],
+      pollingInterval: 45000, // Update every 45 seconds for activity tracking
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }),
+
     // Enhanced Profile endpoints
     // getEnhancedUserProfile: builder.query<EnhancedUserProfile, void>({
     //   query: () => 'users/me/profile/enhanced/',
@@ -281,6 +412,11 @@ export const {
   // Settings overview hooks
   useGetSettingsOverviewQuery,
   useGetSettingsRecommendationsQuery,
+
+  // Enterprise Account Analytics hooks
+  useGetCreditWorthinessIndexQuery,
+  useGetComplianceStatusQuery,
+  useGetActivityAnalyticsQuery,
 
   // Enhanced profile hooks
   // useGetEnhancedUserProfileQuery,

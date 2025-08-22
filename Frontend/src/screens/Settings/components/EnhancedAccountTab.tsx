@@ -37,7 +37,10 @@ import { RealTimeIndicator } from "../../../components/ui/RealTimeIndicator";
 import {
   useGetUserSessionsQuery,
   useTerminateAllOtherSessionsMutation,
-  useGetSettingsOverviewQuery
+  useGetSettingsOverviewQuery,
+  useGetCreditWorthinessIndexQuery,
+  useGetComplianceStatusQuery,
+  useGetActivityAnalyticsQuery
 } from "../../../components/redux/features/api/settings/settingsApi";
 
 interface ProfileField {
@@ -80,6 +83,11 @@ export const EnhancedAccountTab: React.FC = () => {
   const { data: userSessions, isLoading: sessionsLoading } = useGetUserSessionsQuery();
   const { data: settingsOverview, isLoading: overviewLoading } = useGetSettingsOverviewQuery();
   const [terminateAllOthers, { isLoading: isTerminatingAll }] = useTerminateAllOtherSessionsMutation();
+  
+  // Enterprise Account Analytics queries
+  const { data: creditWorthinessIndex, isLoading: creditWorthinessLoading } = useGetCreditWorthinessIndexQuery();
+  const { data: complianceStatus, isLoading: complianceLoading } = useGetComplianceStatusQuery();
+  const { data: activityAnalytics, isLoading: activityLoading } = useGetActivityAnalyticsQuery();
   
   // Auto-save state
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -885,130 +893,234 @@ export const EnhancedAccountTab: React.FC = () => {
         variants={itemVariants}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
       >
-        {/* Profile Completion Insights */}
+        {/* Credit Worthiness Index */}
         <motion.div
           whileHover={{ scale: 1.02, y: -4 }}
-          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-green-50/20 to-emerald-50/20 dark:from-gray-800/95 dark:via-green-900/10 dark:to-emerald-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
+          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-emerald-50/20 to-green-50/20 dark:from-gray-800/95 dark:via-emerald-900/10 dark:to-green-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
         >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-green-500/10 to-transparent rounded-full blur-2xl"></div>
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-full blur-2xl"></div>
 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl">
-                <FiCheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="p-3 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-2xl">
+                <FiTrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <span className="text-3xl font-bold text-green-600 dark:text-green-400">
-                {completionScore}%
-              </span>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {creditWorthinessLoading ? '...' : (creditWorthinessIndex?.credit_index || 0)}
+                </div>
+                <div className="text-xs text-emerald-500 dark:text-emerald-400 font-medium">
+                  Credit Index
+                </div>
+              </div>
             </div>
 
             <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Profile Complete
+              Credit Worthiness
             </h4>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {requiredMissing > 0
-                ? `${requiredMissing} required fields missing`
-                : 'All required fields completed'
-              }
-            </p>
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Profile Data</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {creditWorthinessLoading ? '...' : `${creditWorthinessIndex?.factors.profile_data.score || 0}%`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Identity Verified</span>
+                <span className={`font-semibold ${
+                  creditWorthinessIndex?.factors.identity_verified.status === 'verified' ? 'text-green-500' : 'text-amber-500'
+                }`}>
+                  {creditWorthinessLoading ? '...' : (creditWorthinessIndex?.factors.identity_verified.status === 'verified' ? 'Verified' : 'Pending')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Security Level</span>
+                <span className={`font-semibold ${
+                  creditWorthinessIndex?.factors.security_level.status === 'high' ? 'text-green-500' : 'text-orange-500'
+                }`}>
+                  {creditWorthinessLoading ? '...' : (creditWorthinessIndex?.factors.security_level.status === 'high' ? 'High' : 'Standard')}
+                </span>
+              </div>
+            </div>
 
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <motion.div
-                className="h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${completionScore}%` }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
-              />
+            {/* Creditworthiness Level Indicator */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${
+                creditWorthinessIndex?.credit_tier === 'excellent' 
+                  ? 'bg-green-500' 
+                  : creditWorthinessIndex?.credit_tier === 'good'
+                  ? 'bg-amber-500'
+                  : 'bg-red-500'
+              }`} />
+              <span className={`text-sm font-semibold ${
+                creditWorthinessIndex?.credit_tier === 'excellent' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : creditWorthinessIndex?.credit_tier === 'good'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {creditWorthinessLoading ? '...' : (creditWorthinessIndex?.tier_label || 'Developing')}
+              </span>
             </div>
           </div>
         </motion.div>
 
-        {/* Security Score */}
+        {/* Account Compliance Status */}
         <motion.div
           whileHover={{ scale: 1.02, y: -4 }}
-          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-blue-50/20 to-indigo-50/20 dark:from-gray-800/95 dark:via-blue-900/10 dark:to-indigo-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
+          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-blue-50/20 to-cyan-50/20 dark:from-gray-800/95 dark:via-blue-900/10 dark:to-cyan-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
         >
           <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full blur-2xl"></div>
 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl">
-                <FiShield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl">
+                <FiCheckCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {settingsOverview?.security_score || 0}%
-              </span>
+              <div className="text-right">
+                <div className={`text-2xl font-bold ${
+                  complianceStatus?.status_color === 'green' 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : complianceStatus?.status_color === 'amber'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {complianceLoading ? '...' : (complianceStatus?.status_label || 'PENDING')}
+                </div>
+                <div className="text-xs text-blue-500 dark:text-blue-400 font-medium">
+                  Status
+                </div>
+              </div>
             </div>
 
             <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Security Score
+              Compliance Status
             </h4>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {settingsOverview?.mfa_enabled ? 'MFA Active' : 'Enable MFA to boost security'}
-            </p>
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">KYC Verification</span>
+                <span className={`font-semibold ${
+                  complianceStatus?.checks.kyc_verification.status ? 'text-green-500' : 'text-amber-500'
+                }`}>
+                  {complianceLoading ? '...' : (
+                    complianceStatus?.checks.kyc_verification.status ? 
+                    <FiCheck className="w-4 h-4" /> : 
+                    <FiAlertCircle className="w-4 h-4" />
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Data Completeness</span>
+                <span className={`font-semibold ${
+                  complianceStatus?.checks.data_completeness.status ? 'text-green-500' : 'text-amber-500'
+                }`}>
+                  {complianceLoading ? '...' : (
+                    complianceStatus?.checks.data_completeness.status ? 
+                    <FiCheck className="w-4 h-4" /> : 
+                    <FiAlertCircle className="w-4 h-4" />
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Security Standards</span>
+                <span className={`font-semibold ${
+                  complianceStatus?.checks.security_standards.status ? 'text-green-500' : 'text-amber-500'
+                }`}>
+                  {complianceLoading ? '...' : (
+                    complianceStatus?.checks.security_standards.status ? 
+                    <FiCheck className="w-4 h-4" /> : 
+                    <FiAlertCircle className="w-4 h-4" />
+                  )}
+                </span>
+              </div>
+            </div>
 
-            <div className="relative w-12 h-12 mx-auto">
-              <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-gray-200 dark:text-gray-700"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <motion.path
-                  className="text-blue-500"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  fill="none"
-                  strokeDasharray={`${settingsOverview?.security_score || 0}, 100`}
-                  initial={{ strokeDasharray: "0, 100" }}
-                  animate={{ strokeDasharray: `${settingsOverview?.security_score || 0}, 100` }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
+            {/* Compliance Progress Bar */}
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${complianceStatus?.compliance_score || 0}%` }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+              />
             </div>
           </div>
         </motion.div>
 
-        {/* Active Sessions */}
+        {/* Activity Analytics */}
         <motion.div
           whileHover={{ scale: 1.02, y: -4 }}
-          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-purple-50/20 to-pink-50/20 dark:from-gray-800/95 dark:via-purple-900/10 dark:to-pink-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
+          className="relative overflow-hidden bg-gradient-to-br from-white/95 via-purple-50/20 to-indigo-50/20 dark:from-gray-800/95 dark:via-purple-900/10 dark:to-indigo-900/10 backdrop-blur-3xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6"
         >
           <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-purple-500/10 to-transparent rounded-full blur-2xl"></div>
 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl">
+              <div className="p-3 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl">
                 <FiActivity className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                {userSessions?.length || 0}
-              </span>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  {activityLoading ? '...' : (activityAnalytics?.last_activity.display || 'NEW')}
+                </div>
+                <div className="text-xs text-purple-500 dark:text-purple-400 font-medium">
+                  Last Active
+                </div>
+              </div>
             </div>
 
             <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Active Sessions
+              Activity Analytics
             </h4>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Devices currently signed in
-            </p>
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Account Age</span>
+                <span className="font-semibold text-purple-600 dark:text-purple-400">
+                  {activityLoading ? '...' : (activityAnalytics?.account_age.formatted || 'Unknown')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Login Pattern</span>
+                <span className={`font-semibold ${
+                  activityAnalytics?.last_activity.pattern_color === 'green' ? 'text-green-500' :
+                  activityAnalytics?.last_activity.pattern_color === 'amber' ? 'text-amber-500' :
+                  activityAnalytics?.last_activity.pattern_color === 'red' ? 'text-red-500' :
+                  'text-gray-400'
+                }`}>
+                  {activityLoading ? '...' : (activityAnalytics?.last_activity.pattern_label || 'New User')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Risk Level</span>
+                <span className={`font-semibold ${
+                  activityAnalytics?.risk_assessment.color === 'green' ? 'text-green-500' :
+                  activityAnalytics?.risk_assessment.color === 'amber' ? 'text-amber-500' :
+                  'text-red-500'
+                }`}>
+                  {activityLoading ? '...' : (activityAnalytics?.risk_assessment.label || 'High')}
+                </span>
+              </div>
+            </div>
 
-            <motion.button
-              onClick={handleTerminateAllSessions}
-              disabled={isTerminatingAll || (userSessions?.length || 0) <= 1}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border border-purple-200 dark:border-purple-800 rounded-xl text-purple-700 dark:text-purple-300 font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              {isTerminatingAll ? 'Terminating...' : 'End All Others'}
-            </motion.button>
+            {/* Activity Trend Indicator */}
+            <div className="flex items-center space-x-2">
+              <motion.div 
+                className={`w-3 h-3 rounded-full ${
+                  activityAnalytics?.last_activity.pattern_color === 'green' ? 'bg-green-500' :
+                  activityAnalytics?.last_activity.pattern_color === 'amber' ? 'bg-amber-500' :
+                  activityAnalytics?.last_activity.pattern_color === 'red' ? 'bg-red-500' :
+                  'bg-gray-400'
+                }`}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {activityLoading ? '...' : (activityAnalytics?.insights.message || 'Welcome! Complete setup to get started')}
+              </span>
+            </div>
           </div>
         </motion.div>
       </motion.div>
