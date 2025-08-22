@@ -884,6 +884,9 @@ class LoginView(TokenObtainPairView):
                     login_timestamp = timezone.now()
                 )
                 
+                # Create UserSession record for JWT-based logins
+                self._create_user_session(user, request)
+                
                 user.last_login = timezone.now()
                 user.save(update_fields=['last_login'])
                 
@@ -1081,6 +1084,78 @@ class LoginView(TokenObtainPairView):
         
         # Fallback to REMOTE_ADDR
         return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    def _create_user_session(self, user, request):
+        """Create UserSession record for JWT-based login"""
+        try:
+            import user_agents
+            import uuid
+            from .models import UserSession, SecurityEvent
+            
+            # Parse user agent
+            user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+            user_agent = user_agents.parse(user_agent_string)
+            
+            # Get IP address
+            ip_address = self._get_client_ip(request)
+            
+            # Determine device type
+            device_type = 'mobile' if user_agent.is_mobile else 'tablet' if user_agent.is_tablet else 'desktop'
+            
+            # Get location (simplified - in production you'd use GeoIP)
+            location = 'Local/Private Network' if ip_address in ['127.0.0.1', 'localhost'] or ip_address.startswith('192.168.') else 'Unknown Location'
+            
+            # Generate a unique session key for JWT-based sessions
+            session_key = f"jwt_{uuid.uuid4().hex[:20]}"
+            
+            # Create or update user session
+            user_session, created = UserSession.objects.get_or_create(
+                user=user,
+                ip_address=ip_address,
+                device_type=device_type,
+                browser=f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                is_active=True,
+                defaults={
+                    'session_key': session_key,
+                    'user_agent': user_agent_string[:500],
+                    'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                    'location': location,
+                    'security_score': 100,
+                }
+            )
+            
+            if not created:
+                # Update existing session
+                user_session.session_key = session_key
+                user_session.user_agent = user_agent_string[:500]
+                user_session.os = f"{user_agent.os.family} {user_agent.os.version_string}"
+                user_session.location = location
+                user_session.last_activity = timezone.now()
+                user_session.is_active = True
+                user_session.save(update_fields=['session_key', 'user_agent', 'os', 'location', 'last_activity', 'is_active'])
+            
+            logger.info(f"UserSession {'created' if created else 'updated'} for {user.email}")
+            
+            # Create security event
+            SecurityEvent.objects.create(
+                user=user,
+                event_type='login',
+                severity='low',
+                description=f'Login from {device_type}',
+                ip_address=ip_address,
+                user_agent=user_agent_string[:500],
+                metadata={
+                    'device_type': device_type,
+                    'browser': f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                    'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                    'location': location,
+                    'session_created': created,
+                    'jwt_login': True
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to create user session: {e}")
 
 
 

@@ -563,3 +563,319 @@ class SettingsOverviewViewSet(viewsets.ViewSet):
             'total_count': len(recommendations),
             'high_priority_count': len([r for r in recommendations if r['priority'] == 'high'])
         })
+    
+    @action(detail=False, methods=['get'])
+    def credit_worthiness_index(self, request):
+        """Get Credit Worthiness Index for enterprise account evaluation"""
+        user = request.user
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        
+        # Calculate profile completion score
+        profile_completion = profile.calculate_completion_score()
+        
+        # Weighted Credit Worthiness Index calculation
+        # Profile Data (40% weight) - completeness of financial/professional info
+        profile_weight = profile_completion * 0.4
+        
+        # Identity Verification (30% weight) - KYC compliance
+        identity_weight = 25 * 0.3 if user.is_verified else 0
+        
+        # Security Level (20% weight) - MFA and authentication
+        security_weight = 20 * 0.2 if user.mfa_enabled else 0
+        
+        # Government ID (10% weight) - Ghana Card verification
+        govt_id_weight = 15 * 0.1 if user.ghana_card_number else 0
+        
+        # Calculate final credit index (0-100)
+        credit_index = min(round(profile_weight + identity_weight + security_weight + govt_id_weight), 100)
+        
+        # Determine credit tier
+        if credit_index >= 80:
+            credit_tier = 'excellent'
+            tier_label = 'Excellent'
+            risk_category = 'low'
+        elif credit_index >= 60:
+            credit_tier = 'good'
+            tier_label = 'Good'
+            risk_category = 'medium'
+        else:
+            credit_tier = 'developing'
+            tier_label = 'Developing'
+            risk_category = 'high'
+        
+        # Factor breakdown for transparency
+        factors = {
+            'profile_data': {
+                'score': profile_completion,
+                'weight': 40,
+                'contribution': round(profile_weight),
+                'status': 'complete' if profile_completion >= 80 else 'incomplete'
+            },
+            'identity_verified': {
+                'verified': user.is_verified,
+                'weight': 30,
+                'contribution': round(identity_weight / 0.3) if identity_weight > 0 else 0,
+                'status': 'verified' if user.is_verified else 'pending'
+            },
+            'security_level': {
+                'mfa_enabled': user.mfa_enabled,
+                'weight': 20,
+                'contribution': round(security_weight / 0.2) if security_weight > 0 else 0,
+                'status': 'high' if user.mfa_enabled else 'standard'
+            },
+            'government_id': {
+                'provided': bool(user.ghana_card_number),
+                'weight': 10,
+                'contribution': round(govt_id_weight / 0.1) if govt_id_weight > 0 else 0,
+                'status': 'provided' if user.ghana_card_number else 'missing'
+            }
+        }
+        
+        return Response({
+            'credit_index': credit_index,
+            'credit_tier': credit_tier,
+            'tier_label': tier_label,
+            'risk_category': risk_category,
+            'factors': factors,
+            'last_updated': timezone.now().isoformat(),
+            'recommendations': self._get_credit_recommendations(user, profile, factors)
+        })
+    
+    @action(detail=False, methods=['get'])
+    def compliance_status(self, request):
+        """Get Account Compliance Status for regulatory requirements"""
+        user = request.user
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        preferences, _ = UserPreferences.objects.get_or_create(user=user)
+        
+        # Calculate profile completion
+        profile_completion = profile.calculate_completion_score()
+        
+        # Compliance checks
+        kyc_verification = {
+            'status': user.is_verified,
+            'required': True,
+            'weight': 35
+        }
+        
+        data_completeness = {
+            'status': profile_completion >= 70,
+            'score': profile_completion,
+            'threshold': 70,
+            'required': True,
+            'weight': 30
+        }
+        
+        security_standards = {
+            'status': user.mfa_enabled,
+            'mfa_enabled': user.mfa_enabled,
+            'password_strength': bool(user.last_password_change),
+            'required': True,
+            'weight': 35
+        }
+        
+        # Overall compliance calculation
+        compliance_score = 0
+        if kyc_verification['status']:
+            compliance_score += kyc_verification['weight']
+        if data_completeness['status']:
+            compliance_score += data_completeness['weight']
+        else:
+            # Partial credit for data completeness
+            compliance_score += (profile_completion * 0.3)
+        if security_standards['status']:
+            compliance_score += security_standards['weight']
+        
+        compliance_score = min(compliance_score, 100)
+        
+        # Determine overall compliance status
+        if compliance_score >= 90:
+            overall_status = 'compliant'
+            status_label = 'COMPLIANT'
+            status_color = 'green'
+        elif compliance_score >= 70:
+            overall_status = 'mostly_compliant'
+            status_label = 'MOSTLY COMPLIANT'
+            status_color = 'amber'
+        else:
+            overall_status = 'pending'
+            status_label = 'PENDING'
+            status_color = 'red'
+        
+        return Response({
+            'overall_status': overall_status,
+            'status_label': status_label,
+            'status_color': status_color,
+            'compliance_score': round(compliance_score),
+            'checks': {
+                'kyc_verification': kyc_verification,
+                'data_completeness': data_completeness,
+                'security_standards': security_standards
+            },
+            'last_updated': timezone.now().isoformat(),
+            'next_review_due': (timezone.now() + timedelta(days=90)).isoformat()
+        })
+    
+    @action(detail=False, methods=['get'])
+    def activity_analytics(self, request):
+        """Get Activity Analytics for behavioral insights"""
+        user = request.user
+        
+        # Calculate account age
+        account_age_days = (timezone.now() - user.date_joined).days if user.date_joined else 0
+        
+        # Format account age
+        if account_age_days < 30:
+            account_age = f"{account_age_days} days"
+        elif account_age_days < 365:
+            account_age = f"{account_age_days // 30} months"
+        else:
+            account_age = f"{account_age_days // 365} years"
+        
+        # Calculate last activity
+        last_login_info = {
+            'date': user.last_login.isoformat() if user.last_login else None,
+            'days_since': None,
+            'display': 'NEW',
+            'pattern': 'new_user',
+            'pattern_label': 'New User',
+            'pattern_color': 'gray'
+        }
+        
+        if user.last_login:
+            days_since = (timezone.now() - user.last_login).days
+            last_login_info.update({
+                'days_since': days_since,
+                'display': 'TODAY' if days_since == 0 else f"{days_since}D AGO" if days_since <= 7 else f"{days_since // 7}W AGO" if days_since <= 30 else f"{days_since // 30}M AGO"
+            })
+            
+            # Determine login pattern
+            if days_since <= 1:
+                last_login_info.update({
+                    'pattern': 'active',
+                    'pattern_label': 'Active',
+                    'pattern_color': 'green'
+                })
+            elif days_since <= 7:
+                last_login_info.update({
+                    'pattern': 'regular',
+                    'pattern_label': 'Regular',
+                    'pattern_color': 'amber'
+                })
+            else:
+                last_login_info.update({
+                    'pattern': 'dormant',
+                    'pattern_label': 'Dormant',
+                    'pattern_color': 'red'
+                })
+        
+        # Calculate risk level
+        risk_factors = []
+        if not user.mfa_enabled:
+            risk_factors.append('no_mfa')
+        if not user.is_verified:
+            risk_factors.append('unverified')
+        if user.last_login and (timezone.now() - user.last_login).days > 30:
+            risk_factors.append('inactive')
+        
+        if len(risk_factors) == 0:
+            risk_level = 'low'
+            risk_label = 'Low'
+            risk_color = 'green'
+        elif len(risk_factors) <= 1:
+            risk_level = 'medium'
+            risk_label = 'Medium'
+            risk_color = 'amber'
+        else:
+            risk_level = 'high'
+            risk_label = 'High'
+            risk_color = 'red'
+        
+        # Generate insights message
+        if not user.last_login:
+            insight_message = 'Welcome! Complete setup to get started'
+        elif last_login_info['pattern'] == 'active':
+            insight_message = 'Great engagement! Keep it up'
+        elif last_login_info['pattern'] == 'regular':
+            insight_message = 'Good activity pattern'
+        else:
+            insight_message = 'Consider logging in more frequently'
+        
+        # Get recent activity metrics
+        recent_sessions = UserSession.objects.filter(
+            user=user,
+            created_at__gte=timezone.now() - timedelta(days=30),
+            is_active=True
+        ).count()
+        
+        recent_security_events = SecurityEvent.objects.filter(
+            user=user,
+            created_at__gte=timezone.now() - timedelta(days=30)
+        ).count()
+        
+        return Response({
+            'account_age': {
+                'days': account_age_days,
+                'formatted': account_age
+            },
+            'last_activity': last_login_info,
+            'risk_assessment': {
+                'level': risk_level,
+                'label': risk_label,
+                'color': risk_color,
+                'factors': risk_factors
+            },
+            'insights': {
+                'message': insight_message,
+                'pattern': last_login_info['pattern'],
+                'engagement_score': min(100, max(0, 100 - (last_login_info['days_since'] or 0) * 2))
+            },
+            'recent_metrics': {
+                'sessions_count': recent_sessions,
+                'security_events': recent_security_events,
+                'period_days': 30
+            },
+            'last_updated': timezone.now().isoformat()
+        })
+    
+    def _get_credit_recommendations(self, user, profile, factors):
+        """Generate credit improvement recommendations"""
+        recommendations = []
+        
+        if not factors['identity_verified']['verified']:
+            recommendations.append({
+                'type': 'verification',
+                'priority': 'high',
+                'title': 'Complete Identity Verification',
+                'description': 'Verify your identity to significantly boost your credit index',
+                'impact': '+25 points'
+            })
+        
+        if not factors['security_level']['mfa_enabled']:
+            recommendations.append({
+                'type': 'security',
+                'priority': 'high',
+                'title': 'Enable Multi-Factor Authentication',
+                'description': 'Add MFA to improve security and credit score',
+                'impact': '+20 points'
+            })
+        
+        if factors['profile_data']['score'] < 80:
+            recommendations.append({
+                'type': 'profile',
+                'priority': 'medium',
+                'title': 'Complete Profile Information',
+                'description': 'Add professional and contact details for better assessment',
+                'impact': f"+{80 - factors['profile_data']['score']} points"
+            })
+        
+        if not factors['government_id']['provided']:
+            recommendations.append({
+                'type': 'documentation',
+                'priority': 'medium',
+                'title': 'Add Government ID',
+                'description': 'Upload Ghana Card for identity verification',
+                'impact': '+15 points'
+            })
+        
+        return recommendations

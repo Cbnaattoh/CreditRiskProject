@@ -1,13 +1,18 @@
 """
-Middleware for enforcing MFA completion and token scope validation
+Middleware for enforcing MFA completion, token scope validation, and session tracking
 """
 from django.http import JsonResponse
 from django.urls import reverse, resolve
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.dispatch import receiver
+from django.utils import timezone
 from .authentication import CustomJWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from .tokens import get_token_scope, is_mfa_setup_token
+from .models import UserSession, SecurityEvent
 import logging
 import json
+import user_agents
 
 logger = logging.getLogger(__name__)
 
@@ -247,3 +252,207 @@ class MFAScopeValidationMiddleware:
             request.token_scope = None
             request.is_mfa_setup_token = False
             request.jwt_user = None
+
+
+class SessionTrackingMiddleware:
+    """
+    Middleware to track user sessions for security monitoring
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        # Update last activity for authenticated users
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            session_key = request.session.session_key
+            if session_key:
+                try:
+                    user_session = UserSession.objects.get(
+                        session_key=session_key,
+                        user=request.user,
+                        is_active=True
+                    )
+                    user_session.last_activity = timezone.now()
+                    user_session.save(update_fields=['last_activity'])
+                except UserSession.DoesNotExist:
+                    # Session exists but not tracked - create it
+                    self._create_user_session(request)
+        
+        return response
+
+    def _create_user_session(self, request):
+        """Create a UserSession record for tracking"""
+        if not hasattr(request, 'user') or not request.user.is_authenticated:
+            return
+        
+        session_key = request.session.session_key
+        if not session_key:
+            return
+        
+        # Parse user agent
+        user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+        user_agent = user_agents.parse(user_agent_string)
+        
+        # Get IP address
+        ip_address = self._get_client_ip(request)
+        
+        # Determine device type
+        device_type = 'mobile' if user_agent.is_mobile else 'tablet' if user_agent.is_tablet else 'desktop'
+        
+        # Get location (simplified - in production you'd use GeoIP)
+        location = self._get_location(ip_address)
+        
+        try:
+            user_session, created = UserSession.objects.get_or_create(
+                session_key=session_key,
+                user=request.user,
+                defaults={
+                    'ip_address': ip_address,
+                    'user_agent': user_agent_string[:500],
+                    'device_type': device_type,
+                    'browser': f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                    'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                    'location': location,
+                    'is_active': True,
+                }
+            )
+            
+            if created:
+                logger.info(f"Created session tracking for user {request.user.email}")
+                
+                # Create security event for new session
+                SecurityEvent.objects.create(
+                    user=request.user,
+                    event_type='login',
+                    severity='low',
+                    description=f'New session created from {device_type}',
+                    ip_address=ip_address,
+                    user_agent=user_agent_string[:500],
+                    metadata={
+                        'device_type': device_type,
+                        'browser': f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                        'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                        'location': location
+                    }
+                )
+        
+        except Exception as e:
+            logger.error(f"Failed to create session tracking: {e}")
+
+    def _get_client_ip(self, request):
+        """Get the client's IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
+        return ip
+
+    def _get_location(self, ip_address):
+        """Get location from IP address (simplified version)"""
+        # In production, you'd use a service like GeoIP2, MaxMind, or ipapi
+        if ip_address == '127.0.0.1' or ip_address.startswith('192.168.'):
+            return 'Local/Private Network'
+        return 'Unknown Location'  # Placeholder
+
+
+@receiver(user_logged_in)
+def on_user_logged_in(sender, request, user, **kwargs):
+    """Handle user login signal"""
+    session_key = request.session.session_key
+    if session_key:
+        # Parse user agent
+        user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+        user_agent = user_agents.parse(user_agent_string)
+        
+        # Get IP address
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip_address = request.META.get('REMOTE_ADDR', '127.0.0.1')
+        
+        # Determine device type
+        device_type = 'mobile' if user_agent.is_mobile else 'tablet' if user_agent.is_tablet else 'desktop'
+        
+        # Get location (simplified)
+        location = 'Local/Private Network' if ip_address == '127.0.0.1' or ip_address.startswith('192.168.') else 'Unknown Location'
+        
+        try:
+            # Create or update session
+            user_session, created = UserSession.objects.get_or_create(
+                session_key=session_key,
+                user=user,
+                defaults={
+                    'ip_address': ip_address,
+                    'user_agent': user_agent_string[:500],
+                    'device_type': device_type,
+                    'browser': f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                    'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                    'location': location,
+                    'is_active': True,
+                }
+            )
+            
+            if not created:
+                # Reactivate existing session
+                user_session.is_active = True
+                user_session.last_activity = timezone.now()
+                user_session.save(update_fields=['is_active', 'last_activity'])
+            
+            logger.info(f"User {user.email} logged in - Session tracking {'created' if created else 'reactivated'}")
+            
+            # Create security event
+            SecurityEvent.objects.create(
+                user=user,
+                event_type='login',
+                severity='low',
+                description=f'User logged in from {device_type}',
+                ip_address=ip_address,
+                user_agent=user_agent_string[:500],
+                metadata={
+                    'device_type': device_type,
+                    'browser': f"{user_agent.browser.family} {user_agent.browser.version_string}",
+                    'os': f"{user_agent.os.family} {user_agent.os.version_string}",
+                    'location': location,
+                    'session_created': created
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to track login session for {user.email}: {e}")
+
+
+@receiver(user_logged_out)
+def on_user_logged_out(sender, request, user, **kwargs):
+    """Handle user logout signal"""
+    if user and hasattr(request, 'session'):
+        session_key = getattr(request.session, 'session_key', None)
+        if session_key:
+            try:
+                user_session = UserSession.objects.get(
+                    session_key=session_key,
+                    user=user,
+                    is_active=True
+                )
+                user_session.terminate(by_user=True)
+                logger.info(f"User {user.email} logged out - Session terminated")
+                
+                # Create security event
+                SecurityEvent.objects.create(
+                    user=user,
+                    event_type='logout',
+                    severity='low',
+                    description='User logged out',
+                    ip_address=request.META.get('REMOTE_ADDR', '127.0.0.1'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    metadata={'session_terminated': True}
+                )
+                
+            except UserSession.DoesNotExist:
+                pass
+            except Exception as e:
+                logger.error(f"Failed to terminate session for {user.email}: {e}")

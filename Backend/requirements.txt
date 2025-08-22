@@ -71,6 +71,9 @@ click-plugins>=1.1.1
 # ===== CONFIGURATION =====
 python-dotenv==1.0.0
 
+# ===== USER AGENT PARSING =====
+user-agents==2.2.0
+
 # ===== DATE/TIME UTILITIES =====
 python-dateutil>=2.8.2
 pytz>=2020.1
