@@ -1,7 +1,7 @@
 import React from "react";
 import type { UseFormRegister, FieldError } from "react-hook-form";
 import type { FormData } from "../types";
-import { Info } from "lucide-react";
+import { FiInfo } from "react-icons/fi";
 import Tooltip from "../../../../components/common/Tooltip";
 import EnhancedHelperContent from "../../../../components/common/EnhancedHelperContent";
 import { getEnhancedFieldHelper } from "../../../../data/enhancedFormHelpers";
@@ -142,7 +142,7 @@ export const EnhancedFormInput = ({
       {/* Enhanced helper text with better styling */}
       {helperText && (
         <div className="mt-2 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700/30">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <FiInfo className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
             {helperText}
           </p>

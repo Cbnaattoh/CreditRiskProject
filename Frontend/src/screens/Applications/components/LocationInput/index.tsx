@@ -1,4 +1,3 @@
-import { RegionDropdown } from "react-country-region-selector";
 import type {
   UseFormRegister,
   FieldError,
@@ -12,269 +11,47 @@ import {
   FiX,
   FiNavigation,
   FiSearch,
+  FiGlobe,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import { AdvancedLocationInput } from '../../../../components/AdvancedLocationInput';
+import type { LocationCoordinates } from '../../../../services/advancedLocationService';
+import { GetState, GetCity } from 'react-country-state-city';
+import toast from 'react-hot-toast';
 
-// Lazy load the Map component
-const GhanaMap = lazy(() =>
-  import("../GhanaMap").then((module) => ({ default: module.GhanaMap }))
+// Lazy load the Advanced Map component
+const AdvancedMap = lazy(() =>
+  import("../../../../components/AdvancedMap").then((module) => ({ default: module.AdvancedMap }))
 );
 
-type Region = {
-  value: string;
+type StateData = {
+  id: number;
   name: string;
+  state_code: string;
+  latitude?: string;
+  longitude?: string;
 };
 
-// Complete Ghana regions data with coordinates
-const ghanaRegionsData = {
-  AA: {
-    name: "Greater Accra",
-    cities: [
-      "Accra",
-      "Tema",
-      "Madina",
-      "Nungua",
-      "Ashaiman",
-      "Teshie",
-      "Lashibi",
-      "Labadi",
-      "Osu",
-      "Dansoman",
-    ],
-    capital: "Accra",
-    area: "3,245 km²",
-    population: "5.4 million",
-    coordinates: { lat: 5.6037, lng: -0.187 },
-    zoom: 11,
-  },
-  AH: {
-    name: "Ashanti",
-    cities: [
-      "Kumasi",
-      "Obuasi",
-      "Ejisu",
-      "Konongo",
-      "Mampong",
-      "Bekwai",
-      "Ejura",
-      "Offinso",
-      "Agogo",
-      "Juaso",
-    ],
-    capital: "Kumasi",
-    area: "24,389 km²",
-    population: "5.8 million",
-    coordinates: { lat: 6.6885, lng: -1.6244 },
-    zoom: 10,
-  },
-  BA: {
-    name: "Brong-Ahafo",
-    cities: [
-      "Sunyani",
-      "Berekum",
-      "Dormaa Ahenkro",
-      "Wenchi",
-      "Techiman",
-      "Nkoranza",
-      "Atebubu",
-      "Kintampo",
-      "Sampa",
-      "Japekrom",
-    ],
-    capital: "Sunyani",
-    area: "39,557 km²",
-    population: "2.3 million",
-    coordinates: { lat: 7.336, lng: -2.3363 },
-    zoom: 9,
-  },
-  CP: {
-    name: "Central",
-    cities: [
-      "Cape Coast",
-      "Elmina",
-      "Saltpond",
-      "Winneba",
-      "Mankessim",
-      "Dunkwa",
-      "Agona Swedru",
-      "Kasoa",
-      "Anomabu",
-      "Moree",
-    ],
-    capital: "Cape Coast",
-    area: "9,826 km²",
-    population: "2.9 million",
-    coordinates: { lat: 5.1315, lng: -1.2795 },
-    zoom: 10,
-  },
-  EP: {
-    name: "Eastern",
-    cities: [
-      "Koforidua",
-      "Nsawam",
-      "Suhum",
-      "Akropong",
-      "Aburi",
-      "Nkawkaw",
-      "Mpraeso",
-      "Asamankese",
-      "Akim Oda",
-      "Akwatia",
-    ],
-    capital: "Koforidua",
-    area: "19,323 km²",
-    population: "2.6 million",
-    coordinates: { lat: 6.0961, lng: -0.2477 },
-    zoom: 9,
-  },
-  NP: {
-    name: "Northern",
-    cities: [
-      "Tamale",
-      "Yendi",
-      "Savelugu",
-      "Walewale",
-      "Buipe",
-      "Damongo",
-      "Bole",
-      "Sawla",
-      "Larabanga",
-      "Salaga",
-    ],
-    capital: "Tamale",
-    area: "70,384 km²",
-    population: "2.5 million",
-    coordinates: { lat: 9.4008, lng: -0.8393 },
-    zoom: 8,
-  },
-  UE: {
-    name: "Upper East",
-    cities: [
-      "Bolgatanga",
-      "Bawku",
-      "Navrongo",
-      "Zebilla",
-      "Sandema",
-      "Paga",
-      "Bongo",
-      "Tongo",
-      "Sirigu",
-      "Binduri",
-    ],
-    capital: "Bolgatanga",
-    area: "8,842 km²",
-    population: "1.3 million",
-    coordinates: { lat: 10.7856, lng: -0.8519 },
-    zoom: 9,
-  },
-  UW: {
-    name: "Upper West",
-    cities: [
-      "Wa",
-      "Tumu",
-      "Lawra",
-      "Nandom",
-      "Jirapa",
-      "Hamile",
-      "Gwollu",
-      "Funsi",
-      "Lambussie",
-      "Wechiau",
-    ],
-    capital: "Wa",
-    area: "18,476 km²",
-    population: "900,000",
-    coordinates: { lat: 10.0601, lng: -2.5098 },
-    zoom: 9,
-  },
-  TV: {
-    name: "Volta",
-    cities: [
-      "Ho",
-      "Hohoe",
-      "Keta",
-      "Aflao",
-      "Kpando",
-      "Kpeve",
-      "Denu",
-      "Akatsi",
-      "Dzodze",
-      "Have",
-    ],
-    capital: "Ho",
-    area: "20,570 km²",
-    population: "2.1 million",
-    coordinates: { lat: 6.6009, lng: 0.4703 },
-    zoom: 9,
-  },
-  WP: {
-    name: "Western",
-    cities: [
-      "Sekondi-Takoradi",
-      "Tarkwa",
-      "Axim",
-      "Prestea",
-      "Shama",
-      "Elubo",
-      "Half Assini",
-      "Bogoso",
-      "Daboase",
-      "Awaso",
-    ],
-    capital: "Sekondi-Takoradi",
-    area: "23,921 km²",
-    population: "3.0 million",
-    coordinates: { lat: 4.9346, lng: -1.7137 },
-    zoom: 9,
-  },
-  OT: {
-    name: "Oti",
-    cities: [
-      "Dambai",
-      "Jasikan",
-      "Kadjebi",
-      "Kpassa",
-      "Nkwanta",
-      "Worawora",
-      "Brewaniase",
-      "Chinderi",
-      "Kete Krachi",
-      "Pai Katanga",
-    ],
-    capital: "Dambai",
-    area: "38,323 km²",
-    population: "1.2 million",
-    coordinates: { lat: 8.0689, lng: 0.1796 },
-    zoom: 8,
-  },
-  SV: {
-    name: "Savannah",
-    cities: [
-      "Goaso",
-      "Mim",
-      "Dadieso",
-      "Acherensua",
-      "Kenyasi",
-      "Hwidiem",
-      "Bechem",
-      "Duayaw Nkwanta",
-      "Kukuom",
-      "Sankore",
-    ],
-    capital: "Goaso",
-    area: "10,074 km²",
-    population: "1.6 million",
-    coordinates: { lat: 6.8066, lng: -2.5176 },
-    zoom: 9,
-  },
+type CityData = {
+  id: number;
+  name: string;
+  latitude?: string;
+  longitude?: string;
 };
 
-// Define proper types for form data
+// Define proper types for form data with enterprise location support
 interface LocationFormData {
   region?: string;
   city?: string;
   postalCode?: string;
   fullAddress?: string;
+  // Enterprise location fields
+  advancedLocation?: {
+    coordinates: LocationCoordinates;
+    address: string;
+    placeId?: string;
+  };
+  locationMethod?: 'manual' | 'advanced' | 'gps';
 }
 
 interface LocationInputProps {
@@ -284,6 +61,8 @@ interface LocationInputProps {
     city?: FieldError;
     postalCode?: FieldError;
     fullAddress?: FieldError;
+    advancedLocation?: FieldError;
+    locationMethod?: FieldError;
   };
   setValue: UseFormSetValue<LocationFormData>;
   watch: UseFormWatch<LocationFormData>;
@@ -296,6 +75,7 @@ export const LocationInput = ({
   watch,
 }: LocationInputProps) => {
   const [region, setRegion] = useState("");
+  const [selectedStateId, setSelectedStateId] = useState<number | null>(null);
   const [cityInput, setCityInput] = useState("");
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [isCityOpen, setIsCityOpen] = useState(false);
@@ -305,11 +85,67 @@ export const LocationInput = ({
   } | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
   const [isLocating, setIsLocating] = useState(false);
+  const [locationMethod, setLocationMethod] = useState<'manual' | 'advanced' | 'gps'>('manual');
+  const [showAdvancedInput, setShowAdvancedInput] = useState(false);
+  const [advancedLocation, setAdvancedLocation] = useState<{
+    coordinates: LocationCoordinates;
+    address: string;
+    placeId?: string;
+  } | null>(null);
+  
+  // Dynamic state and city data
+  const [states, setStates] = useState<StateData[]>([]);
+  const [cities, setCities] = useState<CityData[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  
   const cityInputRef = useRef<HTMLInputElement>(null);
 
   // Watch current form values with proper error handling
   const watchedRegion = watch ? watch("region") : "";
   const watchedCity = watch ? watch("city") : "";
+
+  // Load Ghana states on component mount
+  useEffect(() => {
+    const loadStates = async () => {
+      setLoadingStates(true);
+      try {
+        // Ghana country ID is 83 in react-country-state-city
+        const ghanaStates = await GetState(83);
+        setStates(ghanaStates);
+      } catch (error) {
+        console.error('Failed to load states:', error);
+        toast.error('Failed to load regions');
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+    
+    loadStates();
+  }, []);
+
+  // Load cities when a state is selected
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedStateId) {
+        setCities([]);
+        return;
+      }
+      
+      setLoadingCities(true);
+      try {
+        const stateCities = await GetCity(83, selectedStateId);
+        setCities(stateCities);
+      } catch (error) {
+        console.error('Failed to load cities:', error);
+        toast.error('Failed to load cities');
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+    
+    loadCities();
+  }, [selectedStateId]);
 
   // Sync local state with form values
   useEffect(() => {
@@ -324,28 +160,28 @@ export const LocationInput = ({
     }
   }, [watchedCity, cityInput]);
 
-  const currentRegionData = useMemo(
-    () =>
-      region ? ghanaRegionsData[region as keyof typeof ghanaRegionsData] : null,
-    [region]
-  );
+  // Get current state data
+  const currentStateData = useMemo(() => {
+    return states.find(state => state.name === region || state.state_code === region);
+  }, [states, region]);
 
+  // Filter cities based on input
   const filteredCities = useMemo(() => {
-    if (!region || !ghanaRegionsData[region as keyof typeof ghanaRegionsData])
-      return [];
-    return ghanaRegionsData[
-      region as keyof typeof ghanaRegionsData
-    ].cities.filter((city) =>
-      city.toLowerCase().includes(cityInput.toLowerCase())
+    if (!cities.length) return [];
+    return cities.filter((city) =>
+      city.name.toLowerCase().includes(cityInput.toLowerCase())
     );
-  }, [region, cityInput]);
+  }, [cities, cityInput]);
 
   // Set map location when region changes
   useEffect(() => {
-    if (currentRegionData) {
-      setMapLocation(currentRegionData.coordinates);
+    if (currentStateData && currentStateData.latitude && currentStateData.longitude) {
+      setMapLocation({
+        lat: parseFloat(currentStateData.latitude),
+        lng: parseFloat(currentStateData.longitude)
+      });
     }
-  }, [currentRegionData]);
+  }, [currentStateData]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -363,20 +199,31 @@ export const LocationInput = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRegionSelect = (val: string) => {
-    setRegion(val);
-    setValue("region", val);
+  const handleRegionSelect = (stateData: StateData) => {
+    setRegion(stateData.name);
+    setSelectedStateId(stateData.id);
+    setValue("region", stateData.name);
     setIsRegionOpen(false);
     setCityInput("");
     setValue("city", "");
     setAddressSuggestions([]);
+    setCities([]); // Clear cities when region changes
   };
 
-  const handleCitySelect = (city: string) => {
-    setValue("city", city);
-    setCityInput(city);
+  const handleCitySelect = (cityData: CityData) => {
+    setValue("city", cityData.name);
+    setCityInput(cityData.name);
     setIsCityOpen(false);
-    fetchAddressSuggestions(city);
+    fetchAddressSuggestions(cityData.name);
+    
+    // Update map location if city has coordinates
+    if (cityData.latitude && cityData.longitude) {
+      const cityLocation = {
+        lat: parseFloat(cityData.latitude),
+        lng: parseFloat(cityData.longitude)
+      };
+      setMapLocation(cityLocation);
+    }
   };
 
   const fetchAddressSuggestions = async (query: string) => {
@@ -417,14 +264,12 @@ export const LocationInput = ({
       (error) => {
         console.error("Geolocation error:", error);
         // Fallback to simulated location
-        if (currentRegionData) {
+        if (currentStateData && currentStateData.latitude && currentStateData.longitude) {
           setMapLocation({
-            lat:
-              currentRegionData.coordinates.lat + (Math.random() * 0.1 - 0.05),
-            lng:
-              currentRegionData.coordinates.lng + (Math.random() * 0.1 - 0.05),
+            lat: parseFloat(currentStateData.latitude) + (Math.random() * 0.1 - 0.05),
+            lng: parseFloat(currentStateData.longitude) + (Math.random() * 0.1 - 0.05),
           });
-          setValue("fullAddress", `Near ${currentRegionData.capital} Central`);
+          setValue("fullAddress", `Near ${currentStateData.name} Center`);
         }
         setIsLocating(false);
       },
@@ -454,9 +299,207 @@ export const LocationInput = ({
     setValue("postalCode", value);
   };
 
+  // Handle advanced location selection
+  const handleAdvancedLocationChange = async (location?: {
+    coordinates: LocationCoordinates;
+    address: string;
+    placeId?: string;
+  }) => {
+    if (location) {
+      setAdvancedLocation(location);
+      setMapLocation(location.coordinates);
+      setValue("advancedLocation", location);
+      setValue("fullAddress", location.address);
+      setValue("locationMethod", "advanced");
+      
+      // Try to extract region/city from address for compatibility
+      const addressParts = location.address.split(',');
+      if (addressParts.length > 1) {
+        const possibleCity = addressParts[0].trim();
+        const possibleRegion = addressParts[addressParts.length - 1].trim();
+        
+        // Try to match with loaded Ghana states
+        const matchedState = states.find(state =>
+          state.name.toLowerCase().includes(possibleRegion.toLowerCase()) ||
+          possibleRegion.toLowerCase().includes(state.name.toLowerCase())
+        );
+        
+        if (matchedState) {
+          setRegion(matchedState.name);
+          setSelectedStateId(matchedState.id);
+          setValue("region", matchedState.name);
+          
+          // Load cities for the matched state
+          try {
+            const stateCities = await GetCity(83, matchedState.id);
+            setCities(stateCities);
+            
+            // Check if city matches any cities in the state
+            const matchedCity = stateCities.find(city =>
+              city.name.toLowerCase().includes(possibleCity.toLowerCase()) ||
+              possibleCity.toLowerCase().includes(city.name.toLowerCase())
+            );
+            
+            if (matchedCity) {
+              setCityInput(matchedCity.name);
+              setValue("city", matchedCity.name);
+            }
+          } catch (error) {
+            console.warn('Failed to load cities for matched state:', error);
+          }
+        }
+      }
+      
+      toast.success('Location set successfully!');
+    } else {
+      setAdvancedLocation(null);
+      setValue("advancedLocation", undefined);
+      setValue("locationMethod", "manual");
+    }
+  };
+
+  // Switch between location input methods
+  const handleLocationMethodChange = (method: 'manual' | 'advanced' | 'gps') => {
+    setLocationMethod(method);
+    setValue("locationMethod", method);
+    
+    if (method === 'advanced') {
+      setShowAdvancedInput(true);
+    } else {
+      setShowAdvancedInput(false);
+      if (method === 'manual') {
+        setAdvancedLocation(null);
+        setValue("advancedLocation", undefined);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Location Input Method Selector */}
+      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+          <FiGlobe className="mr-2 text-indigo-600" />
+          Choose Location Input Method
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => handleLocationMethodChange('manual')}
+            className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+              locationMethod === 'manual'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 bg-white dark:bg-gray-800'
+            }`}
+          >
+            <div className="flex items-center mb-2">
+              <FiMapPin className={`mr-2 ${locationMethod === 'manual' ? 'text-indigo-600' : 'text-gray-500'}`} />
+              <span className={`font-medium ${locationMethod === 'manual' ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-gray-100'}`}>
+                Manual Entry
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Select region and city manually
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLocationMethodChange('advanced')}
+            className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+              locationMethod === 'advanced'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 bg-white dark:bg-gray-800'
+            }`}
+          >
+            <div className="flex items-center mb-2">
+              <FiGlobe className={`mr-2 ${locationMethod === 'advanced' ? 'text-indigo-600' : 'text-gray-500'}`} />
+              <span className={`font-medium ${locationMethod === 'advanced' ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-gray-100'}`}>
+                Smart Search
+              </span>
+              <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                Recommended
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Advanced autocomplete with GPS
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLocationMethodChange('gps')}
+            className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+              locationMethod === 'gps'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 bg-white dark:bg-gray-800'
+            }`}
+          >
+            <div className="flex items-center mb-2">
+              <FiNavigation className={`mr-2 ${locationMethod === 'gps' ? 'text-indigo-600' : 'text-gray-500'}`} />
+              <span className={`font-medium ${locationMethod === 'gps' ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-gray-100'}`}>
+                GPS Only
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Use current GPS location
+            </p>
+          </button>
+        </div>
+      </div>
+
+      {/* Advanced Location Input */}
+      {locationMethod === 'advanced' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-4"
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+              <FiGlobe className="mr-2 text-indigo-600" />
+              Advanced Location Search
+              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                High Accuracy
+              </span>
+            </h4>
+            <AdvancedLocationInput
+              value={advancedLocation ? {
+                coordinates: advancedLocation.coordinates,
+                address: advancedLocation.address,
+                placeId: advancedLocation.placeId,
+              } : undefined}
+              onChange={handleAdvancedLocationChange}
+              placeholder="Search for your address with high accuracy..."
+              label="Address Search"
+              showMap={false}
+              autoComplete={true}
+              bias={currentStateData?.latitude && currentStateData?.longitude ? {
+                lat: parseFloat(currentStateData.latitude),
+                lng: parseFloat(currentStateData.longitude)
+              } : undefined}
+              className="w-full"
+            />
+            {errors.advancedLocation && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.advancedLocation.message || 'Please select a valid location'}
+              </p>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Manual Entry Fields */}
+      {locationMethod === 'manual' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Enhanced Region Selector */}
         <div className="relative region-dropdown">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -471,13 +514,12 @@ export const LocationInput = ({
           >
             <span className="flex items-center">
               <FiMapPin className="mr-2 text-indigo-600" />
-              {region &&
-              ghanaRegionsData[region as keyof typeof ghanaRegionsData] ? (
-                <span className="font-medium">
-                  {
-                    ghanaRegionsData[region as keyof typeof ghanaRegionsData]
-                      .name
-                  }
+              {region ? (
+                <span className="font-medium">{region}</span>
+              ) : loadingStates ? (
+                <span className="text-gray-400 flex items-center">
+                  <span className="animate-spin mr-2">⟳</span>
+                  Loading regions...
                 </span>
               ) : (
                 <span className="text-gray-400">Select region...</span>
@@ -500,29 +542,41 @@ export const LocationInput = ({
                 className="absolute z-20 mt-1 w-full bg-white shadow-xl rounded-lg py-1 text-base ring-1 ring-black ring-opacity-5 focus:outline-none max-h-96 overflow-auto"
               >
                 <div className="py-1">
-                  {Object.entries(ghanaRegionsData).map(([code, data]) => (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() => handleRegionSelect(code)}
-                      className={`w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors flex items-center ${
-                        region === code
-                          ? "bg-indigo-100 text-indigo-900"
-                          : "text-gray-900"
-                      }`}
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium">{data.name}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Capital: {data.capital} • {data.area} • Pop:{" "}
-                          {data.population}
+                  {loadingStates ? (
+                    <div className="px-4 py-3 text-gray-500 flex items-center">
+                      <span className="animate-spin mr-2">⟳</span>
+                      Loading regions...
+                    </div>
+                  ) : states.length > 0 ? (
+                    states.map((state) => (
+                      <button
+                        key={state.id}
+                        type="button"
+                        onClick={() => handleRegionSelect(state)}
+                        className={`w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors flex items-center ${
+                          region === state.name
+                            ? "bg-indigo-100 text-indigo-900"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{state.name}</div>
+                          {state.latitude && state.longitude && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Coordinates: {parseFloat(state.latitude).toFixed(4)}, {parseFloat(state.longitude).toFixed(4)}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
-                        {code}
-                      </span>
-                    </button>
-                  ))}
+                        <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
+                          {state.state_code}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-gray-500">
+                      No regions available
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -547,9 +601,9 @@ export const LocationInput = ({
                 setCityInput(e.target.value);
                 setValue("city", e.target.value);
               }}
-              onFocus={() => region && setIsCityOpen(true)}
-              placeholder={region ? "Search city..." : "Select region first"}
-              disabled={!region}
+              onFocus={() => selectedStateId && setIsCityOpen(true)}
+              placeholder={selectedStateId ? "Search city..." : "Select region first"}
+              disabled={!selectedStateId || loadingCities}
               className={`w-full px-4 py-3 rounded-lg border ${
                 errors.city ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-10 disabled:bg-gray-100 disabled:cursor-not-allowed`}
@@ -572,7 +626,7 @@ export const LocationInput = ({
           </div>
 
           <AnimatePresence>
-            {isCityOpen && region && (
+            {isCityOpen && selectedStateId && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -581,28 +635,44 @@ export const LocationInput = ({
                 className="absolute z-20 mt-1 w-full bg-white shadow-xl rounded-lg py-1 text-base ring-1 ring-black ring-opacity-5 focus:outline-none max-h-60 overflow-auto"
               >
                 <div className="py-1">
-                  {filteredCities.length > 0 ? (
+                  {loadingCities ? (
+                    <div className="px-4 py-2 text-gray-500 flex items-center">
+                      <span className="animate-spin mr-2">⟳</span>
+                      Loading cities...
+                    </div>
+                  ) : filteredCities.length > 0 ? (
                     filteredCities.map((city) => (
                       <button
-                        key={city}
+                        key={city.id}
                         type="button"
                         onClick={() => handleCitySelect(city)}
                         className={`w-full text-left px-4 py-2 hover:bg-indigo-50 transition-colors ${
-                          cityInput === city
+                          cityInput === city.name
                             ? "bg-indigo-100 text-indigo-900"
                             : "text-gray-900"
                         }`}
                       >
-                        {city}
+                        <div>
+                          <div className="font-medium">{city.name}</div>
+                          {city.latitude && city.longitude && (
+                            <div className="text-xs text-gray-500">
+                              {parseFloat(city.latitude).toFixed(4)}, {parseFloat(city.longitude).toFixed(4)}
+                            </div>
+                          )}
+                        </div>
                       </button>
                     ))
                   ) : cityInput ? (
                     <div className="px-4 py-2 text-gray-500">
                       No matching cities found
                     </div>
-                  ) : (
+                  ) : selectedStateId ? (
                     <div className="px-4 py-2 text-gray-500">
                       Type to search cities...
+                    </div>
+                  ) : (
+                    <div className="px-4 py-2 text-gray-500">
+                      Please select a region first
                     </div>
                   )}
                 </div>
@@ -646,167 +716,211 @@ export const LocationInput = ({
             </p>
           )}
         </div>
-      </div>
 
-      {/* Address Autocomplete */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Full Address
-        </label>
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Building, street, landmark"
-            {...register("fullAddress")}
-            className={`w-full px-4 py-3 rounded-lg border ${
-              errors.fullAddress ? "border-red-500" : "border-gray-300"
-            } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-32`}
-          />
-          <button
-            type="button"
-            onClick={handleUseCurrentLocation}
-            disabled={isLocating}
-            className="absolute right-3 top-3.5 flex items-center text-sm text-indigo-600 hover:text-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLocating ? (
-              <>
-                <span className="animate-spin mr-1">↻</span>
-                Locating...
-              </>
-            ) : (
-              <>
-                <FiNavigation className="mr-1" />
-                Use my location
-              </>
-            )}
-          </button>
+        {/* Address Autocomplete for Manual Entry */}
+        <div className="col-span-full">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Full Address
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Building, street, landmark"
+              {...register("fullAddress")}
+              className={`w-full px-4 py-3 rounded-lg border ${
+                errors.fullAddress ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-32 bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
+            />
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={isLocating}
+              className="absolute right-3 top-3.5 flex items-center text-sm text-indigo-600 hover:text-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLocating ? (
+                <>
+                  <span className="animate-spin mr-1">↻</span>
+                  Locating...
+                </>
+              ) : (
+                <>
+                  <FiNavigation className="mr-1" />
+                  Use my location
+                </>
+              )}
+            </button>
+          </div>
+
+          {addressSuggestions.length > 0 && (
+            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+              {addressSuggestions.map((address) => (
+                <button
+                  key={address}
+                  type="button"
+                  onClick={() => {
+                    setValue("fullAddress", address);
+                    setAddressSuggestions([]);
+                  }}
+                  className="text-left text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-2 rounded transition-colors truncate text-gray-900 dark:text-gray-100"
+                  title={address}
+                >
+                  {address}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {errors.fullAddress && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.fullAddress.message}
+            </p>
+          )}
         </div>
+        </div>
+        </motion.div>
+      )}
 
-        {addressSuggestions.length > 0 && (
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            {addressSuggestions.map((address) => (
+      {/* GPS Location Handler */}
+      {locationMethod === 'gps' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-4"
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <div className="text-center">
+              <FiNavigation className="mx-auto h-12 w-12 text-indigo-600 mb-4" />
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                GPS Location Detection
+              </h4>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Click the button below to use your current GPS location
+              </p>
               <button
-                key={address}
                 type="button"
-                onClick={() => {
-                  setValue("fullAddress", address);
-                  setAddressSuggestions([]);
-                }}
-                className="text-left text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded transition-colors truncate"
-                title={address}
+                onClick={handleUseCurrentLocation}
+                disabled={isLocating}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {address}
+                {isLocating ? (
+                  <>
+                    <span className="animate-spin mr-2">↻</span>
+                    Getting Location...
+                  </>
+                ) : (
+                  <>
+                    <FiNavigation className="mr-2" />
+                    Use My Location
+                  </>
+                )}
               </button>
-            ))}
+            </div>
           </div>
-        )}
+        </motion.div>
+      )}
 
-        {errors.fullAddress && (
-          <p className="mt-1 text-sm text-red-600">
-            {errors.fullAddress.message}
-          </p>
-        )}
-      </div>
-
-      {/* Interactive Map */}
-      <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-        <div className="h-64 w-full relative">
-          <Suspense
-            fallback={
-              <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="animate-pulse text-gray-500">
-                  Loading map...
+      {/* Interactive Advanced Map */}
+      {(mapLocation || locationMethod !== 'manual') && (
+        <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-lg">
+          <div className="h-96 w-full relative">
+            <Suspense
+              fallback={
+                <div className="h-full bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <div className="animate-pulse text-gray-500 dark:text-gray-400 flex items-center">
+                    <FiGlobe className="mr-2" />
+                    Loading interactive map...
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            {typeof window !== "undefined" && (
-              <GhanaMap
-                center={mapLocation || { lat: 7.9465, lng: -1.0232 }}
-                zoom={currentRegionData?.zoom || 7}
-                onClick={handleMapClick}
-                markers={mapLocation ? [{ position: mapLocation }] : []}
-              />
-            )}
-          </Suspense>
-          <div className="absolute bottom-4 left-4 bg-white px-3 py-1 rounded-lg shadow-sm text-sm">
-            {mapLocation ? (
-              <span className="font-mono">
-                {mapLocation.lat.toFixed(4)}, {mapLocation.lng.toFixed(4)}
-              </span>
-            ) : (
-              <span className="text-gray-500">Click map to set location</span>
-            )}
+              }
+            >
+              {typeof window !== "undefined" && (
+                <AdvancedMap
+                  center={mapLocation || (currentStateData?.latitude && currentStateData?.longitude ? {
+                    lat: parseFloat(currentStateData.latitude),
+                    lng: parseFloat(currentStateData.longitude)
+                  } : { lat: 7.9465, lng: -1.0232 })}
+                  zoom={13}
+                  onClick={handleMapClick}
+                  markers={mapLocation ? [{ 
+                    position: mapLocation,
+                    type: locationMethod === 'advanced' ? 'user' : 'default',
+                    title: locationMethod === 'advanced' ? 'Selected Location' : 'GPS Location',
+                    description: advancedLocation?.address || `${mapLocation.lat.toFixed(4)}, ${mapLocation.lng.toFixed(4)}`
+                  }] : []}
+                  showControls={true}
+                  showUserLocation={locationMethod === 'gps' || locationMethod === 'advanced'}
+                  enableLocationTracking={locationMethod === 'gps'}
+                  showLayerInfo={true}
+                  initialLayer="street"
+                  isDark={false}
+                  className="w-full h-full"
+                />
+              )}
+            </Suspense>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Region Information Card */}
-      {currentRegionData && (
+      {currentStateData && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-4 border border-indigo-100"
+          className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800"
         >
           <div className="flex items-start">
-            <div className="bg-indigo-100 p-3 rounded-lg mr-4 flex-shrink-0">
-              <FiMapPin className="text-indigo-600 text-xl" />
+            <div className="bg-indigo-100 dark:bg-indigo-800 p-3 rounded-lg mr-4 flex-shrink-0">
+              <FiMapPin className="text-indigo-600 dark:text-indigo-400 text-xl" />
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-gray-900 flex items-center flex-wrap">
-                {currentRegionData.name} Region
-                <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
-                  {region}
+              <h4 className="font-medium text-gray-900 dark:text-white flex items-center flex-wrap">
+                {currentStateData.name} Region
+                <span className="ml-2 text-xs bg-indigo-100 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded">
+                  {currentStateData.state_code}
                 </span>
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                <div className="bg-white p-2 rounded-lg">
-                  <div className="text-gray-500 text-xs">Area</div>
-                  <div className="font-medium text-sm">
-                    {currentRegionData.area}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 text-sm">
+                {currentStateData.latitude && currentStateData.longitude && (
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded-lg">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Coordinates</div>
+                    <div className="font-mono text-sm text-gray-900 dark:text-white">
+                      {parseFloat(currentStateData.latitude).toFixed(4)},{" "}
+                      {parseFloat(currentStateData.longitude).toFixed(4)}
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white p-2 rounded-lg">
-                  <div className="text-gray-500 text-xs">Population</div>
-                  <div className="font-medium text-sm">
-                    {currentRegionData.population}
-                  </div>
-                </div>
-                <div className="bg-white p-2 rounded-lg">
-                  <div className="text-gray-500 text-xs">Capital</div>
-                  <div className="font-medium text-sm">
-                    {currentRegionData.capital}
-                  </div>
-                </div>
-                <div className="bg-white p-2 rounded-lg">
-                  <div className="text-gray-500 text-xs">Coordinates</div>
-                  <div className="font-mono text-xs">
-                    {currentRegionData.coordinates.lat.toFixed(4)},{" "}
-                    {currentRegionData.coordinates.lng.toFixed(4)}
+                )}
+                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg">
+                  <div className="text-gray-500 dark:text-gray-400 text-xs">Cities Available</div>
+                  <div className="font-medium text-sm text-gray-900 dark:text-white">
+                    {cities.length} cities
                   </div>
                 </div>
               </div>
-              <div className="mt-3">
-                <div className="text-gray-500 text-sm mb-1">Major Cities:</div>
-                <div className="flex flex-wrap gap-2">
-                  {currentRegionData.cities.slice(0, 8).map((city) => (
-                    <button
-                      key={city}
-                      type="button"
-                      onClick={() => handleCitySelect(city)}
-                      className="bg-white hover:bg-indigo-50 px-2 py-1 rounded text-xs transition-colors cursor-pointer"
-                    >
-                      {city}
-                    </button>
-                  ))}
-                  {currentRegionData.cities.length > 8 && (
-                    <span className="text-xs text-gray-500 px-2 py-1">
-                      +{currentRegionData.cities.length - 8} more
-                    </span>
-                  )}
+              {cities.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-gray-500 dark:text-gray-400 text-sm mb-1">Available Cities:</div>
+                  <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
+                    {cities.slice(0, 12).map((city) => (
+                      <button
+                        key={city.id}
+                        type="button"
+                        onClick={() => handleCitySelect(city)}
+                        className="bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900 px-2 py-1 rounded text-xs transition-colors cursor-pointer text-gray-900 dark:text-white"
+                      >
+                        {city.name}
+                      </button>
+                    ))}
+                    {cities.length > 12 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                        +{cities.length - 12} more
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </motion.div>

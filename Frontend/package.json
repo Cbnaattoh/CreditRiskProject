@@ -29,6 +29,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
     "react-country-region-selector": "^4.0.2",
+    "react-country-state-city": "^1.1.12",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.56.3",
     "react-hot-toast": "^2.5.2",

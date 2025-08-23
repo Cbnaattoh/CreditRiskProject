@@ -35,6 +35,23 @@ export type FormData = {
   city: string;
   landmark?: string;
   postalCode?: string;
+  fullAddress?: string;        // Full address field for manual entry
+  
+  // Enterprise Location Fields
+  enterpriseLocation?: {
+    coordinates: {
+      lat: number;
+      lng: number;
+      accuracy?: number;
+      altitude?: number;
+      altitudeAccuracy?: number;
+      heading?: number;
+      speed?: number;
+    };
+    address: string;
+    placeId?: string;
+  };
+  locationMethod?: 'manual' | 'enterprise' | 'gps';
 
   // Employment Information
   employmentStatus: 'employed' | 'unemployed' | 'self_employed' | 'retired';
@@ -227,12 +244,22 @@ export class FormDataTransformer {
         email: formData.email,
         addresses: [{
           address_type: 'HOME' as const,
-          street_address: formData.residentialAddress,
+          street_address: formData.enterpriseLocation?.address || formData.fullAddress || formData.residentialAddress,
           city: formData.city,
           state_province: formData.region,
           postal_code: formData.postalCode || '',
           country: 'Ghana',
-          is_primary: true
+          is_primary: true,
+          // Include enterprise location data if available
+          ...(formData.enterpriseLocation && {
+            coordinates: {
+              latitude: formData.enterpriseLocation.coordinates.lat,
+              longitude: formData.enterpriseLocation.coordinates.lng,
+              accuracy: formData.enterpriseLocation.coordinates.accuracy
+            },
+            place_id: formData.enterpriseLocation.placeId,
+            location_method: formData.locationMethod || 'enterprise'
+          })
         }],
         employment_history: formData.employmentStatus ? [{
           employer_name: formData.employer || '',

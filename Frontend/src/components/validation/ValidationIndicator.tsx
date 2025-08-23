@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { FiCheckCircle, FiAlertCircle, FiInfo } from 'react-icons/fi';
 
 interface ValidationIndicatorProps {
   isValid: boolean;
@@ -17,7 +17,7 @@ export const ValidationIndicator: React.FC<ValidationIndicatorProps> = ({
   if (isValid) {
     return (
       <div className={`flex items-center space-x-2 text-green-600 dark:text-green-400 ${className}`}>
-        <CheckCircle className="w-5 h-5" />
+        <FiCheckCircle className="w-5 h-5" />
         {showDetails && <span className="text-sm font-medium">All fields valid</span>}
       </div>
     );
@@ -26,7 +26,7 @@ export const ValidationIndicator: React.FC<ValidationIndicatorProps> = ({
   if (errorCount > 0) {
     return (
       <div className={`flex items-center space-x-2 text-red-600 dark:text-red-400 ${className}`}>
-        <AlertCircle className="w-5 h-5" />
+        <FiAlertCircle className="w-5 h-5" />
         {showDetails && (
           <span className="text-sm font-medium">
             {errorCount} validation error{errorCount > 1 ? 's' : ''}
@@ -38,7 +38,7 @@ export const ValidationIndicator: React.FC<ValidationIndicatorProps> = ({
 
   return (
     <div className={`flex items-center space-x-2 text-blue-600 dark:text-blue-400 ${className}`}>
-      <Info className="w-5 h-5" />
+      <FiInfo className="w-5 h-5" />
       {showDetails && <span className="text-sm font-medium">Start filling the form</span>}
     </div>
   );

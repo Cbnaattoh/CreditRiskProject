@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { HelpCircle, Info, AlertTriangle, CheckCircle } from 'lucide-react';
+import { FiHelpCircle, FiInfo, FiAlertTriangle, FiCheckCircle } from 'react-icons/fi';
 
 export type TooltipType = 'info' | 'help' | 'warning' | 'success';
 
@@ -35,13 +35,13 @@ const Tooltip: React.FC<TooltipProps> = ({
   const getIcon = () => {
     switch (type) {
       case 'help':
-        return <HelpCircle className="w-4 h-4" />;
+        return <FiHelpCircle className="w-4 h-4" />;
       case 'warning':
-        return <AlertTriangle className="w-4 h-4" />;
+        return <FiAlertTriangle className="w-4 h-4" />;
       case 'success':
-        return <CheckCircle className="w-4 h-4" />;
+        return <FiCheckCircle className="w-4 h-4" />;
       default:
-        return <Info className="w-4 h-4" />;
+        return <FiInfo className="w-4 h-4" />;
     }
   };
 

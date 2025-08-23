@@ -1,7 +1,7 @@
 import React from "react";
 import type { UseFormRegister, FieldError } from "react-hook-form";
 import type { FormData } from "../types";
-import { Info } from "lucide-react";
+import { FiInfo } from "react-icons/fi";
 import Tooltip from "../../../../components/common/Tooltip";
 
 type FormInputProps = {
@@ -110,7 +110,7 @@ export const FormInput = ({
       )}
       {helperText && (
         <div className="mt-2 flex items-start gap-2">
-          <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+          <FiInfo className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {helperText}
           </p>
