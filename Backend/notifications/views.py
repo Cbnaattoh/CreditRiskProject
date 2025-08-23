@@ -78,9 +78,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def recent(self, request):
-        """Get recent notifications (last 7 days)"""
-        week_ago = timezone.now() - timedelta(days=7)
-        notifications = self.get_queryset().filter(created_at__gte=week_ago)[:20]
+        """Get recent notifications (last 30 days for better UX)"""
+        # Increase from 7 to 30 days for better user experience
+        days_ago = timezone.now() - timedelta(days=30)
+        notifications = self.get_queryset().filter(created_at__gte=days_ago)[:20]
         serializer = self.get_serializer(notifications, many=True)
         return Response(serializer.data)
     
@@ -127,6 +128,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         }
         
         return Response(status_summary)
+    
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
