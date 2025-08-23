@@ -102,11 +102,12 @@ export const notificationsApi = createApi({
       providesTags: ['Notification'],
     }),
 
-    // Get recent notifications (last 7 days)
+    // Get recent notifications (last 30 days)
     getRecentNotifications: builder.query<Notification[], void>({
       query: () => 'notifications/recent/',
       providesTags: ['Notification'],
     }),
+
 
     // Mark specific notification as read
     markNotificationRead: builder.mutation<Notification, number>({

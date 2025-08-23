@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBell, FiX, FiCheck, FiClock, FiAlertCircle, FiEye, FiTrash2, FiArchive, FiMoreVertical } from 'react-icons/fi';
+import { FiBell, FiX, FiCheck, FiClock, FiAlertCircle, FiEye, FiTrash2, FiArchive, FiMoreVertical, FiSettings, FiFilter } from 'react-icons/fi';
 import { useNotifications } from '../utils/hooks/useNotifications';
 import { 
   useGetRecentNotificationsQuery,
@@ -15,12 +15,15 @@ import {
 } from '../redux/features/api/notifications/notificationsApi';
 import { NotificationConfirmModal } from './NotificationConfirmModal';
 import { useToast } from '../utils/Toast';
+import { useNotificationContext } from './NotificationProvider';
 
 const NotificationBell: React.FC = () => {
   const { unreadCount, isConnected } = useNotifications();
+  const { notifications, refreshNotifications } = useNotificationContext();
   const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [activeNotificationMenu, setActiveNotificationMenu] = useState<number | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'unread' | 'read'>('all');
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: 'delete' | 'archive' | 'clear' | 'deleteAll';
@@ -37,8 +40,9 @@ const NotificationBell: React.FC = () => {
     onConfirm: () => {},
   });
   
-  // Fetch actual notifications from API
-  const { data: notifications, isLoading: notificationsLoading, refetch } = useGetRecentNotificationsQuery();
+  // Fetch actual notifications from API - using context now
+  const { data: apiNotifications, isLoading: notificationsLoading, refetch } = useGetRecentNotificationsQuery();
+  const currentNotifications = notifications || apiNotifications || [];
   const [markNotificationRead] = useMarkNotificationReadMutation();
   const [markAllNotificationsRead] = useMarkAllNotificationsReadMutation();
   const [deleteNotification] = useDeleteNotificationMutation();
@@ -88,10 +92,25 @@ const NotificationBell: React.FC = () => {
     return notification.notification_type_display || notification.notification_type;
   };
 
+  // Filter notifications based on selected filter
+  const filteredNotifications = React.useMemo(() => {
+    if (!currentNotifications) return [];
+    
+    switch (filterType) {
+      case 'unread':
+        return currentNotifications.filter(n => !n.is_read);
+      case 'read':
+        return currentNotifications.filter(n => n.is_read);
+      default:
+        return currentNotifications;
+    }
+  }, [currentNotifications, filterType]);
+
   // Refresh notifications when dropdown opens
   const handleDropdownToggle = () => {
     if (!isOpen) {
       refetch(); // Refresh notifications when opening
+      refreshNotifications(); // Also refresh context
     }
     setIsOpen(!isOpen);
   };
@@ -100,8 +119,11 @@ const NotificationBell: React.FC = () => {
     try {
       await markAllNotificationsRead().unwrap();
       refetch(); // Refresh notifications list
+      refreshNotifications(); // Also refresh context
+      showToast('All notifications marked as read', 'success');
     } catch (error) {
       console.error('Failed to mark all as read:', error);
+      showToast('Failed to mark all as read', 'error');
     }
   };
 
@@ -109,6 +131,8 @@ const NotificationBell: React.FC = () => {
     try {
       await markNotificationRead(id).unwrap();
       refetch(); // Refresh notifications list
+      refreshNotifications(); // Also refresh context
+      showToast('Notification marked as read', 'success');
     } catch (error) {
       console.error('Failed to mark as read:', error);
       showToast('Failed to mark as read', 'error');
@@ -125,6 +149,7 @@ const NotificationBell: React.FC = () => {
         try {
           await deleteNotification(id).unwrap();
           refetch();
+          refreshNotifications();
           showToast('Notification deleted successfully', 'success');
         } catch (error) {
           console.error('Failed to delete notification:', error);
@@ -147,6 +172,7 @@ const NotificationBell: React.FC = () => {
         try {
           await archiveNotification(id).unwrap();
           refetch();
+          refreshNotifications();
           showToast('Notification archived successfully', 'success');
         } catch (error) {
           console.error('Failed to archive notification:', error);
@@ -171,6 +197,7 @@ const NotificationBell: React.FC = () => {
         try {
           await clearReadNotifications().unwrap();
           refetch();
+          refreshNotifications();
           showToast(`${readCount} read notifications cleared`, 'success');
         } catch (error) {
           console.error('Failed to clear read notifications:', error);
@@ -196,6 +223,7 @@ const NotificationBell: React.FC = () => {
         try {
           await deleteAllNotifications({}).unwrap();
           refetch();
+          refreshNotifications();
           showToast(`All ${totalCount} notifications deleted`, 'success');
         } catch (error) {
           console.error('Failed to delete all notifications:', error);
@@ -218,6 +246,7 @@ const NotificationBell: React.FC = () => {
         try {
           const result = await autoCleanupNotifications({ days_old: 30 }).unwrap();
           refetch();
+          refreshNotifications();
           showToast(`${result.deleted} old notifications cleaned up`, 'success');
         } catch (error) {
           console.error('Failed to auto-cleanup notifications:', error);
@@ -268,23 +297,45 @@ const NotificationBell: React.FC = () => {
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
             className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-xl z-[9000] overflow-hidden"
           >
-            {/* Header */}
+            {/* Enhanced Header */}
             <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200/50 dark:border-gray-700/50">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                   <div className={`w-2 h-2 rounded-full ${
                     isConnected ? 'bg-green-500' : 'bg-red-500'
-                  } animate-pulse`} />
+                  } animate-pulse`} title={isConnected ? 'Connected' : 'Connecting...'} />
+                  {filteredNotifications.length > 0 && (
+                    <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium rounded-full">
+                      {filteredNotifications.length}
+                    </span>
+                  )}
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsOpen(false)}
-                  className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <FiX className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                </motion.button>
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5">
+                    {(['all', 'unread', 'read'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setFilterType(filter)}
+                        className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                          filterType === filter
+                            ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsOpen(false)}
+                    className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <FiX className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  </motion.button>
+                </div>
               </div>
             </div>
 
@@ -304,9 +355,9 @@ const NotificationBell: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ) : notifications && notifications.length > 0 ? (
+              ) : filteredNotifications && filteredNotifications.length > 0 ? (
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {notifications.slice(0, 5).map((notification) => (
+                  {filteredNotifications.slice(0, 5).map((notification) => (
                     <div
                       key={notification.id}
                       className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
@@ -401,23 +452,26 @@ const NotificationBell: React.FC = () => {
                 <div className="p-8 text-center">
                   <FiBell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No notifications yet
+                    {filterType === 'all' ? 'No notifications yet' : `No ${filterType} notifications`}
                   </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {isConnected ? 'Updates will appear here' : 'Connecting...'}
+                    {filterType === 'all' 
+                      ? (isConnected ? 'Updates will appear here' : 'Connecting...') 
+                      : `Try changing the filter above`
+                    }
                   </p>
                 </div>
               )}
               
               {/* Footer actions */}
-              {notifications && notifications.length > 0 && (
+              {currentNotifications && currentNotifications.length > 0 && (
                 <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800/50">
                   <div className="space-y-2">
                     {/* Quick actions row */}
                     <div className="flex items-center justify-between text-sm">
-                      {notifications.length > 5 && (
+                      {currentNotifications.length > 5 && (
                         <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-                          View all ({notifications.length})
+                          View all ({currentNotifications.length})
                         </button>
                       )}
                       {unreadCount > 0 && (
@@ -434,7 +488,7 @@ const NotificationBell: React.FC = () => {
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <button
                         onClick={handleClearReadNotifications}
-                        disabled={!notifications.some(n => n.is_read)}
+                        disabled={!currentNotifications.some(n => n.is_read)}
                         className="px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1"
                       >
                         <FiTrash2 className="w-3 h-3" />

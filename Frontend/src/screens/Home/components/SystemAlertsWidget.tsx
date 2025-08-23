@@ -13,6 +13,7 @@ import {
   useClearReadNotificationsMutation
 } from '../../../components/redux/features/api/notifications/notificationsApi';
 import { useGetRBACDashboardQuery } from '../../../components/redux/features/api/RBAC/rbacApi';
+import { useNotificationContext } from '../../../components/notifications/NotificationProvider';
 
 interface SystemAlertsWidgetProps {
   userType: 'admin' | 'staff' | 'client';
@@ -45,9 +46,15 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
     avg_processing_time: 45
   });
   
+  // Use notification context for synchronized data
+  const { notifications: contextNotifications, refreshNotifications } = useNotificationContext();
+  
   // API queries
   const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useGetRecentNotificationsQuery();
   const { data: unreadCount } = useGetUnreadCountQuery();
+  
+  // Use context notifications if available, otherwise fallback to direct API
+  const currentNotifications = contextNotifications || notifications;
   const { data: auditLogs, isLoading: auditLoading } = useGetRecentAuditLogsQuery();
   const { data: rbacData } = useGetRBACDashboardQuery(undefined, {
     skip: userType !== 'admin'
@@ -65,6 +72,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
   const handleMarkNotificationRead = async (id: number) => {
     try {
       await markNotificationRead(id).unwrap();
+      refreshNotifications(); // Refresh context for synchronization
       // This will automatically invalidate and refetch due to RTK Query cache invalidation
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -121,8 +129,8 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
     const alerts: SystemAlert[] = [];
 
     // Add notification-based alerts
-    if (notifications) {
-      notifications.forEach(notification => {
+    if (currentNotifications) {
+      currentNotifications.forEach(notification => {
         let severity: SystemAlert['severity'] = 'info';
         
         // Map notification types to severity
@@ -319,7 +327,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
     // Add client-specific alerts
     if (userType === 'client') {
       // Fallback alerts for clients when no notifications
-      if (!notifications || notifications.length === 0) {
+      if (!currentNotifications || currentNotifications.length === 0) {
         alerts.push({
           id: 'welcome-client',
           severity: 'info',
@@ -336,7 +344,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
       const severityOrder = { high: 0, medium: 1, low: 2, info: 3 };
       return severityOrder[a.severity] - severityOrder[b.severity];
     });
-  }, [notifications, rbacData, auditLogs, userType, markNotificationRead]);
+  }, [currentNotifications, rbacData, auditLogs, userType, handleMarkNotificationRead]);
 
   // Filter alerts
   const filteredAlerts = useMemo(() => {
@@ -478,7 +486,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
             )}
 
             {/* Quick actions */}
-            {((unreadCount && unreadCount.count > 0) || (notifications && notifications.length > 0)) && (
+            {((unreadCount && unreadCount.count > 0) || (currentNotifications && currentNotifications.length > 0)) && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                 {unreadCount && unreadCount.count > 0 && (
                   <button
@@ -490,11 +498,11 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
                 )}
                 
                 {/* Bulk delete actions for notifications */}
-                {notifications && notifications.length > 0 && (
+                {currentNotifications && currentNotifications.length > 0 && (
                   <div className="flex space-x-2">
                     <button
                       onClick={handleClearReadNotifications}
-                      disabled={!notifications.some(n => n.is_read)}
+                      disabled={!currentNotifications.some(n => n.is_read)}
                       className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Clear Read

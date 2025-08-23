@@ -16,7 +16,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { AdvancedLocationInput } from '../../../../components/AdvancedLocationInput';
 import type { LocationCoordinates } from '../../../../services/advancedLocationService';
-import { GetState, GetCity } from 'react-country-state-city';
+import { Country, State, City } from 'country-state-city';
 import toast from 'react-hot-toast';
 
 // Lazy load the Advanced Map component
@@ -24,20 +24,22 @@ const AdvancedMap = lazy(() =>
   import("../../../../components/AdvancedMap").then((module) => ({ default: module.AdvancedMap }))
 );
 
-type StateData = {
-  id: number;
+// Types for country-state-city package
+interface IState {
   name: string;
-  state_code: string;
+  isoCode: string;
+  countryCode: string;
   latitude?: string;
   longitude?: string;
-};
+}
 
-type CityData = {
-  id: number;
+interface ICity {
   name: string;
+  stateCode: string;
+  countryCode: string;
   latitude?: string;
   longitude?: string;
-};
+}
 
 // Define proper types for form data with enterprise location support
 interface LocationFormData {
@@ -75,7 +77,7 @@ export const LocationInput = ({
   watch,
 }: LocationInputProps) => {
   const [region, setRegion] = useState("");
-  const [selectedStateId, setSelectedStateId] = useState<number | null>(null);
+  const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
   const [cityInput, setCityInput] = useState("");
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [isCityOpen, setIsCityOpen] = useState(false);
@@ -93,9 +95,9 @@ export const LocationInput = ({
     placeId?: string;
   } | null>(null);
   
-  // Dynamic state and city data
-  const [states, setStates] = useState<StateData[]>([]);
-  const [cities, setCities] = useState<CityData[]>([]);
+  // Dynamic state and city data using country-state-city
+  const [states, setStates] = useState<IState[]>([]);
+  const [cities, setCities] = useState<ICity[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   
@@ -107,11 +109,11 @@ export const LocationInput = ({
 
   // Load Ghana states on component mount
   useEffect(() => {
-    const loadStates = async () => {
+    const loadStates = () => {
       setLoadingStates(true);
       try {
-        // Ghana country ID is 83 in react-country-state-city
-        const ghanaStates = await GetState(83);
+        // Get Ghana's states using country-state-city package
+        const ghanaStates = State.getStatesOfCountry('GH');
         setStates(ghanaStates);
       } catch (error) {
         console.error('Failed to load states:', error);
@@ -126,15 +128,16 @@ export const LocationInput = ({
 
   // Load cities when a state is selected
   useEffect(() => {
-    const loadCities = async () => {
-      if (!selectedStateId) {
+    const loadCities = () => {
+      if (!selectedStateCode) {
         setCities([]);
         return;
       }
       
       setLoadingCities(true);
       try {
-        const stateCities = await GetCity(83, selectedStateId);
+        // Get cities of selected state using country-state-city package
+        const stateCities = City.getCitiesOfState('GH', selectedStateCode);
         setCities(stateCities);
       } catch (error) {
         console.error('Failed to load cities:', error);
@@ -145,7 +148,7 @@ export const LocationInput = ({
     };
     
     loadCities();
-  }, [selectedStateId]);
+  }, [selectedStateCode]);
 
   // Sync local state with form values
   useEffect(() => {
@@ -162,7 +165,7 @@ export const LocationInput = ({
 
   // Get current state data
   const currentStateData = useMemo(() => {
-    return states.find(state => state.name === region || state.state_code === region);
+    return states.find(state => state.name === region || state.isoCode === region);
   }, [states, region]);
 
   // Filter cities based on input
@@ -199,9 +202,9 @@ export const LocationInput = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRegionSelect = (stateData: StateData) => {
+  const handleRegionSelect = (stateData: IState) => {
     setRegion(stateData.name);
-    setSelectedStateId(stateData.id);
+    setSelectedStateCode(stateData.isoCode);
     setValue("region", stateData.name);
     setIsRegionOpen(false);
     setCityInput("");
@@ -210,7 +213,7 @@ export const LocationInput = ({
     setCities([]); // Clear cities when region changes
   };
 
-  const handleCitySelect = (cityData: CityData) => {
+  const handleCitySelect = (cityData: ICity) => {
     setValue("city", cityData.name);
     setCityInput(cityData.name);
     setIsCityOpen(false);
@@ -326,12 +329,12 @@ export const LocationInput = ({
         
         if (matchedState) {
           setRegion(matchedState.name);
-          setSelectedStateId(matchedState.id);
+          setSelectedStateCode(matchedState.isoCode);
           setValue("region", matchedState.name);
           
           // Load cities for the matched state
           try {
-            const stateCities = await GetCity(83, matchedState.id);
+            const stateCities = City.getCitiesOfState('GH', matchedState.isoCode);
             setCities(stateCities);
             
             // Check if city matches any cities in the state
@@ -601,9 +604,9 @@ export const LocationInput = ({
                 setCityInput(e.target.value);
                 setValue("city", e.target.value);
               }}
-              onFocus={() => selectedStateId && setIsCityOpen(true)}
-              placeholder={selectedStateId ? "Search city..." : "Select region first"}
-              disabled={!selectedStateId || loadingCities}
+              onFocus={() => selectedStateCode && setIsCityOpen(true)}
+              placeholder={selectedStateCode ? "Search city..." : "Select region first"}
+              disabled={!selectedStateCode || loadingCities}
               className={`w-full px-4 py-3 rounded-lg border ${
                 errors.city ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-10 disabled:bg-gray-100 disabled:cursor-not-allowed`}
@@ -626,7 +629,7 @@ export const LocationInput = ({
           </div>
 
           <AnimatePresence>
-            {isCityOpen && selectedStateId && (
+            {isCityOpen && selectedStateCode && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -666,7 +669,7 @@ export const LocationInput = ({
                     <div className="px-4 py-2 text-gray-500">
                       No matching cities found
                     </div>
-                  ) : selectedStateId ? (
+                  ) : selectedStateCode ? (
                     <div className="px-4 py-2 text-gray-500">
                       Type to search cities...
                     </div>
@@ -879,7 +882,7 @@ export const LocationInput = ({
               <h4 className="font-medium text-gray-900 dark:text-white flex items-center flex-wrap">
                 {currentStateData.name} Region
                 <span className="ml-2 text-xs bg-indigo-100 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded">
-                  {currentStateData.state_code}
+                  {currentStateData.isoCode}
                 </span>
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 text-sm">
