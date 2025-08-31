@@ -11,10 +11,12 @@ services:
   database:
     image: postgres:15-alpine
     container_name: riskguard-database
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: riskguard_db
-      POSTGRES_USER: riskguard_user
-      POSTGRES_PASSWORD: RiskGuard2024!
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -36,7 +38,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: riskguard-redis
-    command: redis-server --appendonly yes --requirepass RiskGuard2024!
+    env_file:
+      - .env
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     ports:
@@ -44,7 +48,7 @@ services:
     networks:
       - riskguard-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -58,27 +62,29 @@ services:
       context: ./Backend
       dockerfile: Dockerfile
     container_name: riskguard-backend
+    env_file:
+      - .env
     environment:
       # Django Configuration
-      - SECRET_KEY=riskguard-super-secret-key-for-supervisor-demo-2024
+      - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
       
       # Database Configuration
-      - DB_NAME=riskguard_db
-      - DB_USER=riskguard_user
-      - DB_PASSWORD=RiskGuard2024!
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_HOST=database
       - DB_PORT=5432
       
       # Redis Configuration
-      - REDIS_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_BROKER_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RiskGuard2024!@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
       
       # Admin User Configuration
-      - DJANGO_SUPERUSER_EMAIL=supervisor@riskguard.com
-      - DJANGO_SUPERUSER_PASSWORD=SupervisorAccess2024!
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
       
       # ML Model Configuration
       - ML_PROCESSING_ENABLED=True
@@ -131,22 +137,24 @@ services:
       dockerfile: Dockerfile
     container_name: riskguard-celery-worker
     command: celery -A backend worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
     environment:
       # Django Configuration
-      - SECRET_KEY=riskguard-super-secret-key-for-supervisor-demo-2024
+      - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False
       
       # Database Configuration
-      - DB_NAME=riskguard_db
-      - DB_USER=riskguard_user
-      - DB_PASSWORD=RiskGuard2024!
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_HOST=database
       - DB_PORT=5432
       
       # Redis Configuration
-      - REDIS_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_BROKER_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RiskGuard2024!@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
       
       # ML Configuration
       - ML_PROCESSING_ENABLED=True
@@ -178,23 +186,25 @@ services:
       context: ./Backend
       dockerfile: Dockerfile
     container_name: riskguard-celery-beat
+    env_file:
+      - .env
     command: celery -A backend beat --loglevel=info
     environment:
       # Django Configuration
-      - SECRET_KEY=riskguard-super-secret-key-for-supervisor-demo-2024
+      - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False
       
       # Database Configuration
-      - DB_NAME=riskguard_db
-      - DB_USER=riskguard_user
-      - DB_PASSWORD=RiskGuard2024!
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_HOST=database
       - DB_PORT=5432
       
       # Redis Configuration
-      - REDIS_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_BROKER_URL=redis://:RiskGuard2024!@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RiskGuard2024!@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
     
     volumes:
       - backend_logs:/app/logs
@@ -310,7 +320,7 @@ services:
     image: rediscommander/redis-commander:latest
     container_name: riskguard-redis-commander
     environment:
-      - REDIS_HOSTS=redis:redis:6379:0:RiskGuard2024!
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD}
     ports:
       - "8081:8081"
     depends_on:
