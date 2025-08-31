@@ -211,7 +211,7 @@ const Login: React.FC = () => {
         if (setupError?.status === 401) {
           error("Session expired. Please log in again.");
           dispatch(logout());
-          navigate("/");
+          navigate("/auth");
           return;
         }
 

@@ -1,0 +1,408 @@
+# ============================================================================
+# RiskGuard - Enterprise-Grade Root .dockerignore
+# Credit Risk Management Platform
+# ============================================================================
+
+# ===== VERSION CONTROL =====
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.azure-pipelines.yml
+bitbucket-pipelines.yml
+
+# ===== DOCUMENTATION =====
+README.md
+readme.md
+README.txt
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+LICENSE.txt
+*.md
+docs/
+documentation/
+
+# Keep critical operational docs
+!Backend/markdown/ML_PIPELINE_SETUP.md
+!Backend/markdown/REQUIREMENTS.md
+!SUPERVISOR_DEPLOYMENT_GUIDE.md
+
+# ===== NODE.JS & FRONTEND =====
+node_modules/
+Frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Frontend source (if building separately)
+Frontend/src/
+Frontend/public/
+Frontend/tsconfig*.json
+Frontend/vite.config.ts
+Frontend/eslint.config.js
+
+# Frontend build outputs (include if pre-built)
+Frontend/dist/
+Frontend/build/
+
+# ===== PYTHON & BACKEND =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+venv_new/
+env/
+ENV/
+.venv/
+.env/
+pip-log.txt
+
+# Python build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== ENVIRONMENT & SECRETS =====
+.env
+.env.*
+!.env.example
+!.env.docker
+local_settings.py
+settings_local.py
+
+# Secrets and credentials (NEVER in containers)
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+ssl/
+certs/
+private/
+secrets/
+credentials/
+api_keys.py
+tokens.py
+.token
+*.token
+secrets.json
+credentials.json
+
+# ===== DATABASES =====
+db.sqlite3
+db.sqlite3-journal
+*.db
+*.sqlite
+*.sqlite3
+*.pid
+*.dump
+*.backup
+*.sql
+
+# ===== TESTING & QUALITY =====
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+test-reports/
+.testmondata
+junit.xml
+
+# Test files (exclude from production)
+Backend/tests/
+Frontend/src/**/*.test.*
+Frontend/src/**/*.spec.*
+**/test_*.py
+**/*_test.py
+conftest.py
+
+# ===== IDE & EDITORS =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+*.iml
+*.iws
+
+# ===== OPERATING SYSTEMS =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+.Trash-*
+
+# ===== LOGS & MONITORING =====
+logs/
+*.log
+Backend/logs/
+Frontend/logs/
+django.log
+creditrisk.log
+riskguard.log
+security.log
+
+# ===== MACHINE LEARNING =====
+# Training artifacts
+experiments/
+mlruns/
+.mlflow/
+wandb/
+tensorboard_logs/
+checkpoints/
+model_checkpoints/
+training_logs/
+
+# Large datasets (should be volumes)
+data/
+datasets/
+*.csv
+*.parquet
+*.feather
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+notebooks/
+
+# ML model files (consider deployment strategy)
+# Backend/ml_model/models/*.pkl  # Uncomment for external model loading
+# Backend/ml_model/models/*.joblib
+
+# Keep essential models for container
+!Backend/ml_model/models/xgboost_credit_model_fixed.pkl
+!Backend/ml_model/models/preprocessor.pkl
+!Backend/ml_model/models/feature_names.pkl
+
+# ===== MEDIA & UPLOADS =====
+# Media files (should be handled by volumes)
+Backend/media/
+media/
+uploads/
+user-uploads/
+
+# Static files (if served separately)
+# Backend/staticfiles/
+# Backend/static/
+
+# ===== DOCKER & DEPLOYMENT =====
+docker-compose.yml
+docker-compose.dev.yml
+docker-compose.local.yml
+docker-compose.override.yml
+Dockerfile.dev
+Dockerfile.local
+.dockerignore.local
+
+# Kubernetes
+k8s/
+kubernetes/
+*.kubeconfig
+secrets.yaml
+
+# ===== CLOUD & CI/CD =====
+.github/
+.gitlab-ci.local.yml
+jenkins/
+.circleci/local*
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+
+# AWS
+.aws/
+
+# GCP
+service-account.json
+
+# ===== BACKUP & TEMPORARY =====
+*.backup
+*.bak
+*.orig
+backup/
+backups/
+*.tmp
+*.temp
+temp/
+tmp/
+.tmp/
+
+# ===== CACHE & BUILD ARTIFACTS =====
+.cache/
+cache/
+.mypy_cache/
+.pytest_cache/
+.tox/
+.eslintcache
+.prettiercache
+.stylelintcache
+
+# ===== ENTERPRISE MONITORING =====
+monitoring/
+metrics/
+.sentry/
+prometheus/
+grafana/
+datadog.json
+rollbar.json
+
+# Performance profiling
+performance/
+profiling/
+*.prof
+
+# ===== LINTING & FORMATTING =====
+.flake8
+.black
+.isort.cfg
+.pylint.d/
+.bandit
+.pre-commit-config.yaml
+
+# ===== PACKAGE MANAGEMENT =====
+# Python
+pip-delete-this-directory.txt
+.installed.cfg
+Pipfile.lock
+poetry.lock
+.poetry/
+
+# Node.js
+.pnp/
+.pnp.js
+.yarn-integrity
+
+# ===== LARGE FILES & ARCHIVES =====
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+
+# ===== RUNTIME FILES =====
+*.pid
+*.seed
+*.pid.lock
+pids/
+
+# ===== CUSTOM APPLICATION FILES =====
+# RiskGuard specific
+.riskguard/
+.claude
+customer-data/
+pii/
+sensitive/
+
+# Development utilities
+scripts/dev/
+tools/dev/
+Frontend/src/dev/
+
+# ===== MISCELLANEOUS =====
+# Celery
+celerybeat-schedule
+celerybeat.pid
+worker.log
+
+# Coverage
+.nyc_output/
+*.lcov
+
+# Bower
+bower_components/
+
+# node-waf
+.lock-wscript
+
+# Compiled addons
+build/Release/
+
+# Dependency directories
+jspm_packages/
+
+# Output of npm pack
+*.tgz
+
+# ============================================================================
+# MULTI-SERVICE CONTAINER STRATEGY:
+#
+# This .dockerignore is designed for a monorepo containing both frontend 
+# and backend services. Consider these deployment patterns:
+#
+# 1. MONOLITHIC CONTAINER:
+#    - Include both Frontend/dist and Backend in single container
+#    - Use Django to serve React build files
+#    - Simplest deployment but less scalable
+#
+# 2. MULTI-STAGE BUILD:
+#    - Stage 1: Build React frontend
+#    - Stage 2: Copy built files to Django backend
+#    - Stage 3: Create production image with both
+#
+# 3. SEPARATE CONTAINERS:
+#    - Use separate .dockerignore files in Frontend/ and Backend/
+#    - Build and deploy services independently
+#    - Better for microservices architecture
+#
+# 4. BUILD CONTEXT OPTIMIZATION:
+#    - Use dockerignore patterns to exclude unnecessary files
+#    - Minimize build context for faster builds
+#    - Consider .dockerignore per service directory
+#
+# SECURITY CONSIDERATIONS:
+# - Never include secrets, keys, or credentials in container images
+# - Use multi-stage builds to exclude build tools from final image
+# - Implement container image scanning in CI/CD pipeline
+# - Follow principle of least privilege for container execution
+# - Regular base image updates for security patches
+#
+# PERFORMANCE OPTIMIZATION:
+# - Layer caching: Order from least to most frequently changed
+# - Build context size: Exclude all non-essential files
+# - Image size: Use alpine or distroless base images
+# - Startup time: Optimize container initialization
+# ============================================================================

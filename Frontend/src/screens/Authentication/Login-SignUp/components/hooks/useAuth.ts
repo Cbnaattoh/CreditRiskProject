@@ -167,12 +167,12 @@ export const useAuth = (): UseAuthReturn => {
     try {
       await logoutMutation().unwrap();
       dispatch(logoutAction());
-      navigate("/", { replace: true });
+      navigate("/auth", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
       setLogoutError(error instanceof Error ? error.message : "Logout failed");
       dispatch(logoutAction());
-      navigate("/", { replace: true });
+      navigate("/auth", { replace: true });
     } finally {
       setIsLoggingOut(false);
     }

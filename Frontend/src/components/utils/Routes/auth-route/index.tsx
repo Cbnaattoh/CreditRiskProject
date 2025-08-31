@@ -7,7 +7,15 @@ import LoginSecurityGuard from "../../guards/LoginSecurityGuard";
 
 const authRoutes: RouteObject[] = [
   { 
-    path: "/", 
+    path: "/auth", 
+    element: (
+      <LoginSecurityGuard>
+        <Login />
+      </LoginSecurityGuard>
+    ) 
+  },
+  { 
+    path: "/login", 
     element: (
       <LoginSecurityGuard>
         <Login />

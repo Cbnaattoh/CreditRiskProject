@@ -1,0 +1,103 @@
+<svg width="600" height="400" viewBox="0 0 600 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+<stop offset="50%" style="stop-color:#1e3a8e;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+</linearGradient>
+<radialGradient id="aiGlow" cx="50%" cy="50%" r="60%">
+<stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.4" />
+<stop offset="100%" style="stop-color:transparent;stop-opacity:0" />
+</radialGradient>
+</defs>
+
+<rect width="600" height="400" fill="url(#gradient1)"/>
+
+<!-- AI Neural Network Representation -->
+<g opacity="0.6">
+<!-- Nodes -->
+<circle cx="100" cy="100" r="4" fill="#3b82f6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+</circle>
+<circle cx="150" cy="150" r="4" fill="#3b82f6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+</circle>
+<circle cx="200" cy="120" r="4" fill="#3b82f6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" begin="1s" repeatCount="indefinite"/>
+</circle>
+<circle cx="250" cy="180" r="4" fill="#3b82f6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" begin="1.5s" repeatCount="indefinite"/>
+</circle>
+<circle cx="300" cy="140" r="4" fill="#3b82f6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+</circle>
+
+<!-- Connections -->
+<line x1="100" y1="100" x2="150" y2="150" stroke="#3b82f6" stroke-width="1" opacity="0.4">
+  <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3s" repeatCount="indefinite"/>
+</line>
+<line x1="150" y1="150" x2="200" y2="120" stroke="#3b82f6" stroke-width="1" opacity="0.4">
+  <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3s" begin="0.5s" repeatCount="indefinite"/>
+</line>
+<line x1="200" y1="120" x2="250" y2="180" stroke="#3b82f6" stroke-width="1" opacity="0.4">
+  <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3s" begin="1s" repeatCount="indefinite"/>
+</line>
+<line x1="250" y1="180" x2="300" y2="140" stroke="#3b82f6" stroke-width="1" opacity="0.4">
+  <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+</line>
+</g>
+
+<!-- Financial Graph -->
+<g transform="translate(350, 200)">
+<rect width="200" height="150" fill="rgba(255,255,255,0.05)" stroke="rgba(59, 130, 246, 0.2)" rx="10"/>
+<!-- Chart bars -->
+<rect x="20" y="100" width="20" height="30" fill="#3b82f6">
+  <animate attributeName="height" values="10;30;20;35" dur="4s" repeatCount="indefinite"/>
+</rect>
+<rect x="50" y="80" width="20" height="50" fill="#3b82f6">
+  <animate attributeName="height" values="20;50;40;60" dur="4s" begin="0.5s" repeatCount="indefinite"/>
+</rect>
+<rect x="80" y="90" width="20" height="40" fill="#3b82f6">
+  <animate attributeName="height" values="15;40;30;45" dur="4s" begin="1s" repeatCount="indefinite"/>
+</rect>
+<rect x="110" y="70" width="20" height="60" fill="#3b82f6">
+  <animate attributeName="height" values="25;60;50;70" dur="4s" begin="1.5s" repeatCount="indefinite"/>
+</rect>
+<rect x="140" y="60" width="20" height="70" fill="#3b82f6">
+  <animate attributeName="height" values="30;70;60;80" dur="4s" begin="2s" repeatCount="indefinite"/>
+</rect>
+<text x="10" y="20" fill="white" font-size="12" opacity="0.8">Risk Analytics</text>
+</g>
+
+<!-- Security Shield -->
+<g transform="translate(100, 250)">
+<path d="M25 30L25 45L20 50L5 50L0 45L0 30L5 25L20 25Z" fill="#10b981" opacity="0.7"/>
+<path d="M12 35L18 39L12 43L16 41L12 40L14 39L12 38Z" fill="white"/>
+</g>
+
+<!-- Bank Building -->
+<g transform="translate(450, 50)" opacity="0.3">
+<rect x="0" y="50" width="100" height="80" fill="rgba(255,255,255,0.1)" stroke="rgba(59, 130, 246, 0.2)"/>
+<!-- Columns -->
+<rect x="10" y="40" width="8" height="90" fill="rgba(255,255,255,0.1)"/>
+<rect x="30" y="40" width="8" height="90" fill="rgba(255,255,255,0.1)"/>
+<rect x="50" y="40" width="8" height="90" fill="rgba(255,255,255,0.1)"/>
+<rect x="70" y="40" width="8" height="90" fill="rgba(255,255,255,0.1)"/>
+</g>
+
+<!-- Background Glow -->
+<circle cx="300" cy="200" r="200" fill="url(#aiGlow)"/>
+
+<!-- Floating Data Points -->
+<g opacity="0.5">
+<circle cx="80" cy="300" r="2" fill="#10b981">
+  <animateTransform attributeName="transform" values="translate(0,0);translate(10,-5);translate(0,0)" dur="3s" repeatCount="indefinite"/>
+</circle>
+<circle cx="520" cy="80" r="2" fill="#3b82f6">
+  <animateTransform attributeName="transform" values="translate(0,0);translate(-8,8);translate(0,0)" dur="4s" repeatCount="indefinite"/>
+</circle>
+<circle cx="400" cy="320" r="2" fill="#10b981">
+  <animateTransform attributeName="transform" values="translate(0,0);translate(15,-10);translate(0,0)" dur="3.5s" repeatCount="indefinite"/>
+</circle>
+</g>
+</svg>

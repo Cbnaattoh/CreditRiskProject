@@ -1,24 +1,309 @@
-# Logs
-logs
+# ============================================================================
+# RiskGuard Frontend - Enterprise-Grade .gitignore
+# ============================================================================
+
+# ===== DEPENDENCIES & PACKAGE MANAGERS =====
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarnrc.yml
+
+# Package manager lock files (keep only one)
+# package-lock.json  # Uncomment if using yarn
+# yarn.lock          # Uncomment if using npm
+# pnpm-lock.yaml     # Uncomment if using npm/yarn
+
+# ===== BUILD OUTPUTS & DISTRIBUTIONS =====
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.cache/
+.temp/
+.tmp/
+
+# ===== DEVELOPMENT SERVERS & LOGS =====
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pm2/
 
-node_modules
-dist
-dist-ssr
+# ===== ENVIRONMENT & CONFIGURATION =====
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging.local
+.env.*.local
 *.local
 
-# Editor directories and files
+# Runtime configuration
+runtime.json
+config.local.json
+
+# ===== TESTING & COVERAGE =====
+coverage/
+.nyc_output/
+.coverage/
+junit.xml
+test-results/
+playwright-report/
+test-results.xml
+.jest/
+
+# ===== IDE & EDITOR FILES =====
+# VSCode
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 !.vscode/extensions.json
-.idea
+!.vscode/*.code-snippets
+
+# WebStorm/IntelliJ
+.idea/
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ===== OPERATING SYSTEMS =====
+# macOS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ===== SECURITY & SECRETS =====
+# API Keys and secrets
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+secrets.json
+api-keys.json
+credentials.json
+
+# Authentication tokens
+.token
+*.token
+.session
+*.session
+
+# SSL/TLS certificates
+ssl/
+certs/
+
+# ===== DATABASES & DATA =====
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+*.pid
+*.dump
+*.backup
+
+# ===== MEDIA & ASSETS (Production) =====
+# Uploaded files that should not be in repository
+uploads/
+user-uploads/
+profile-pics/
+documents/
+
+# Generated assets
+assets/generated/
+public/generated/
+
+# ===== TYPESCRIPT & JAVASCRIPT =====
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# TypeScript incremental compilation
+*.tsbuildinfo
+
+# ===== BUNDLERS & BUILD TOOLS =====
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Webpack
+.webpack/
+webpack-stats.json
+
+# Rollup
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Parcel
+.parcel-cache/
+
+# ===== MONITORING & PROFILING =====
+# Performance monitoring
+.lighthouse/
+bundlesize.json
+performance-budget.json
+
+# Error tracking
+sentry.properties
+
+# ===== CLOUD & DEPLOYMENT =====
+# Docker
+.dockerignore
+Dockerfile.local
+
+# Kubernetes
+*.kubeconfig
+secrets.yaml
+
+# CI/CD
+.github/workflows/local*
+.gitlab-ci.local.yml
+
+# ===== ENTERPRISE SPECIFIC =====
+# Backup files
+*.backup
+*.bak
+*.orig
+*.swp
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Lock files for enterprise tools
+.lock
+*.lock
+
+# Enterprise monitoring
+monitoring/local/
+metrics/local/
+
+# ===== BROWSER EXTENSIONS & DEVELOPMENT =====
+# React DevTools
+.react-devtools
+
+# Redux DevTools
+.redux-devtools
+
+# ===== PACKAGE SPECIFIC =====
+# Storybook
+.storybook/build/
+storybook-static/
+
+# Chromatic
+chromatic.log
+
+# ===== LINTING & FORMATTING =====
+.eslintcache
+.prettiercache
+.stylelintcache
+
+# ===== MISCELLANEOUS =====
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output/
+
+# Bower dependency directory
+bower_components/
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ============================================================================
+# ENTERPRISE DEPLOYMENT NOTES:
+#
+# 1. Review and customize based on your specific enterprise requirements
+# 2. Add company-specific patterns for proprietary tools
+# 3. Consider security requirements for your organization
+# 4. Update regularly based on new tools and frameworks
+# 5. Coordinate with DevOps team for CI/CD specific ignores
+#
+# SECURITY REMINDERS:
+# - Never commit API keys, certificates, or credentials
+# - Regularly audit for accidentally committed secrets
+# - Use pre-commit hooks to prevent sensitive data commits
+# - Consider using tools like git-secrets or detect-secrets
+# ============================================================================

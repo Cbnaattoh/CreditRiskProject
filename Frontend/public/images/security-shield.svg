@@ -1,0 +1,94 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialGradient id="securityGlow" cx="50%" cy="50%" r="60%">
+<stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
+<stop offset="100%" style="stop-color:transparent;stop-opacity:0" />
+</radialGradient>
+<linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+<stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+</linearGradient>
+</defs>
+
+<rect width="400" height="400" fill="#0f172a"/>
+
+<!-- Background glow -->
+<circle cx="200" cy="200" r="150" fill="url(#securityGlow)"/>
+
+<!-- Main Shield -->
+<g transform="translate(140, 100)">
+<!-- Shield outline -->
+<path d="M60 20L10 40L10 120C8 140 15 160 60 190C105 160 112 140 110 120L110 40L60 20Z" 
+      fill="rgba(15, 23, 42, 0.9)" stroke="#10b981" stroke-width="2">
+  <animate attributeName="stroke-opacity" values="0.5;1;0.5" dur="3s" repeatCount="indefinite"/>
+</path>
+
+<!-- Inner shield gradient -->
+<path d="M60 30L20 45L20 100C18 115 25 130 60 150C95 130 102 115 100 100L100 45L60 30Z" 
+      fill="url(#shieldGradient)" opacity="0.7">
+  <animate attributeName="opacity" values="0.5;0.8;0.5" dur="4s" repeatCount="indefinite"/>
+</path>
+
+<!-- Central checkmark -->
+<g transform="translate(45, 70)">
+<path d="m10 30 20 20L50 9" stroke="white" stroke-width="4" fill="none" 
+      stroke-linecap="round" stroke-linejoin="round">
+  <animate attributeName="stroke-dasharray" values="0 100;100 0;0 100" dur="4s" repeatCount="indefinite"/>
+</path>
+</g>
+
+<!-- Shield accents -->
+<circle cx="30" cy="60" r="3" fill="#10b981" opacity="0.6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+</circle>
+<circle cx="90" cy="70" r="3" fill="#10b981" opacity="0.6">
+  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+</circle>
+<circle cx="60" cy="160" r="4" fill="#10b981" opacity="0.8">
+  <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" begin="1s" repeatCount="indefinite"/>
+</circle>
+</g>
+
+<!-- Floating security elements -->
+<g opacity="0.4" transform="translate(50, 50)">
+<!-- Locks -->
+<rect x="0" y="10" width="20" height="15" fill="none" stroke="#3b82f6" stroke-width="2" rx="3"/>
+<rect x="4" y="20" width="12" height="10" fill="rgba(59, 130, 246, 0.3)" rx="2">
+  <animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
+</rect>
+</g>
+
+<g opacity="0.4" transform="translate(300, 80)">
+<rect x="0" y="10" width="20" height="15" fill="none" stroke="#3b82f6" stroke-width="2" rx="3"/>
+<rect x="4" y="20" width="12" height="10" fill="rgba(59, 130, 246, 0.3)" rx="2">
+  <animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" begin="1s" repeatCount="indefinite"/>
+</rect>
+</g>
+
+<!-- Security rings -->
+<g transform="translate(200, 200)">
+<circle cx="0" cy="0" r="100" fill="none" stroke="rgba(59, 130, 246, 0.2)" stroke-width="1" opacity="0.3">
+  <animate attributeName="r" values="80;120;80" dur="6s" repeatCount="indefinite"/>
+</circle>
+<circle cx="0" cy="0" r="130" fill="none" stroke="rgba(16, 185, 129, 0.2)" stroke-width="1" opacity="0.2">
+  <animate attributeName="r" values="110;150;110" dur="8s" repeatCount="indefinite"/>
+</circle>
+<circle cx="0" cy="0" r="160" fill="none" stroke="rgba(59, 130, 246, 0.1)" stroke-width="1" opacity="0.1">
+  <animate attributeName="r" values="140;180;140" dur="10s" repeatCount="indefinite"/>
+</circle>
+</g>
+
+<!-- Data flow indicators -->
+<g transform="translate(30, 300)" opacity="0.5">
+<circle cx="0" cy="0" r="3" fill="#10b981">
+  <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/>
+</circle>
+<circle cx="30" cy="-10" r="3" fill="#3b82f6">
+  <animate attributeName="opacity" values="0;1;0" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+</circle>
+<circle cx="60" cy="20" r="3" fill="#10b981">
+  <animate attributeName="opacity" values="0;1;0" dur="2s" begin="1s" repeatCount="indefinite"/>
+</circle>
+</g>
+</svg>

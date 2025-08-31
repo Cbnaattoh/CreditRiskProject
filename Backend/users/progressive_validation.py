@@ -1,12 +1,3 @@
-"""
-Industry-Grade Progressive Validation System
-Provides enterprise-level registration validation with:
-- Advanced security checks
-- Performance monitoring
-- Caching optimization
-- Comprehensive analytics
-- Real-time fraud detection
-"""
 import re
 import time
 import hashlib
@@ -27,7 +18,6 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.conf import settings
 
-from .ghana_card_service import GhanaCardService
 from .models import User
 
 logger = logging.getLogger(__name__)
@@ -384,7 +374,7 @@ def validate_step2_identity(request):
             errors['ghana_card_number'] = 'Ghana Card number is required'
         else:
             # Check format
-            if not GhanaCardService.validate_ghana_card_number(ghana_card_number):
+            if not re.match(r'^GHA-\d{9}-\d$', ghana_card_number):
                 errors['ghana_card_number'] = 'Invalid Ghana Card format. Use: GHA-123456789-1'
             else:
                 # Check uniqueness
@@ -547,9 +537,11 @@ def process_ghana_card_ocr(request):
             logger.info("[CACHE HIT] OCR result served from cache")
             return Response(cached_result)
         
-        # Process using enhanced Ghana Card processor with comprehensive error handling
+        # Process using enhanced Ghana Card processor with timeout protection
         try:
             from .enhanced_ghana_card_service import ghana_card_processor
+            import concurrent.futures
+            import signal
             
             # Ensure image files are properly positioned
             if hasattr(front_image, 'seek'):
@@ -557,13 +549,44 @@ def process_ghana_card_ocr(request):
             if hasattr(back_image, 'seek'):
                 back_image.seek(0)
             
-            result = ghana_card_processor.process_ghana_card_enterprise(
-                front_image,
-                back_image,
-                first_name,
-                last_name,
-                ghana_card_number
-            )
+            # Use thread pool with strict timeout for OCR processing
+            def process_with_timeout():
+                return ghana_card_processor.process_ghana_card_enterprise(
+                    front_image,
+                    back_image,
+                    first_name,
+                    last_name,
+                    ghana_card_number
+                )
+            
+            # Execute with 15-second timeout (more aggressive)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(process_with_timeout)
+                try:
+                    result = future.result(timeout=15)  # Reduced to 15 second timeout
+                except concurrent.futures.TimeoutError:
+                    logger.warning("Ghana Card OCR processing timed out after 15 seconds")
+                    # Return a timeout result with bypass option
+                    result = {
+                        'success': False,
+                        'verification_status': 'timeout',
+                        'results': {
+                            'extracted_name': None,
+                            'extracted_number': None,
+                            'name_verified': False,
+                            'number_verified': False,
+                            'message': 'OCR processing timed out. You can proceed with manual verification or try again with clearer images.',
+                            'bypass_available': True,  # Allow manual verification
+                            'manual_verification_required': True
+                        },
+                        'processing_time_ms': 15000,
+                        'recommendations': [
+                            'Take new photos in bright, natural lighting',
+                            'Ensure the Ghana Card text is clearly visible and not blurry',
+                            'Hold the camera steady when taking photos',
+                            'You may proceed with manual verification if OCR continues to fail'
+                        ]
+                    }
             
         except ImportError as import_error:
             logger.error(f"Import error: {str(import_error)}")
@@ -655,12 +678,32 @@ def process_ghana_card_ocr(request):
                 ]
             }
         
-        # Add API-specific metadata
+        # Add API-specific metadata and enhanced error information
         result.update({
             'client_timestamp': timezone.now().isoformat(),
             'ocr_version': '3.0',
             'api_version': '2.0'
         })
+        
+        # Add enterprise-grade error categorization for frontend
+        if not result.get('success', False):
+            verification_status = result.get('verification_status', 'error')
+            
+            if verification_status == 'poor_quality':
+                result['error_category'] = 'IMAGE_QUALITY'
+                result['user_action_required'] = 'RETAKE_PHOTOS'
+                result['priority'] = 'HIGH'
+                result['can_retry'] = True
+            elif verification_status == 'timeout':
+                result['error_category'] = 'PROCESSING_TIMEOUT'
+                result['user_action_required'] = 'RETRY_OR_MANUAL'
+                result['priority'] = 'MEDIUM'
+                result['can_retry'] = True
+            else:
+                result['error_category'] = 'PROCESSING_ERROR'
+                result['user_action_required'] = 'CONTACT_SUPPORT'
+                result['priority'] = 'LOW'
+                result['can_retry'] = True
         
         # Cache successful results
         if result['success'] and result['verification_status'] in ['success', 'warning']:

@@ -2,7 +2,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Custom CSS  */
+/* Global styles that are safe for all components */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom CSS animations */
 @keyframes shake {
   0%,
   100% {
@@ -27,7 +40,42 @@
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
-/* Smooth transitions for all elements */
-* {
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+/* LandingPage-specific styles - scoped to landing page only */
+.landing-page {
+  /* Smooth transitions only for landing page elements */
+  * {
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+  
+  /* Remove default button styles only within landing page - but preserve for styled buttons */
+  button:not([class]) {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* Remove default link styles only within landing page - but preserve for styled links */
+  a:not([class]) {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
+/* Custom scrollbar for webkit browsers - keep global as it's non-intrusive */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
 }

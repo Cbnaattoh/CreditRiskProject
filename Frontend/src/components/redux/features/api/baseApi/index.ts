@@ -105,6 +105,15 @@ const baseQueryWithReauth = async (
   }
 
   if (error?.status === 401) {
+    const errorData = error.data as any;
+    
+    // Handle session termination specifically
+    if (errorData?.code === 'SESSION_TERMINATED') {
+      console.warn("🔴 Session terminated by admin. Forcing logout...");
+      api.dispatch(logout());
+      return result; // Don't attempt refresh for terminated sessions
+    }
+    
     console.warn("🟡 Received 401. Attempting token refresh...");
 
     const refreshResult = await attemptTokenRefresh(api, extraOptions);

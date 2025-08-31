@@ -1,63 +1,330 @@
-# Environment
+# ============================================================================
+# RiskGuard - Credit Risk Management Platform
+# ============================================================================
+
+# ===== ENVIRONMENT & CONFIGURATION =====
 .env
 .env.local
+.env.development
+.env.test
+.env.production
+.env.staging
 .env.*.local
+*.env
+!.env.example
+
+# Local settings
+local_settings.py
+settings_local.py
+config.local.json
+config.override.json
+
+# ===== PYTHON & DJANGO =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 venv/
 venv_new/
-# Django
+env/
+ENV/
+.venv/
+
+# Django specific
 *.log
 *.pot
 *.pyc
-__pycache__/
 local_settings.py
 db.sqlite3
+db.sqlite3-journal
 /staticfiles
-.claude
+/static_root
+
+# ===== NODE.JS & FRONTEND =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/
+package-lock.json
+# yarn.lock  # Uncomment if using npm
+# pnpm-lock.yaml  # Uncomment if using npm/yarn
+
+# Frontend build outputs
+Frontend/dist/
+Frontend/build/
+Frontend/.temp/
+Frontend/.cache/
+
+# ===== DATABASES =====
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
 
 # PostgreSQL
 *.pid
 *.dump
+*.backup
+*.sql
 
-# IDE & Editor
-.idea/
+# ===== SECURITY & SECRETS =====
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+ssl/
+certs/
+private/
+
+# API keys and credentials
+api_keys.py
+tokens.py
+.token
+*.token
+secrets.json
+credentials.json
+
+# ===== MEDIA & UPLOADS =====
+# Backend media files
+Backend/media/
+backend/media/
+media/
+uploads/
+user-uploads/
+
+# Frontend assets
+Frontend/public/uploads/
+Frontend/src/assets/uploads/
+
+# ===== LOGS & MONITORING =====
+logs/
+*.log
+django.log
+creditrisk.log
+riskguard.log
+ml_pipeline.log
+security.log
+audit.log
+performance.log
+
+# ===== TESTING & COVERAGE =====
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+.nyc_output/
+test-results/
+junit.xml
+
+# ===== MACHINE LEARNING =====
+# Training artifacts
+experiments/
+mlruns/
+.mlflow/
+wandb/
+checkpoints/
+training_logs/
+
+# Large datasets
+data/
+datasets/
+*.csv
+*.parquet
+*.feather
+
+# Keep essential models (comment out if models are too large)
+# Backend/ml_model/models/*.pkl
+# Backend/ml_model/models/*.joblib
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# ===== IDE & EDITORS =====
+# VSCode
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
 *.swp
 *.swo
 *~
 
-backend/media/
-
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Machine Learning (exclude training artifacts, keep production models)
-# models/*.pkl  # Commented out - we need the production model files
-# models/*.joblib
-
-# Temporary/problematic files
-nul
-*.tmp
-*.temp
-
-# OS generated
+# ===== OPERATING SYSTEMS =====
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
+
+# Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
+# Linux
+*~
+.directory
+.Trash-*
 
-# Build/Deployment
+# ===== BUILD & DEPLOYMENT =====
 build/
 dist/
+out/
 *.egg-info/
+.cache/
+.tmp/
+temp/
+tmp/
 
-# data
-data/
+# Docker
+.dockerignore.local
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Kubernetes
+*.kubeconfig
+secrets.yaml
+
+# ===== CLOUD & CI/CD =====
+# AWS
+.aws/
+*.pem
+
+# GCP
+service-account.json
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+
+# CI/CD
+.github/workflows/local*
+.gitlab-ci.local.yml
+
+# ===== MONITORING & PROFILING =====
+# Sentry
+.sentry/
+sentry.properties
+
+# Performance
+performance/
+profiling/
+*.prof
+
+# ===== ENTERPRISE SPECIFIC =====
+# Claude AI
+.claude
+
+# Backup files
+*.backup
+*.bak
+*.orig
+backup/
+backups/
+
+# Temporary/problematic files
+nul
+*.tmp
+*.temp
+.temporary
+
+# Custom application directories
+.riskguard/
+customer-data/
+pii/
+sensitive/
+
+# ===== LINTING & FORMATTING =====
+.eslintcache
+.prettiercache
+.stylelintcache
+.mypy_cache/
+.flake8
+.black
+
+# ===== PACKAGE MANAGERS =====
+# Python
+pip-log.txt
+.installed.cfg
+Pipfile.lock
+poetry.lock
+
+# Node.js
+.pnp
+.pnp.js
+.yarn-integrity
+
+# ===== RUNTIME FILES =====
+*.pid
+*.seed
+*.pid.lock
+pids/
+
+# ===== MISCELLANEOUS =====
+# OS generated files
+.DS_Store?
+._*
+.fuse_hidden*
+.nfs*
+
+# Editor backup files
+*~
+\#*\#
+.\#*
+
+# Large archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ============================================================================
+# SECURITY & COMPLIANCE NOTES:
+#
+# 1. NEVER commit secrets, API keys, certificates, or credentials
+# 2. Use environment variables for all sensitive configuration
+# 3. Implement pre-commit hooks to scan for secrets (git-secrets, detect-secrets)
+# 4. Regularly audit repository for accidentally committed sensitive data
+# 5. Follow company data classification policies
+# 6. Ensure compliance with GDPR, PCI DSS, SOX, and industry regulations
+# 7. Use signed commits for critical changes
+# 8. Enable branch protection with required reviews
+#
+# BACKUP & RECOVERY STRATEGY:
+# - Database dumps and backups stored in secure, separate systems
+# - Use encrypted backup solutions with access controls
+# - Test backup restoration procedures regularly
+# - Maintain offline backups for disaster recovery
+#
+# MONITORING & AUDIT:
+# - Enable git audit logging
+# - Monitor for suspicious access patterns
+# - Regular security scans of repository
+# - Automated compliance checking in CI/CD
+# ============================================================================

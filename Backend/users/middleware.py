@@ -263,25 +263,84 @@ class SessionTrackingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        response = self.get_response(request)
-        
-        # Update last activity for authenticated users
+        # First check if the session should be terminated before processing
         if hasattr(request, 'user') and request.user.is_authenticated:
+            # DEBUG: Print middleware execution
+            print(f"🔍 SessionTrackingMiddleware: Checking user {request.user.email} on {request.path}")
+            
+            # Check both session-based and JWT-based authentication
+            session_terminated = False
+            
+            # Check if user is marked for forced logout
+            from django.core.cache import cache
+            force_logout_flag = cache.get(f"force_logout_{request.user.id}")
+            if force_logout_flag:
+                session_terminated = True
+                print(f"🚫 Force logout flag detected for user {request.user.email}")
+                logger.info(f"Force logout flag detected for user {request.user.email}")
+                # Clear the flag after using it
+                cache.delete(f"force_logout_{request.user.id}")
+            else:
+                print(f"✅ No force logout flag for user {request.user.email}")
+            
+            # Check Django session
             session_key = request.session.session_key
             if session_key:
                 try:
                     user_session = UserSession.objects.get(
                         session_key=session_key,
-                        user=request.user,
-                        is_active=True
+                        user=request.user
                     )
-                    user_session.last_activity = timezone.now()
-                    user_session.save(update_fields=['last_activity'])
+                    
+                    # If session has been terminated, force logout
+                    if not user_session.is_active:
+                        session_terminated = True
+                        logger.info(f"Django session terminated for user {request.user.email}")
+                    else:
+                        # Update last activity for active sessions
+                        user_session.last_activity = timezone.now()
+                        user_session.save(update_fields=['last_activity'])
+                        
                 except UserSession.DoesNotExist:
                     # Session exists but not tracked - create it
                     self._create_user_session(request)
+            
+            # For JWT authentication, check if user has any active sessions
+            # If all sessions are terminated, the user should be logged out
+            if not session_terminated and self._is_jwt_request(request):
+                active_sessions = UserSession.objects.filter(
+                    user=request.user,
+                    is_active=True
+                ).exists()
+                
+                if not active_sessions:
+                    session_terminated = True
+                    logger.info(f"All sessions terminated for JWT user {request.user.email}")
+            
+            # Handle session termination
+            if session_terminated:
+                # Flush the Django session to force logout
+                request.session.flush()
+                
+                # Return 401 Unauthorized for API calls
+                if request.path.startswith('/api/'):
+                    return JsonResponse({
+                        'error': 'Session terminated',
+                        'message': 'Your session has been terminated. Please log in again.',
+                        'code': 'SESSION_TERMINATED'
+                    }, status=401)
+                else:
+                    # For non-API requests, redirect to login
+                    from django.shortcuts import redirect
+                    return redirect('/api/auth/login/')
         
+        response = self.get_response(request)
         return response
+
+    def _is_jwt_request(self, request):
+        """Check if request is authenticated via JWT"""
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        return auth_header.startswith('Bearer ')
 
     def _create_user_session(self, request):
         """Create a UserSession record for tracking"""

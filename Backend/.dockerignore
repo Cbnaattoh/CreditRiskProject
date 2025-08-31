@@ -1,4 +1,39 @@
-# Python
+# ============================================================================
+# RiskGuard Backend - Enterprise-Grade .dockerignore
+# ============================================================================
+
+# ===== VERSION CONTROL =====
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+.gitkeep
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.azure-pipelines.yml
+bitbucket-pipelines.yml
+
+# ===== DOCUMENTATION & README =====
+README.md
+readme.md
+README.txt
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+LICENSE.txt
+*.md
+docs/
+documentation/
+
+# Keep critical operational docs
+!DEPLOYMENT.md
+!API.md
+!ML_PIPELINE_SETUP.md
+!REQUIREMENTS.md
+
+# ===== PYTHON LANGUAGE & ENVIRONMENT =====
 __pycache__/
 *.py[cod]
 *$py.class
@@ -16,37 +51,169 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# Virtual Environment
+# ===== VIRTUAL ENVIRONMENTS =====
 venv/
+venv_new/
 env/
 ENV/
+env.bak/
+venv.bak/
 .venv/
 .env/
+.python-version
+.pyenv-version
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Environment files
+# ===== ENVIRONMENT & SECRETS =====
 .env
 .env.*
 !.env.example
+!.env.docker
+local_settings.py
+settings_local.py
 
-# IDE files
-.vscode/
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+secrets/
+credentials/
+api_keys.py
+tokens.py
+.token
+*.token
+secrets.json
+credentials.json
+config.json
+private_key.json
+
+# ===== DATABASES =====
+db.sqlite3
+db.sqlite3-journal
+*.db
+*.sqlite
+*.sqlite3
+*.pid
+*.dump
+*.backup
+*.sql
+*.psql
+*.mysql
+*.cnf
+
+# ===== DJANGO FRAMEWORK =====
+# Static files (should be collected in container)
+staticfiles/
+static_root/
+# static/ # Uncomment if static files handled separately
+
+# Media files (should be handled by volumes)
+# media/ # Uncomment if media handled by volumes
+# uploads/
+
+# Django logs
+*.log
+logs/
+django.log
+debug.log
+error.log
+access.log
+
+# Django cache
+.cache/
+cache/
+
+# Session files
+django_session/
+.sessions/
+
+# ===== CELERY & BACKGROUND TASKS =====
+celerybeat-schedule
+celerybeat.pid
+worker.log
+celery.log
+
+# ===== TESTING & QUALITY ASSURANCE =====
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.tox/
+.nox/
+htmlcov/
+.cache
+nosetests.xml
+coverage/
+test-reports/
+.testmondata
+
+# Test files (exclude from production containers)
+tests/
+test/
+test_*.py
+*_test.py
+**/*test*.py
+**/*spec*.py
+conftest.py
+
+# ===== LINTING & CODE QUALITY =====
+.flake8
+.black
+.isort.cfg
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pylint.d/
+.bandit
+.safety
+.pre-commit-config.yaml
+
+# ===== IDE & EDITOR FILES =====
+# PyCharm
 .idea/
+*.iml
+*.iws
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
 *.swp
 *.swo
+*.tmp
 *~
 
-# OS generated files
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== OPERATING SYSTEMS =====
+# macOS
 .DS_Store
 .DS_Store?
 ._*
@@ -55,64 +222,250 @@ db.sqlite3-journal
 ehthumbs.db
 Thumbs.db
 
-# Git
-.git/
-.gitignore
-README.md
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
 
-# Testing
-.coverage
-.pytest_cache/
-.tox/
-htmlcov/
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
-# Documentation
-docs/
-*.md
-!ML_PIPELINE_SETUP.md
+# ===== MACHINE LEARNING & AI =====
+# Training artifacts and experiments
+experiments/
+mlruns/
+.mlflow/
+wandb/
+tensorboard_logs/
+checkpoints/
+model_checkpoints/
+training_logs/
+validation_logs/
 
-# Node.js (if any frontend build tools)
-node_modules/
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+notebooks/
+
+# Large datasets (should be mounted as volumes)
+data/
+datasets/
+# *.csv # Uncomment if CSVs are large
+# *.json # Uncomment if JSON files are large
+*.parquet
+*.feather
+
+# Model files (consider size vs. deployment strategy)
+# ml_model/models/*.pkl # Uncomment for large models
+# ml_model/models/*.joblib
+# ml_model/models/*.h5
+# ml_model/models/*.hdf5
+
+# Keep essential models for container
+!ml_model/models/xgboost_credit_model_fixed.pkl
+!ml_model/models/preprocessor.pkl
+!ml_model/models/feature_names.pkl
+
+# ===== LOGS & MONITORING =====
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Jupyter Notebooks
-.ipynb_checkpoints/
-*.ipynb
+# Application-specific logs
+creditrisk.log
+riskguard.log
+ml_pipeline.log
+security_audit.log
+security.log
+audit.log
+performance.log
 
-# Temporary files
+# ===== CLOUD & DEPLOYMENT =====
+# Docker development files
+docker-compose.yml
+docker-compose.dev.yml
+docker-compose.local.yml
+docker-compose.override.yml
+Dockerfile.dev
+Dockerfile.local
+
+# Kubernetes
+*.kubeconfig
+secrets.yaml
+config-secrets.yaml
+k8s/
+kubernetes/
+
+# CI/CD
+.github/
+.gitlab-ci.local.yml
+jenkins.local
+.circleci/local*
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+terraform.rc
+
+# ===== ENTERPRISE MONITORING =====
+# Monitoring configs
+monitoring/local/
+metrics/local/
+prometheus/local/
+grafana/local/
+.sentry/
+rollbar.log
+datadog.json
+
+# Performance monitoring
+performance/
+profiling/
+*.prof
+profile_stats
+.prof
+
+# ===== BACKUP & TEMPORARY FILES =====
+*.backup
+*.bak
+*.orig
+backup/
+backups/
 *.tmp
 *.temp
 temp/
 tmp/
+.tmp/
 
-# Large files that shouldn't be in containers
+# ===== NODE.JS & FRONTEND BUILD TOOLS =====
+# (In case of integrated frontend builds)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.npm
+.yarn/
+
+# ===== DOCUMENTATION GENERATION =====
+# Sphinx
+docs/_build/
+site/
+.readthedocs.yml
+
+# MkDocs
+site/
+
+# ===== LARGE FILES & ARCHIVES =====
 *.zip
 *.tar.gz
 *.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
 
-# Development scripts
+# ===== CUSTOM APPLICATION EXCLUSIONS =====
+# RiskGuard specific development files
+.riskguard/
 scripts/dev/
-docker-compose.override.yml
+tools/dev/
+utils/dev/
 
-# Cache directories
-.cache/
-.mypy_cache/
-.pytest_cache/
+# Customer data (NEVER in containers)
+customer-data/
+pii/
+sensitive/
+user_uploads/temp/
 
-# Logs
-logs/*.log
-*.log
+# Custom cache and temp directories
+ml_model/cache/
+ml_model/temp/
+risk_assessments/temp/
+reports/temp/
 
-# Backup files
-*.bak
-*.backup
+# ===== RUNTIME & PROCESS FILES =====
+*.pid
+*.seed
+*.pid.lock
+pids/
 
-# Media files (these should be handled by volumes)
-# Uncomment if you want to exclude media files from the image
-# media/
+# ===== MISCELLANEOUS =====
+# Python-specific
+.Python
+.node_repl_history
 
-# ML Model files (large files should be downloaded separately)
-# ml_model/models/*.pkl
-# ml_model/models/*.json
+# Package management
+.installed.cfg
+Pipfile.lock
+poetry.lock
+.poetry/
+
+# Coverage
+.nyc_output/
+*.lcov
+
+# Bower (if used)
+bower_components/
+
+# node-waf
+.lock-wscript
+
+# Compiled binary addons
+build/Release/
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache
+.npm
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ============================================================================
+# ENTERPRISE DOCKER BUILD OPTIMIZATION:
+#
+# 1. Multi-stage builds: Use this with builder pattern for optimal images
+# 2. Layer caching: Order patterns from least to most frequently changed
+# 3. Security: Zero secrets, credentials, or sensitive data in images
+# 4. Size optimization: Exclude all non-essential files for runtime
+#
+# SECURITY BEST PRACTICES:
+# - Never include secrets, API keys, or credentials
+# - Use build-time arguments for configuration
+# - Implement image scanning in CI/CD pipeline
+# - Follow principle of least privilege
+# - Regular security updates and base image updates
+#
+# COMPLIANCE CONSIDERATIONS:
+# - PCI DSS: No payment card data in container images
+# - GDPR: No personal data without proper handling
+# - SOX: Audit trail and change management compliance
+# - Industry-specific: Follow sector regulations
+#
+# OPERATIONAL EXCELLENCE:
+# - Health checks and monitoring integration
+# - Proper logging and observability setup
+# - Resource limits and constraints
+# - Graceful shutdown handling
+# ============================================================================

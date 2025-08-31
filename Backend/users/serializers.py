@@ -839,27 +839,30 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             # Process Ghana Card before creating user
             ghana_card_result = None
             if ghana_card_front_image and ghana_card_back_image and ghana_card_number:
-                from .ghana_card_service import GhanaCardService
+                from .enhanced_ghana_card_service import ghana_card_processor
                 
-                ghana_card_result = GhanaCardService.process_ghana_card_dual_sided(
+                ghana_card_result = ghana_card_processor.process_ghana_card_enterprise(
                     ghana_card_front_image,
                     ghana_card_back_image,
-                    ghana_card_number,
                     validated_data['first_name'],
-                    validated_data['last_name']
+                    validated_data['last_name'],
+                    ghana_card_number
                 )
                 
-                # Check if both verifications failed
-                if not ghana_card_result['name_verified'] and not ghana_card_result['number_verified']:
+                # Check if both verifications failed (enhanced service structure)
+                name_verified = ghana_card_result['results']['name_verified']
+                number_verified = ghana_card_result['results']['number_verified']
+                
+                if not name_verified and not number_verified:
                     # Both failed - this is definitely not a valid Ghana Card
-                    error_message = f"Both verifications failed. Name: {ghana_card_result['message']}. Number: Could not extract card number from Ghana Card back image. Please ensure the back image is clear and shows the full card number."
+                    error_message = f"Both verifications failed. {ghana_card_result['results']['message']}"
                     raise serializers.ValidationError({
                         'ghana_card_front_image': error_message
                     })
-                elif not ghana_card_result['name_verified']:
+                elif not name_verified:
                     # Only name verification failed - allow with warning
-                    logger.warning(f"Ghana Card name verification failed but number verified: {ghana_card_result['message']}")
-                elif not ghana_card_result['number_verified']:
+                    logger.warning(f"Ghana Card name verification failed but number verified: {ghana_card_result['results']['message']}")
+                elif not number_verified:
                     # Only number verification failed - allow with warning
                     logger.warning(f"Ghana Card number verification failed but name verified")
             
@@ -877,10 +880,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 ghana_card_number=ghana_card_number,
                 ghana_card_front_image=ghana_card_front_image,
                 ghana_card_back_image=ghana_card_back_image,
-                ghana_card_name_verified=ghana_card_result['name_verified'] if ghana_card_result else False,
-                ghana_card_number_verified=ghana_card_result['number_verified'] if ghana_card_result else False,
-                ghana_card_extracted_name=ghana_card_result['extracted_name'] if ghana_card_result else '',
-                ghana_card_extracted_number=ghana_card_result['extracted_number'] if ghana_card_result else ''
+                ghana_card_name_verified=ghana_card_result['results']['name_verified'] if ghana_card_result else False,
+                ghana_card_number_verified=ghana_card_result['results']['number_verified'] if ghana_card_result else False,
+                ghana_card_extracted_name=ghana_card_result['results']['extracted_name'] if ghana_card_result else '',
+                ghana_card_extracted_number=ghana_card_result['results']['extracted_number'] if ghana_card_result else ''
             )
             
             # If user requested MFA, mark setup as pending

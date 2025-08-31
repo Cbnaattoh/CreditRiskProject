@@ -254,12 +254,16 @@ class UserSessionViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     def terminate(self, request, pk=None):
         """Terminate a specific session"""
+        print(f"🎯 Session termination requested: session_id={pk}, requesting_user={request.user.email}")
+        
         session = get_object_or_404(
             UserSession,
             pk=pk,
             user=request.user,
             is_active=True
         )
+        
+        print(f"🎯 Found session to terminate: {session.id} for user {session.user.email}, session_key={session.session_key}")
         
         # Don't allow terminating current session via this endpoint
         if session.session_key == request.session.session_key:
@@ -276,6 +280,22 @@ class UserSessionViewSet(viewsets.ReadOnlyModelViewSet):
             django_session.delete()
         except Session.DoesNotExist:
             pass
+        
+        # Blacklist any JWT tokens associated with the terminated session
+        self._blacklist_session_tokens(session.user)
+        
+        # Clear any cached session data
+        self._clear_session_cache(session.user, session.session_key)
+        
+        # Force immediate logout for this specific session by invalidating all tokens
+        # This is more aggressive but ensures immediate logout
+        print(f"🎯 About to call _force_user_logout for user {session.user.email}")
+        self._force_user_logout(session.user)
+        
+        # Verify cache was set
+        from django.core.cache import cache
+        test_flag = cache.get(f"force_logout_{session.user.id}")
+        print(f"🎯 Cache verification: force_logout_{session.user.id} = {test_flag}")
         
         # Log termination event
         SecurityEvent.objects.create(
@@ -320,7 +340,17 @@ class UserSessionViewSet(viewsets.ReadOnlyModelViewSet):
             except Session.DoesNotExist:
                 pass
             
+            # Blacklist JWT tokens for this user (bulk operation will handle all at once)
             terminated_count += 1
+        
+        # Blacklist JWT tokens for the user after terminating all sessions
+        if terminated_count > 0:
+            self._blacklist_session_tokens(request.user)
+            # Clear cached session data for all terminated sessions
+            for session in other_sessions:
+                self._clear_session_cache(session.user, session.session_key)
+            # Force logout for the user
+            self._force_user_logout(request.user)
         
         # Log mass termination event
         SecurityEvent.objects.create(
@@ -341,6 +371,68 @@ class UserSessionViewSet(viewsets.ReadOnlyModelViewSet):
             status=status.HTTP_200_OK
         )
     
+    def _blacklist_session_tokens(self, user):
+        """Blacklist JWT tokens for terminated sessions"""
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            
+            # Get all outstanding tokens for this user
+            outstanding_tokens = OutstandingToken.objects.filter(user=user)
+            blacklisted_count = 0
+            
+            logger.info(f"Found {outstanding_tokens.count()} outstanding tokens for user {user.email}")
+            
+            # Blacklist all refresh tokens to force re-authentication
+            for token_record in outstanding_tokens:
+                try:
+                    # Check if token is not already blacklisted
+                    if not BlacklistedToken.objects.filter(token=token_record).exists():
+                        # Create blacklist entry
+                        BlacklistedToken.objects.create(token=token_record)
+                        blacklisted_count += 1
+                        logger.info(f"Blacklisted token {token_record.jti} for user {user.email}")
+                    else:
+                        logger.info(f"Token {token_record.jti} already blacklisted")
+                except Exception as e:
+                    logger.error(f"Failed to blacklist token {token_record.jti}: {e}")
+            
+            logger.info(f"Blacklisted {blacklisted_count} tokens for user {user.email}")
+                    
+        except ImportError:
+            logger.warning("JWT blacklist not available - tokens will remain valid until expiration")
+        except Exception as e:
+            logger.error(f"Error blacklisting tokens for user {user.email}: {e}")
+
+    def _clear_session_cache(self, user, session_key):
+        """Clear cached session data"""
+        try:
+            # Clear common session-related cache keys
+            cache_keys = [
+                f"user_session_{user.id}_{session_key}",
+                f"session_data_{session_key}",
+                f"user_permissions_{user.id}",
+                f"user_sessions_{user.id}",
+            ]
+            
+            for key in cache_keys:
+                cache.delete(key)
+                
+            logger.info(f"Cleared session cache for user {user.email}")
+        except Exception as e:
+            logger.error(f"Failed to clear session cache: {e}")
+
+    def _force_user_logout(self, user):
+        """Force immediate logout by marking user for session termination"""
+        try:
+            # Set a cache flag that the middleware can check
+            cache_key = f"force_logout_{user.id}"
+            cache.set(cache_key, True, timeout=3600)  # 1 hour timeout
+            print(f"🚫 Set force logout flag: {cache_key} = {cache.get(cache_key)}")
+            logger.info(f"Marked user {user.email} for forced logout")
+        except Exception as e:
+            print(f"❌ Failed to set force logout flag: {e}")
+            logger.error(f"Failed to set force logout flag: {e}")
+
     @staticmethod
     def get_client_ip(request):
         """Get client IP address"""

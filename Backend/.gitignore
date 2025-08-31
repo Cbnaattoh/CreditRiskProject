@@ -1,0 +1,463 @@
+# ============================================================================
+# RiskGuard Backend - Enterprise-Grade .gitignore
+# ============================================================================
+
+# ===== PYTHON LANGUAGE SPECIFICS =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== VIRTUAL ENVIRONMENTS =====
+venv/
+venv_new/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.env/
+.python-version
+.pyenv-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ===== DJANGO FRAMEWORK =====
+# Local settings
+local_settings.py
+settings_local.py
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+*.env
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+*.db
+*.sqlite
+*.sqlite3
+
+# Django migrations (keep initial migrations)
+# */migrations/*.py
+# !*/migrations/__init__.py
+# !*/migrations/0001_initial.py
+
+# Static files (collected)
+staticfiles/
+static_root/
+static/
+.static/
+
+# Media files (uploads)
+media/
+.media/
+uploads/
+
+# Django logs
+*.log
+logs/
+django.log
+debug.log
+error.log
+access.log
+
+# Django cache
+.cache/
+cache/
+
+# Session files
+django_session/
+.sessions/
+
+# ===== CELERY & REDIS =====
+celerybeat-schedule
+celerybeat.pid
+worker.log
+celery.log
+
+# ===== DATABASE FILES =====
+# PostgreSQL
+*.pid
+*.dump
+*.backup
+*.sql
+*.psql
+
+# MySQL
+*.mysql
+*.cnf
+
+# SQLite backups
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ===== SECURITY & SECRETS =====
+# Environment files
+.env*
+!.env.example
+secrets.json
+credentials.json
+config.json
+private_key.json
+
+# SSL/TLS Certificates
+*.pem
+*.key
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+ssl/
+certs/
+private/
+
+# API Keys and tokens
+api_keys.py
+tokens.py
+.token
+*.token
+
+# JWT secrets
+jwt_secret.py
+secret_key.py
+
+# OAuth credentials
+oauth.json
+client_secrets.json
+
+# ===== MACHINE LEARNING & AI =====
+# Large model files (use Git LFS or external storage)
+# *.pkl
+# *.joblib
+# *.h5
+# *.hdf5
+# models/*.pkl
+# models/*.joblib
+
+# ML training artifacts
+experiments/
+mlruns/
+.mlflow/
+wandb/
+tensorboard_logs/
+checkpoints/
+model_checkpoints/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+notebooks/
+
+# Data files
+data/
+datasets/
+*.csv
+*.json
+*.parquet
+*.feather
+
+# Model metrics and logs
+model_metrics/
+training_logs/
+validation_logs/
+
+# ===== TESTING & COVERAGE =====
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.tox/
+.nox/
+htmlcov/
+.cache
+nosetests.xml
+coverage/
+test-reports/
+.testmondata
+
+# ===== LINTING & FORMATTING =====
+.flake8
+.black
+.isort.cfg
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pylint.d/
+.bandit
+.safety
+
+# ===== IDE & EDITOR FILES =====
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*.tmp
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== OPERATING SYSTEMS =====
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===== DOCUMENTATION =====
+# Sphinx documentation
+docs/_build/
+site/
+.readthedocs.yml
+
+# MkDocs
+site/
+
+# ===== ENTERPRISE & DEPLOYMENT =====
+# Docker
+.dockerignore.local
+docker-compose.override.yml
+docker-compose.local.yml
+Dockerfile.local
+
+# Kubernetes
+*.kubeconfig
+secrets.yaml
+config-secrets.yaml
+
+# CI/CD
+.github/workflows/local*
+.gitlab-ci.local.yml
+jenkins.local
+.circleci/local*
+
+# Enterprise monitoring
+monitoring/local/
+metrics/local/
+prometheus/local/
+grafana/local/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+backup/
+backups/
+
+# ===== LOGGING & MONITORING =====
+# Application logs
+*.log
+logs/
+log/
+app.log
+django.log
+gunicorn.log
+uwsgi.log
+supervisor.log
+
+# Security logs
+security.log
+audit.log
+access.log
+
+# Performance logs
+performance.log
+profiling/
+
+# Error tracking
+sentry.log
+rollbar.log
+
+# ===== CLOUD & EXTERNAL SERVICES =====
+# AWS
+.aws/
+aws-credentials
+*.pem
+
+# Google Cloud
+gcloud/
+service-account.json
+*.json
+
+# Azure
+.azure/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+terraform.rc
+
+# ===== ENTERPRISE SPECIFIC =====
+# Company proprietary
+proprietary/
+internal/
+confidential/
+
+# Customer data (NEVER commit)
+customer-data/
+pii/
+sensitive/
+
+# Configuration management
+ansible/
+puppet/
+chef/
+
+# License files (if proprietary)
+# LICENSE.proprietary
+# LICENSE.internal
+
+# ===== TEMPORARY & CACHE FILES =====
+*.tmp
+*.temp
+temp/
+tmp/
+.tmp/
+.cache/
+cache/
+
+# Python cache
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# ===== PROFILING & PERFORMANCE =====
+# Python profiling
+*.prof
+profile_stats
+.prof
+
+# Django debug toolbar
+.django_cache/
+debug_toolbar/
+
+# ===== RUNTIME FILES =====
+*.pid
+*.seed
+*.pid.lock
+pids/
+
+# ===== PACKAGE MANAGEMENT =====
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+.installed.cfg
+
+# Poetry
+poetry.lock
+.poetry/
+
+# Pipenv
+Pipfile.lock
+
+# ===== CUSTOM APPLICATION PATTERNS =====
+# RiskGuard specific
+ml_model/cache/
+ml_model/temp/
+risk_assessments/temp/
+user_uploads/temp/
+reports/temp/
+
+# Custom logs
+creditrisk.log
+riskguard.log
+ml_pipeline.log
+security_audit.log
+
+# ============================================================================
+# ENTERPRISE SECURITY NOTES:
+#
+# 1. Never commit sensitive data like API keys, passwords, or certificates
+# 2. Use environment variables for all configuration
+# 3. Implement pre-commit hooks to scan for secrets
+# 4. Regularly audit repository for accidentally committed sensitive data
+# 5. Use tools like git-secrets, detect-secrets, or truffleHog
+# 6. Follow principle of least privilege for repository access
+# 7. Enable branch protection and require reviews for sensitive changes
+#
+# COMPLIANCE CONSIDERATIONS:
+# - PCI DSS: No payment card data in repository
+# - GDPR: No personal data without proper anonymization
+# - SOX: Maintain audit trails for financial data processing
+# - Industry regulations: Follow sector-specific data handling requirements
+#
+# BACKUP AND RECOVERY:
+# - Database dumps should be stored securely outside repository
+# - Use separate backup systems with encryption
+# - Test backup restoration procedures regularly
+# ============================================================================
