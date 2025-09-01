@@ -229,6 +229,13 @@ else:
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@creditrisk.com')
 SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@creditrisk.com')
 
+# AWS SES Configuration for OTP emails
+AWS_SES_ACCESS_KEY_ID = os.getenv('AWS_SES_ACCESS_KEY_ID')
+AWS_SES_SECRET_ACCESS_KEY = os.getenv('AWS_SES_SECRET_ACCESS_KEY')
+AWS_SES_REGION = os.getenv('AWS_SES_REGION', 'us-east-1')
+AWS_SES_FROM_EMAIL = os.getenv('AWS_SES_FROM_EMAIL', 'noreply@yourdomain.com')
+AWS_SES_CONFIGURATION_SET = os.getenv('AWS_SES_CONFIGURATION_SET', '')
+
 # Password reset timeout (2 hours)
 PASSWORD_RESET_TIMEOUT = 7200
 

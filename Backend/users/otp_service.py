@@ -86,9 +86,9 @@ class OTPDeliveryService:
     
     def __init__(self):
         self.email_providers = [
-            'django_smtp',  # Primary
-            'sendgrid',     # Fallback 1
-            'aws_ses',      # Fallback 2
+            'aws_ses',      # Primary - Amazon SES
+            'django_smtp',  # Fallback 1
+            'sendgrid',     # Fallback 2
         ]
         
         self.sms_providers = [
@@ -109,25 +109,25 @@ class OTPDeliveryService:
         start_time = time.time()
         
         try:
-            # Try primary email provider (Django SMTP)
-            success = await self._send_django_email(email, otp, template_context)
+            # Try primary email provider (AWS SES)
+            success = await self._send_aws_ses_email(email, otp, template_context)
             
             if success:
                 result.update({
                     'success': True,
-                    'provider_used': 'django_smtp',
+                    'provider_used': 'aws_ses',
                     'delivery_time_ms': (time.time() - start_time) * 1000
                 })
-                logger.info(f"Email OTP sent successfully via Django SMTP to {email}")
+                logger.info(f"Email OTP sent successfully via AWS SES to {email}")
                 return result
             
             # Try fallback providers if primary fails
             for provider in self.email_providers[1:]:
                 try:
-                    if provider == 'sendgrid':
+                    if provider == 'django_smtp':
+                        success = await self._send_django_email(email, otp, template_context)
+                    elif provider == 'sendgrid':
                         success = await self._send_sendgrid_email(email, otp, template_context)
-                    elif provider == 'aws_ses':
-                        success = await self._send_aws_ses_email(email, otp, template_context)
                     
                     if success:
                         result.update({
@@ -251,12 +251,76 @@ class OTPDeliveryService:
             return False
     
     async def _send_aws_ses_email(self, email: str, otp: str, context: Dict[str, Any]) -> bool:
-        """Send email using AWS SES (fallback)"""
+        """Send email using AWS SES"""
         try:
-            # TODO: Implement AWS SES integration
-            # import boto3
-            # ses_client = boto3.client('ses', region_name=settings.AWS_REGION)
-            logger.info(f"AWS SES email fallback not implemented yet for {email}")
+            import boto3
+            from botocore.exceptions import ClientError, NoCredentialsError
+            
+            # Get SES configuration from settings (using existing AWS credentials)
+            ses_access_key = getattr(settings, 'AWS_ACCESS_KEY_ID', None)
+            ses_secret_key = getattr(settings, 'AWS_SECRET_ACCESS_KEY', None)
+            ses_region = getattr(settings, 'AWS_REGION', 'us-east-1')
+            ses_from_email = getattr(settings, 'AWS_SES_FROM_EMAIL', 'noreply@yourdomain.com')
+            ses_configuration_set = getattr(settings, 'AWS_SES_CONFIGURATION_SET', None)
+            
+            if not ses_access_key or not ses_secret_key:
+                logger.warning("AWS SES credentials not configured")
+                return False
+            
+            # Create SES client
+            ses_client = boto3.client(
+                'ses',
+                aws_access_key_id=ses_access_key,
+                aws_secret_access_key=ses_secret_key,
+                region_name=ses_region
+            )
+            
+            # Render HTML template
+            html_message = render_to_string('emails/otp_verification.html', {
+                'otp_code': otp,
+                'user_email': email,
+                'expiry_minutes': context.get('expiry_minutes', 10),
+                'company_name': 'CreditRisk Assessment Platform',
+                'support_email': getattr(settings, 'SUPPORT_EMAIL', 'support@creditrisk.com'),
+                **context
+            })
+            
+            # Create plain text version
+            plain_message = strip_tags(html_message)
+            
+            # Prepare email
+            message = {
+                'Subject': {'Data': f'Your Verification Code: {otp}', 'Charset': 'UTF-8'},
+                'Body': {
+                    'Text': {'Data': plain_message, 'Charset': 'UTF-8'},
+                    'Html': {'Data': html_message, 'Charset': 'UTF-8'}
+                }
+            }
+            
+            # Prepare send parameters
+            send_params = {
+                'Source': ses_from_email,
+                'Destination': {'ToAddresses': [email]},
+                'Message': message
+            }
+            
+            # Add configuration set if specified
+            if ses_configuration_set:
+                send_params['ConfigurationSetName'] = ses_configuration_set
+            
+            # Send email
+            response = ses_client.send_email(**send_params)
+            
+            logger.info(f"AWS SES email sent successfully to {email}, MessageId: {response['MessageId']}")
+            return True
+            
+        except NoCredentialsError:
+            logger.error("AWS SES credentials not found")
+            return False
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            logger.error(f"AWS SES ClientError {error_code}: {error_message}")
             return False
         except Exception as e:
             logger.error(f"AWS SES email failed: {str(e)}")
