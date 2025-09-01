@@ -404,6 +404,10 @@ def validate_step2_identity(request):
 @monitor_performance
 @rate_limit(max_requests=20, window_seconds=60)  # Increased for development testing
 def process_ghana_card_ocr(request):
+    """
+    Process Ghana Card images using AWS Textract service.
+    Note: Function name kept for API compatibility, but now uses AWS Textract exclusively.
+    """
     try:
         
         # Get uploaded files with comprehensive validation
@@ -528,20 +532,26 @@ def process_ghana_card_ocr(request):
                     'recommendations': ['Please try uploading a different image']
                 }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Generate cache key for OCR results
+        # Generate cache key for Textract results
         cache_data = f"{first_name}{last_name}{ghana_card_number}{front_image.size}{back_image.size}"
-        cache_key = ValidationCache.get_cache_key('ocr', cache_data)
-        cached_result = ValidationCache.get_cached_result(cache_key)
+        cache_key = ValidationCache.get_cache_key('textract', cache_data)
         
-        if cached_result:
-            logger.info("[CACHE HIT] OCR result served from cache")
-            return Response(cached_result)
+        # Check if cache bypass is requested (for debugging)
+        bypass_cache = request.data.get('bypass_cache', False) or request.GET.get('bypass_cache', False)
         
-        # Process using enhanced Ghana Card processor with timeout protection
+        if not bypass_cache:
+            cached_result = ValidationCache.get_cached_result(cache_key)
+            
+            if cached_result:
+                logger.info("[CACHE HIT] Textract result served from cache")
+                # Add debug info about cache
+                cached_result['from_cache'] = True
+                return Response(cached_result)
+        
+        # Process using AWS Textract service with timeout protection
         try:
-            from .enhanced_ghana_card_service import ghana_card_processor
+            from .ghana_card_textract_service import ghana_card_textract_service
             import concurrent.futures
-            import signal
             
             # Ensure image files are properly positioned
             if hasattr(front_image, 'seek'):
@@ -549,9 +559,9 @@ def process_ghana_card_ocr(request):
             if hasattr(back_image, 'seek'):
                 back_image.seek(0)
             
-            # Use thread pool with strict timeout for OCR processing
+            # Use thread pool with strict timeout for AWS Textract processing
             def process_with_timeout():
-                return ghana_card_processor.process_ghana_card_enterprise(
+                return ghana_card_textract_service.process_ghana_card_enterprise(
                     front_image,
                     back_image,
                     first_name,
@@ -559,13 +569,13 @@ def process_ghana_card_ocr(request):
                     ghana_card_number
                 )
             
-            # Execute with 15-second timeout (more aggressive)
+            # Execute with 30-second timeout for AWS Textract
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(process_with_timeout)
                 try:
-                    result = future.result(timeout=15)  # Reduced to 15 second timeout
+                    result = future.result(timeout=30)  # AWS Textract may take longer than OCR
                 except concurrent.futures.TimeoutError:
-                    logger.warning("Ghana Card OCR processing timed out after 15 seconds")
+                    logger.warning("Ghana Card AWS Textract processing timed out after 30 seconds")
                     # Return a timeout result with bypass option
                     result = {
                         'success': False,
@@ -575,16 +585,16 @@ def process_ghana_card_ocr(request):
                             'extracted_number': None,
                             'name_verified': False,
                             'number_verified': False,
-                            'message': 'OCR processing timed out. You can proceed with manual verification or try again with clearer images.',
+                            'message': 'AWS Textract processing timed out. You can proceed with manual verification or try again with clearer images.',
                             'bypass_available': True,  # Allow manual verification
                             'manual_verification_required': True
                         },
-                        'processing_time_ms': 15000,
+                        'processing_time_ms': 30000,
                         'recommendations': [
                             'Take new photos in bright, natural lighting',
                             'Ensure the Ghana Card text is clearly visible and not blurry',
                             'Hold the camera steady when taking photos',
-                            'You may proceed with manual verification if OCR continues to fail'
+                            'You may proceed with manual verification if Textract continues to fail'
                         ]
                     }
             
@@ -600,11 +610,11 @@ def process_ghana_card_ocr(request):
                     'number_verified': False,
                     'confidence': 0,
                     'similarity_score': 0.0,
-                    'message': 'OCR service import failed',
+                    'message': 'AWS Textract service import failed',
                     'detailed_analysis': {
                         'name_components': [],
                         'card_number_segments': [],
-                        'ocr_quality_score': 0,
+                        'textract_quality_score': 0,
                         'image_quality_assessment': {
                             'front_image': {'clarity': 0, 'brightness': 0, 'contrast': 0},
                             'back_image': {'clarity': 0, 'brightness': 0, 'contrast': 0}
@@ -631,7 +641,7 @@ def process_ghana_card_ocr(request):
                     'detailed_analysis': {
                         'name_components': [],
                         'card_number_segments': [],
-                        'ocr_quality_score': 0,
+                        'textract_quality_score': 0,
                         'image_quality_assessment': {
                             'front_image': {'clarity': 0, 'brightness': 0, 'contrast': 0},
                             'back_image': {'clarity': 0, 'brightness': 0, 'contrast': 0}
@@ -662,7 +672,7 @@ def process_ghana_card_ocr(request):
                     'detailed_analysis': {
                         'name_components': [],
                         'card_number_segments': [],
-                        'ocr_quality_score': 0,
+                        'textract_quality_score': 0,
                         'image_quality_assessment': {
                             'front_image': {'clarity': 0, 'brightness': 0, 'contrast': 0},
                             'back_image': {'clarity': 0, 'brightness': 0, 'contrast': 0}
@@ -681,7 +691,7 @@ def process_ghana_card_ocr(request):
         # Add API-specific metadata and enhanced error information
         result.update({
             'client_timestamp': timezone.now().isoformat(),
-            'ocr_version': '3.0',
+            'textract_version': '1.0',
             'api_version': '2.0'
         })
         
@@ -712,10 +722,10 @@ def process_ghana_card_ocr(request):
         return Response(result)
         
     except Exception as e:
-        logger.error(f"Error in enterprise Ghana Card OCR processing: {str(e)}")
+        logger.error(f"Error in enterprise Ghana Card Textract processing: {str(e)}")
         return Response({
             'success': False,
-            'error': 'OCR processing failed due to technical error',
+            'error': 'AWS Textract processing failed due to technical error',
             'results': None,
             'recommendations': [
                 'Please try again with clearer images',

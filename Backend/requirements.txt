@@ -53,10 +53,8 @@ xgboost==1.7.6
 joblib==1.3.2
 scipy==1.11.4
 
-# ===== IMAGE PROCESSING & OCR =====
+# ===== IMAGE PROCESSING =====
 Pillow==10.1.0
-opencv-python==4.8.1.78
-pytesseract==0.3.10
 
 # ===== HTTP CLIENT & REQUESTS =====
 requests==2.31.0
@@ -114,7 +112,7 @@ pydantic==2.5.0  # For ML API validation
 # matplotlib==3.8.2           # For static charts
 
 # ===== API CLIENT LIBRARIES (Optional) =====
-# boto3==1.34.0                # For AWS integration
+boto3==1.34.0                # For AWS integration
 # google-cloud-storage==2.10.0 # For GCP integration
 
 # ===== ENTERPRISE CACHE & SESSION STORAGE =====

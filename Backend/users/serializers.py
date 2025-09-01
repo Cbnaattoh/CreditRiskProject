@@ -836,12 +836,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('terms_accepted', None)
         
         try:
-            # Process Ghana Card before creating user
+            # Process Ghana Card before creating user using AWS Textract with OCR fallback
             ghana_card_result = None
             if ghana_card_front_image and ghana_card_back_image and ghana_card_number:
-                from .enhanced_ghana_card_service import ghana_card_processor
+                from .ghana_card_textract_service import ghana_card_textract_service
                 
-                ghana_card_result = ghana_card_processor.process_ghana_card_enterprise(
+                ghana_card_result = ghana_card_textract_service.process_ghana_card_enterprise(
                     ghana_card_front_image,
                     ghana_card_back_image,
                     validated_data['first_name'],

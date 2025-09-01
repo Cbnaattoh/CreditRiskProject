@@ -499,3 +499,25 @@ ML_RETRY_ATTEMPTS = int(os.getenv('ML_RETRY_ATTEMPTS', '3'))
 ML_MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'models')
 ML_CONFIDENCE_THRESHOLD = float(os.getenv('ML_CONFIDENCE_THRESHOLD', '0.7'))
 GHANA_EMPLOYMENT_ANALYSIS_ENABLED = os.getenv('GHANA_EMPLOYMENT_ANALYSIS_ENABLED', 'True').lower() == 'true'
+
+# ===== AWS Configuration =====
+# AWS credentials and region
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+
+# AWS S3 Configuration
+AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
+AWS_S3_REGION = os.getenv('AWS_S3_REGION', AWS_REGION)
+AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN')
+
+# AWS Textract Configuration
+AWS_TEXTRACT_REGION = os.getenv('AWS_TEXTRACT_REGION', AWS_REGION)
+
+# Document processing settings
+DOCUMENT_PROCESSING_ENGINE = os.getenv('DOCUMENT_PROCESSING_ENGINE', 'textract')  # 'textract' or 'ocr'
+FALLBACK_TO_OCR_ON_TEXTRACT_FAILURE = os.getenv('FALLBACK_TO_OCR_ON_TEXTRACT_FAILURE', 'True').lower() == 'true'
+
+# Ghana Card specific settings
+GHANA_CARD_VALIDATION_ENABLED = True
+GHANA_CARD_TEXTRACT_CONFIDENCE_THRESHOLD = float(os.getenv('GHANA_CARD_TEXTRACT_CONFIDENCE_THRESHOLD', '0.6'))

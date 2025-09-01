@@ -1,11 +1,8 @@
-import pytesseract
 from PIL import Image
 import requests
 from io import BytesIO
-import numpy as np
 from django.conf import settings
 from .models import DocumentAnalysis, OCRResult
-import cv2
 import json
 
 class DocumentVerifier:
@@ -52,25 +49,22 @@ class DocumentVerifier:
         return analysis
     
     def _perform_ocr(self, document):
-        # Extract text from document
+        # OCR processing removed - use AWS Textract for document analysis
+        # This would integrate with AWS Textract service for production use
         try:
             if document.file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-                img = Image.open(document.file)
-                text = pytesseract.image_to_string(img)
-                
-                # Simple field extraction (customize based on your needs)
+                # Placeholder for AWS Textract integration
                 extracted_fields = {
-                    'name': self._extract_field(text, ['name', 'full name']),
-                    'id_number': self._extract_field(text, ['id', 'identification']),
-                    # Add more fields as needed
+                    'name': 'Textract processing required',
+                    'id_number': 'Textract processing required',
                 }
                 
                 ocr_result = OCRResult.objects.create(
                     document=document,
-                    extracted_text=text,
-                    confidence=0.9,  # Would be calculated in real implementation
+                    extracted_text='AWS Textract processing required',
+                    confidence=0.0,
                     processed_fields=extracted_fields,
-                    raw_output={'text': text}
+                    raw_output={'note': 'Integrate with AWS Textract service'}
                 )
                 
                 return ocr_result

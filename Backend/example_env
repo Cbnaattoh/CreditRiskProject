@@ -22,3 +22,15 @@ DEFAULT_FROM_EMAIL = 'klvnafriyie123@gmail.com'
 # Celery settings
 CELERY_BROKER_URL='redis://host.docker.internal:6379/0'
 CELERY_RESULT_BACKEND='redis://host.docker.internal:6379/0'
+
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=your_aws_region
+
+# AWS S3 Configuration
+AWS_S3_BUCKET_NAME=your_aws_s3_bucket_name
+
+# Document Processing Configuration
+DOCUMENT_PROCESSING_ENGINE=textract
+FALLBACK_TO_OCR_ON_TEXTRACT_FAILURE=True
+GHANA_CARD_TEXTRACT_CONFIDENCE_THRESHOLD=0.6
