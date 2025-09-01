@@ -41,7 +41,7 @@ import {
 import {
   useValidateStep1Mutation,
   useValidateStep2Mutation,
-  useProcessGhanaCardOCRMutation,
+  useProcessGhanaCardTextractMutation,
   useValidateStep4Mutation,
   useSendVerificationCodeMutation,
   useVerifyCodeMutation,
@@ -68,7 +68,7 @@ interface StepValidation {
   warnings: string[];
 }
 
-interface OCRResult {
+interface TextractResult {
   name: string;
   cardNumber: string;
   confidence: number;
@@ -119,7 +119,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   // Progressive validation mutations
   const [validateStep1, { isLoading: isValidatingStep1 }] = useValidateStep1Mutation();
   const [validateStep2, { isLoading: isValidatingStep2 }] = useValidateStep2Mutation();
-  const [processOCR, { isLoading: isProcessingOCRApi }] = useProcessGhanaCardOCRMutation();
+  const [processTextract, { isLoading: isProcessingTextractApi }] = useProcessGhanaCardTextractMutation();
   const [validateStep4, { isLoading: isValidatingStep4 }] = useValidateStep4Mutation();
   const [sendVerificationCode] = useSendVerificationCodeMutation();
   const [verifyCode] = useVerifyCodeMutation();
@@ -131,9 +131,15 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   const [ghanaCardBackPreview, setGhanaCardBackPreview] = useState<string | null>(null);
 
   // OCR and verification states
-  const [ocrResults, setOcrResults] = useState<OCRResult | null>(null);
+  const [textractResults, setTextractResults] = useState<TextractResult | null>(null);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [nameVerificationStatus, setNameVerificationStatus] = useState<"pending" | "success" | "warning" | "error">("pending");
+  const [verificationBlocker, setVerificationBlocker] = useState<{
+    blocked: boolean;
+    reason: string;
+    actionRequired: string;
+    canRetry: boolean;
+  } | null>(null);
 
   // Security states
   const [showPassword, setShowPassword] = useState(false);
@@ -389,12 +395,102 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
     }
   };
 
-  const processOCRBackend = async (frontImage: File, backImage: File) => {
+  // Enterprise-grade verification validation
+  const validateVerificationResults = (result: any, inputFirstName: string, inputLastName: string): {
+    isValid: boolean;
+    blocker?: {
+      blocked: boolean;
+      reason: string;
+      actionRequired: string;
+      canRetry: boolean;
+    };
+  } => {
+    const { verification_status, results } = result;
+    
+    // Critical failure - system error
+    if (!results || verification_status === 'error') {
+      return {
+        isValid: false,
+        blocker: {
+          blocked: true,
+          reason: "Ghana Card processing failed due to technical issues",
+          actionRequired: "Please retake clear photos of your Ghana Card and try again",
+          canRetry: true
+        }
+      };
+    }
+
+    // If backend already determined success or warning, trust it
+    if (verification_status === 'success' || verification_status === 'warning') {
+      return { isValid: true };
+    }
+
+    // Only do additional validation if backend status is uncertain
+    // Name mismatch - enterprise validation
+    if (!results.name_verified && results.extracted_name) {
+      const inputName = `${inputFirstName} ${inputLastName}`.trim().toLowerCase();
+      const extractedName = results.extracted_name.toLowerCase();
+      
+      // Calculate similarity score for better error messaging
+      const similarity = results.similarity_score || 0;
+      
+      let reason: string;
+      let actionRequired: string;
+      
+      if (similarity < 0.3) {
+        // Very low similarity - likely completely different names
+        reason = `Name mismatch detected: We extracted "${results.extracted_name}" from your Ghana Card, but you entered "${inputFirstName} ${inputLastName}". These names are significantly different.`;
+        actionRequired = "Please verify your entered name matches exactly what appears on your Ghana Card, or retake clearer photos if the extraction was incorrect.";
+      } else if (similarity < 0.6) {
+        // Moderate similarity - possible spelling differences or formatting issues
+        reason = `Name similarity concern: We extracted "${results.extracted_name}" from your Ghana Card, which doesn't closely match "${inputFirstName} ${inputLastName}".`;
+        actionRequired = "Please check for spelling differences, ensure names are in the correct order, or retake photos if unclear.";
+      } else {
+        // High similarity but still flagged - might be minor differences
+        reason = `Name verification flagged: "${results.extracted_name}" vs "${inputFirstName} ${inputLastName}". Minor differences detected.`;
+        actionRequired = "Please double-check the spelling and formatting of your name, or proceed if you believe the extraction is incorrect.";
+      }
+
+      return {
+        isValid: false,
+        blocker: {
+          blocked: true,
+          reason,
+          actionRequired,
+          canRetry: true
+        }
+      };
+    }
+
+    // Card number mismatch
+    if (!results.number_verified && results.extracted_number) {
+      return {
+        isValid: false,
+        blocker: {
+          blocked: true,
+          reason: `Ghana Card number mismatch: We extracted "${results.extracted_number}" from your card, but you entered a different number.`,
+          actionRequired: "Please verify your Ghana Card number is correct, or retake clearer photos of the back of your card.",
+          canRetry: true
+        }
+      };
+    }
+
+    // Warning status - partial verification
+    if (verification_status === 'warning') {
+      // For warnings, we'll allow progression but show concern
+      return { isValid: true };
+    }
+
+    // Success
+    return { isValid: true };
+  };
+
+  const processTextractBackend = async (frontImage: File, backImage: File) => {
     setIsProcessingOCR(true);
     const startTime = Date.now();
     
-    // Track OCR processing start
-    RegistrationAnalytics.trackOCRStart();
+    // Track Textract processing start
+    RegistrationAnalytics.trackTextractStart();
     
     try {
       const data = methods.getValues();
@@ -411,8 +507,8 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
         throw new Error(`Back image validation failed: ${backValidation.error}`);
       }
       
-      // Create FormData for OCR processing
-      const formData = RegistrationService.createOCRFormData(
+      // Create FormData for Textract processing
+      const formData = RegistrationService.createTextractFormData(
         frontImage, 
         backImage,
         {
@@ -422,32 +518,48 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
         }
       );
 
-      // Use retry mechanism for OCR processing
-      const result = await retryWithBackoff(() => processOCR(formData).unwrap(), 2, 2000);
+      // Use retry mechanism for Textract processing
+      const result = await retryWithBackoff(() => processTextract(formData).unwrap(), 2, 2000);
       
-      // Process OCR results
-      const ocrResult: OCRResult = {
+      // Process Textract results
+      const textractResult: TextractResult = {
         name: result.results.extracted_name || "Unknown",
         cardNumber: result.results.extracted_number || "Unknown",
         confidence: result.results.confidence,
         verified: result.results.name_verified && result.results.number_verified,
       };
 
-      setOcrResults(ocrResult);
+      setTextractResults(textractResult);
       
-      // Set verification status based on backend result
-      if (result.verification_status === "success") {
+      // Temporary debug - check cached data structure
+      if (result.from_cache) {
+        console.log("📦 CACHED DATA:", {
+          verification_status: result.verification_status,
+          name_verified: result.results?.name_verified,
+          number_verified: result.results?.number_verified,
+          extracted_name: result.results?.extracted_name,
+          extracted_number: result.results?.extracted_number
+        });
+      }
+      
+      // Enterprise-grade validation
+      const validationResult = validateVerificationResults(result, first_name, last_name);
+      
+      if (validationResult.isValid) {
         setNameVerificationStatus("success");
+        setVerificationBlocker(null); // Clear any previous blocker
         showSuccessToast("Ghana Card verification successful!");
-        RegistrationAnalytics.trackOCRComplete(true, result.results.confidence, Date.now() - startTime);
-      } else if (result.verification_status === "warning") {
-        setNameVerificationStatus("warning");
-        showErrorToast("Verification completed with warnings. Please review the results.");
-        RegistrationAnalytics.trackOCRComplete(false, result.results.confidence, Date.now() - startTime);
+        RegistrationAnalytics.trackTextractComplete(true, result.results.confidence, Date.now() - startTime);
       } else {
+        // Set verification blocker
+        setVerificationBlocker(validationResult.blocker || null);
         setNameVerificationStatus("error");
-        showErrorToast("Verification failed. Please check your images and try again.");
-        RegistrationAnalytics.trackOCRComplete(false, result.results.confidence, Date.now() - startTime);
+        
+        // Show comprehensive error message
+        if (validationResult.blocker) {
+          showErrorToast(validationResult.blocker.reason);
+        }
+        RegistrationAnalytics.trackTextractComplete(false, result.results.confidence, Date.now() - startTime);
       }
       
       // Show detailed recommendations if any
@@ -457,15 +569,15 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       }
       
     } catch (error: any) {
-      console.error("OCR processing failed:", error);
+      console.error("Textract processing failed:", error);
       setNameVerificationStatus("error");
       
-      // Track OCR failure
-      RegistrationAnalytics.trackOCRComplete(false, 0, Date.now() - startTime);
-      RegistrationAnalytics.trackError(error, 'OCR processing');
+      // Track Textract failure
+      RegistrationAnalytics.trackTextractComplete(false, 0, Date.now() - startTime);
+      RegistrationAnalytics.trackError(error, 'Textract processing');
       
       // Enhanced error message extraction
-      let errorMessage = "OCR processing failed. Please try again with clearer images.";
+      let errorMessage = "Textract processing failed. Please try again with clearer images.";
       
       if (networkStatus === 'offline') {
         errorMessage = "You're offline. Please check your internet connection and try again.";
@@ -504,17 +616,32 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
     setStepValidations(prev => ({ ...prev, [currentStep]: validation }));
     
     if (validation.isValid) {
-      setCompletedSteps(prev => [...new Set([...prev, currentStep])]);
-      
-      // Process OCR when moving from step 3
+      // Special handling for Ghana Card step (step 3)
       if (currentStep === 3) {
         const frontImage = methods.getValues("ghana_card_front_image")?.[0];
         const backImage = methods.getValues("ghana_card_back_image")?.[0];
+        
         if (frontImage && backImage) {
-          await processOCRBackend(frontImage, backImage);
+          // Process Textract first
+          await processTextractBackend(frontImage, backImage);
+          
+          // Check if verification is blocked after processing
+          if (verificationBlocker?.blocked) {
+            setIsValidating(false);
+            showErrorToast(`Verification failed: ${verificationBlocker.reason}`);
+            return; // Block progression
+          }
+          
+          // Also check verification status
+          if (nameVerificationStatus === "error") {
+            setIsValidating(false);
+            showErrorToast("Ghana Card verification failed. Please resolve the issues before continuing.");
+            return; // Block progression
+          }
         }
       }
       
+      setCompletedSteps(prev => [...new Set([...prev, currentStep])]);
       setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
     } else {
       // Show first error
@@ -526,6 +653,11 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   };
 
   const handlePrevious = () => {
+    // Clear verification blocker when moving away from Ghana Card step
+    if (currentStep === 3) {
+      setVerificationBlocker(null);
+      setNameVerificationStatus("pending");
+    }
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
@@ -746,17 +878,101 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
         return <Step2PersonalIdentity methods={methods} />;
       case 3:
         return (
-          <Step3GhanaCardVerification
-            methods={methods}
-            frontPreview={ghanaCardFrontPreview}
-            setFrontPreview={setGhanaCardFrontPreview}
-            backPreview={ghanaCardBackPreview}
-            setBackPreview={setGhanaCardBackPreview}
-            isProcessingOCR={isProcessingOCR || isProcessingOCRApi}
-            ocrResults={ocrResults}
-            verificationStatus={nameVerificationStatus}
-            onProcessOCR={processOCRBackend}
-          />
+          <div className="space-y-6">
+            <Step3GhanaCardVerification
+              methods={methods}
+              frontPreview={ghanaCardFrontPreview}
+              setFrontPreview={setGhanaCardFrontPreview}
+              backPreview={ghanaCardBackPreview}
+              setBackPreview={setGhanaCardBackPreview}
+              isProcessingOCR={isProcessingOCR || isProcessingTextractApi}
+              ocrResults={textractResults}
+              verificationStatus={nameVerificationStatus}
+              onProcessOCR={processTextractBackend}
+            />
+            
+            {/* Enterprise-Grade Verification Blocker UI */}
+            {verificationBlocker?.blocked && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.962-.833-2.732 0L4.082 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Verification Required
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p className="mb-2">{verificationBlocker.reason}</p>
+                      <p className="font-medium">Action Required:</p>
+                      <p>{verificationBlocker.actionRequired}</p>
+                    </div>
+                    
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {/* Go Back to Edit Names Button */}
+                      <button
+                        onClick={() => {
+                          setCurrentStep(2); // Go back to personal info step
+                          setVerificationBlocker(null); // Clear the blocker
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                        </svg>
+                        Edit Name Information
+                      </button>
+                      
+                      {/* Retry Photo Button */}
+                      {verificationBlocker.canRetry && (
+                        <button
+                          onClick={() => {
+                            // Clear current images and results
+                            setGhanaCardFrontPreview(null);
+                            setGhanaCardBackPreview(null);
+                            setTextractResults(null);
+                            setNameVerificationStatus("pending");
+                            setVerificationBlocker(null);
+                            methods.setValue("ghana_card_front_image", []);
+                            methods.setValue("ghana_card_back_image", []);
+                          }}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
+                          <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          </svg>
+                          Retake Photos
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Success message when verification passes */}
+            {nameVerificationStatus === "success" && !verificationBlocker?.blocked && textractResults && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-green-800">Verification Successful</h3>
+                    <div className="mt-2 text-sm text-green-700 space-y-1">
+                      <p>✓ Name verified: <span className="font-medium">{textractResults.name}</span></p>
+                      <p>✓ Card number verified: <span className="font-medium">{textractResults.cardNumber}</span></p>
+                      <p>✓ Confidence score: <span className="font-medium">{Math.round(textractResults.confidence)}%</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         );
       case 4:
         return (
@@ -877,7 +1093,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
             <button
               type="button"
               onClick={handleNext}
-              disabled={isValidating || isProcessingOCR || isValidatingStep1 || isValidatingStep2 || isValidatingStep4 || isProcessingOCRApi}
+              disabled={isValidating || isProcessingOCR || isValidatingStep1 || isValidatingStep2 || isValidatingStep4 || isProcessingTextractApi || (currentStep === 3 && verificationBlocker?.blocked)}
               className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {(isValidating || isValidatingStep1 || isValidatingStep2 || isValidatingStep4) ? (
@@ -885,10 +1101,15 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
                   <FiLoader className="animate-spin mr-2" />
                   Validating...
                 </>
-              ) : (isProcessingOCR || isProcessingOCRApi) ? (
+              ) : (isProcessingOCR || isProcessingTextractApi) ? (
                 <>
                   <FiLoader className="animate-spin mr-2" />
                   Processing...
+                </>
+              ) : (currentStep === 3 && verificationBlocker?.blocked) ? (
+                <>
+                  <FiX className="mr-2" />
+                  Verification Required
                 </>
               ) : (
                 <>

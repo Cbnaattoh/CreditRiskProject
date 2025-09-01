@@ -26,7 +26,7 @@ export interface Step2ValidationRequest {
   ghana_card_number: string;
 }
 
-export interface OCRProcessingRequest {
+export interface TextractProcessingRequest {
   ghana_card_front_image: File;
   ghana_card_back_image: File;
   first_name: string;
@@ -34,7 +34,7 @@ export interface OCRProcessingRequest {
   ghana_card_number: string;
 }
 
-export interface OCRProcessingResponse {
+export interface TextractProcessingResponse {
   success: boolean;
   verification_status: 'success' | 'warning' | 'error' | 'processing';
   results: {
@@ -48,7 +48,7 @@ export interface OCRProcessingResponse {
     detailed_analysis?: {
       name_components: string[];
       card_number_segments: string[];
-      ocr_quality_score: number;
+      textract_quality_score: number;
       image_quality_assessment: {
         front_image: { clarity: number; brightness: number; contrast: number };
         back_image: { clarity: number; brightness: number; contrast: number };
@@ -118,7 +118,7 @@ const baseQueryWithRetry: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuer
     baseUrl: `${BASE_URL}/auth/`,
     credentials: 'include',
     prepareHeaders: (headers, { getState, endpoint }) => {
-      const isFormDataEndpoint = endpoint === 'processGhanaCardOCR' || endpoint === 'completeRegistration';
+      const isFormDataEndpoint = endpoint === 'processGhanaCardTextract' || endpoint === 'completeRegistration';
 
       if (!isFormDataEndpoint) {
         headers.set('Content-Type', 'application/json');
@@ -217,7 +217,7 @@ const performanceMonitoringBaseQuery: BaseQueryFn<string | FetchArgs, unknown, F
 export const registrationApi = createApi({
   reducerPath: 'registrationApi',
   baseQuery: performanceMonitoringBaseQuery,
-  tagTypes: ['ValidationCache', 'OCRResult'],
+  tagTypes: ['ValidationCache', 'TextractResult'],
   endpoints: (builder) => ({
 
     // Step 1: Basic Information Validation
@@ -254,26 +254,26 @@ export const registrationApi = createApi({
       },
     }),
 
-    // Step 3: Ghana Card OCR Processing
-    processGhanaCardOCR: builder.mutation<OCRProcessingResponse, FormData>({
+    // Step 3: Ghana Card AWS Textract Processing  
+    processGhanaCardTextract: builder.mutation<TextractProcessingResponse, FormData>({
       query: (formData) => ({
         url: 'register/validate/ghana-card/',
         method: 'POST',
         body: formData,
         headers: {},
       }),
-      invalidatesTags: ['OCRResult'],
-      transformResponse: (response: OCRProcessingResponse) => {
+      invalidatesTags: ['TextractResult'],
+      transformResponse: (response: TextractProcessingResponse) => {
         return {
           ...response,
           client_timestamp: Date.now(),
-          ocr_version: '3.0',
+          textract_version: '1.0',
         };
       },
       transformErrorResponse: (response: FetchBaseQueryError) => {
         return {
           status: response.status,
-          error: response.data || 'OCR processing failed',
+          error: response.data || 'Textract processing failed',
           timestamp: Date.now(),
         };
       },
@@ -338,7 +338,7 @@ export const registrationApi = createApi({
         body: formData,
         headers: {},
       }),
-      invalidatesTags: ['ValidationCache', 'OCRResult'],
+      invalidatesTags: ['ValidationCache', 'TextractResult'],
       transformResponse: (response: any) => ({
         ...response,
         client_timestamp: Date.now(),
@@ -400,7 +400,7 @@ export const registrationApi = createApi({
 export const {
   useValidateStep1Mutation,
   useValidateStep2Mutation,
-  useProcessGhanaCardOCRMutation,
+  useProcessGhanaCardTextractMutation,
   useValidateStep4Mutation,
   useSendVerificationCodeMutation,
   useVerifyCodeMutation,
@@ -452,12 +452,12 @@ export class RegistrationAnalytics {
     });
   }
 
-  static trackOCRStart() {
-    this.trackEvent('ocr_start', { timestamp: Date.now() });
+  static trackTextractStart() {
+    this.trackEvent('textract_start', { timestamp: Date.now() });
   }
 
-  static trackOCRComplete(success: boolean, confidence: number, duration: number) {
-    this.trackEvent('ocr_complete', {
+  static trackTextractComplete(success: boolean, confidence: number, duration: number) {
+    this.trackEvent('textract_complete', {
       success,
       confidence,
       duration,
@@ -488,14 +488,14 @@ export class RegistrationAnalytics {
 
   static getSessionSummary() {
     const validationEvents = this.events.filter(e => e.type.includes('validation'));
-    const ocrEvents = this.events.filter(e => e.type.includes('ocr'));
+    const textractEvents = this.events.filter(e => e.type.includes('textract'));
     const errorEvents = this.events.filter(e => e.type === 'error');
 
     return {
       sessionId: this.sessionId,
       totalEvents: this.events.length,
       validationAttempts: validationEvents.length,
-      ocrAttempts: ocrEvents.length,
+      textractAttempts: textractEvents.length,
       errors: errorEvents.length,
       sessionDuration: Date.now() - (this.events[0]?.timestamp || Date.now()),
       events: this.events,
@@ -514,7 +514,7 @@ export class RegistrationAnalytics {
 
 
 export class RegistrationService {
-  static createOCRFormData(
+  static createTextractFormData(
     frontImage: File,
     backImage: File,
     personalInfo: { first_name: string; last_name: string; ghana_card_number: string }
@@ -528,7 +528,7 @@ export class RegistrationService {
     formData.append('ghana_card_number', personalInfo.ghana_card_number);
 
     formData.append('client_timestamp', Date.now().toString());
-    formData.append('ocr_version', '3.0');
+    formData.append('textract_version', '1.0');
 
     return formData;
   }
@@ -594,7 +594,7 @@ export class RegistrationService {
       'Invalid Ghana Card format': 'Please enter your Ghana Card number in format: GHA-123456789-1',
       'Password too weak': 'Please create a stronger password with uppercase, numbers, and special characters',
       'Names do not match': 'The name on your Ghana Card doesn\'t match what you entered. Please check and try again.',
-      'OCR processing failed': 'We couldn\'t read your Ghana Card clearly. Please try taking a clearer photo.',
+      'Textract processing failed': 'We couldn\'t read your Ghana Card clearly. Please try taking a clearer photo.',
     };
 
     return errorMap[errorStr] || errorStr;
