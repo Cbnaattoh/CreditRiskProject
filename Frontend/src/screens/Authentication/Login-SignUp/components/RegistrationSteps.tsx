@@ -790,7 +790,8 @@ export const Step6Verification: React.FC<Step6Props> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const bothVerified = emailVerified && phoneVerified;
+  // Temporarily only require email verification (phone verification disabled due to budget)
+  const bothVerified = emailVerified; // && phoneVerified;
 
   return (
     <div className="space-y-6">
@@ -872,7 +873,8 @@ export const Step6Verification: React.FC<Step6Props> = ({
           )}
         </div>
 
-        {/* Phone Verification */}
+        {/* Phone Verification - TEMPORARILY DISABLED DUE TO BUDGET CONSTRAINTS */}
+        {/* 
         <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl border border-green-200">
           <div className="flex items-center mb-4">
             <FiPhone className="text-green-600 mr-3" />
@@ -938,6 +940,20 @@ export const Step6Verification: React.FC<Step6Props> = ({
               )}
             </div>
           )}
+        </div>
+        */}
+        
+        {/* Temporary Notice - Phone Verification Disabled */}
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-xl border border-yellow-200">
+          <div className="flex items-center mb-2">
+            <FiPhone className="text-yellow-600 mr-3" />
+            <h3 className="font-medium text-yellow-800 dark:text-yellow-200">
+              Phone Verification (Temporarily Disabled)
+            </h3>
+          </div>
+          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+            Phone verification is temporarily disabled. Only email verification is required to proceed.
+          </p>
         </div>
 
         {/* Account Creation Step */}

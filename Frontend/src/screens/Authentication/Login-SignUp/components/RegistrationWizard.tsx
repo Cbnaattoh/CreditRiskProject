@@ -396,7 +396,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   };
 
   // Enterprise-grade verification validation
-  const validateVerificationResults = (result: any, inputFirstName: string, inputLastName: string): {
+  const validateVerificationResults = (result: any, inputFirstName: string, inputLastName: string, inputCardNumber: string): {
     isValid: boolean;
     blocker?: {
       blocked: boolean;
@@ -420,59 +420,75 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       };
     }
 
-    // If backend already determined success or warning, trust it
-    if (verification_status === 'success' || verification_status === 'warning') {
-      return { isValid: true };
-    }
-
-    // Only do additional validation if backend status is uncertain
-    // Name mismatch - enterprise validation
-    if (!results.name_verified && results.extracted_name) {
+    // Always validate that user input matches extracted data, regardless of backend status
+    // This is our business rule enforcement
+    
+    // Name validation - enforce business rule that input must match extracted data
+    if (results.extracted_name) {
       const inputName = `${inputFirstName} ${inputLastName}`.trim().toLowerCase();
       const extractedName = results.extracted_name.toLowerCase();
       
-      // Calculate similarity score for better error messaging
-      const similarity = results.similarity_score || 0;
+      // Check for exact match or if backend successfully verified despite differences
+      const isExactMatch = inputName === extractedName;
       
-      let reason: string;
-      let actionRequired: string;
-      
-      if (similarity < 0.3) {
-        // Very low similarity - likely completely different names
-        reason = `Name mismatch detected: We extracted "${results.extracted_name}" from your Ghana Card, but you entered "${inputFirstName} ${inputLastName}". These names are significantly different.`;
-        actionRequired = "Please verify your entered name matches exactly what appears on your Ghana Card, or retake clearer photos if the extraction was incorrect.";
-      } else if (similarity < 0.6) {
-        // Moderate similarity - possible spelling differences or formatting issues
-        reason = `Name similarity concern: We extracted "${results.extracted_name}" from your Ghana Card, which doesn't closely match "${inputFirstName} ${inputLastName}".`;
-        actionRequired = "Please check for spelling differences, ensure names are in the correct order, or retake photos if unclear.";
-      } else {
-        // High similarity but still flagged - might be minor differences
-        reason = `Name verification flagged: "${results.extracted_name}" vs "${inputFirstName} ${inputLastName}". Minor differences detected.`;
-        actionRequired = "Please double-check the spelling and formatting of your name, or proceed if you believe the extraction is incorrect.";
-      }
-
-      return {
-        isValid: false,
-        blocker: {
-          blocked: true,
-          reason,
-          actionRequired,
-          canRetry: true
+      // If names don't match exactly AND backend didn't verify them, block progression
+      if (!isExactMatch && !results.name_verified) {
+        // Calculate similarity score for better error messaging
+        const similarity = results.similarity_score || 0;
+        
+        let reason: string;
+        let actionRequired: string;
+        
+        if (similarity < 0.3) {
+          // Very low similarity - user entered wrong information
+          reason = `Your entered name "${inputFirstName} ${inputLastName}" does not match your Ghana Card which shows "${results.extracted_name}". Please correct your information to match your official document.`;
+          actionRequired = "Go back and update your name to match exactly what appears on your Ghana Card. The Ghana Card is the authoritative source.";
+        } else if (similarity < 0.6) {
+          // Moderate similarity - likely spelling or formatting issues in user input
+          reason = `Your entered name "${inputFirstName} ${inputLastName}" doesn't closely match your Ghana Card which shows "${results.extracted_name}". Please check for spelling differences or formatting.`;
+          actionRequired = "Go back and correct your name to match your Ghana Card exactly, including proper spelling and formatting.";
+        } else {
+          // High similarity but still flagged - minor differences in user input
+          reason = `Minor differences detected between your entered name "${inputFirstName} ${inputLastName}" and your Ghana Card "${results.extracted_name}".`;
+          actionRequired = "Please go back and ensure your entered name matches your Ghana Card exactly, or retake photos if the extraction appears incorrect.";
         }
-      };
+
+        return {
+          isValid: false,
+          blocker: {
+            blocked: true,
+            reason,
+            actionRequired,
+            canRetry: true
+          }
+        };
+      }
     }
 
-    // Card number mismatch
-    if (!results.number_verified && results.extracted_number) {
-      return {
-        isValid: false,
-        blocker: {
-          blocked: true,
-          reason: `Ghana Card number mismatch: We extracted "${results.extracted_number}" from your card, but you entered a different number.`,
-          actionRequired: "Please verify your Ghana Card number is correct, or retake clearer photos of the back of your card.",
-          canRetry: true
-        }
-      };
+    // Card number validation - enforce business rule that input must match extracted data
+    if (results.extracted_number) {
+      // Use the passed card number parameter
+      const extractedCardNumber = results.extracted_number;
+      
+      // Normalize both numbers for comparison
+      const inputNormalized = inputCardNumber.toUpperCase().replace(/[-\s]/g, '');
+      const extractedNormalized = extractedCardNumber.toUpperCase().replace(/[-\s]/g, '');
+      
+      // Check for exact match or if backend verified despite differences
+      const isExactMatch = inputNormalized === extractedNormalized;
+      
+      // If card numbers don't match exactly AND backend didn't verify them, block progression
+      if (!isExactMatch && !results.number_verified) {
+        return {
+          isValid: false,
+          blocker: {
+            blocked: true,
+            reason: `Your entered Ghana Card number "${inputCardNumber}" does not match what we extracted from your card: "${results.extracted_number}". Please correct your information to match your official document.`,
+            actionRequired: "Go back and update your Ghana Card number to match exactly what appears on your card. If the extraction appears incorrect, retake clearer photos.",
+            canRetry: true
+          }
+        };
+      }
     }
 
     // Warning status - partial verification
@@ -531,19 +547,9 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
 
       setTextractResults(textractResult);
       
-      // Temporary debug - check cached data structure
-      if (result.from_cache) {
-        console.log("📦 CACHED DATA:", {
-          verification_status: result.verification_status,
-          name_verified: result.results?.name_verified,
-          number_verified: result.results?.number_verified,
-          extracted_name: result.results?.extracted_name,
-          extracted_number: result.results?.extracted_number
-        });
-      }
       
       // Enterprise-grade validation
-      const validationResult = validateVerificationResults(result, first_name, last_name);
+      const validationResult = validateVerificationResults(result, data.first_name, data.last_name, data.ghana_card_number);
       
       if (validationResult.isValid) {
         setNameVerificationStatus("success");
@@ -597,8 +603,8 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       
       showErrorToast(errorMessage);
       
-      // Set a placeholder OCR result for error state
-      setOcrResults({
+      // Set a placeholder Textract result for error state
+      setTextractResults({
         name: "Processing Failed",
         cardNumber: "Processing Failed",
         confidence: 0,
@@ -911,7 +917,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
                     </div>
                     
                     <div className="mt-4 flex flex-wrap gap-3">
-                      {/* Go Back to Edit Names Button */}
+                      {/* Go Back to Correct Information Button */}
                       <button
                         onClick={() => {
                           setCurrentStep(2); // Go back to personal info step
@@ -922,7 +928,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
                         <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                         </svg>
-                        Edit Name Information
+                        Correct My Information
                       </button>
                       
                       {/* Retry Photo Button */}
@@ -997,6 +1003,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       case 6:
         return (
           <Step6Verification
+            methods={methods}
             emailVerificationSent={emailVerificationSent}
             phoneVerificationSent={phoneVerificationSent}
             emailOTP={emailOTP}
