@@ -629,14 +629,34 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         help_text='Ghana Card identification number'
     )
     ghana_card_front_image = serializers.ImageField(
-        required=True,
+        required=False,
         write_only=True,
         help_text='Ghana Card front image (with photo and personal details)'
     )
     ghana_card_back_image = serializers.ImageField(
-        required=True,
+        required=False,
         write_only=True,
         help_text='Ghana Card back image (with ID number and address)'
+    )
+    
+    # Fields for skipping Textract processing if already done
+    skip_textract_processing = serializers.BooleanField(
+        required=False,
+        default=False,
+        write_only=True,
+        help_text='Skip Textract processing if already completed in previous step'
+    )
+    textract_results = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+        help_text='Pre-processed Textract results from previous step (JSON string)'
+    )
+    ghana_card_verified = serializers.BooleanField(
+        required=False,
+        default=False,
+        write_only=True,
+        help_text='Flag indicating Ghana Card has already been verified'
     )
 
     user_type = serializers.ChoiceField(
@@ -658,7 +678,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'password', 'confirm_password', 'first_name', 'last_name',
             'phone_number', 'profile_picture', 'user_type', 'enable_mfa', 'terms_accepted',
-            'ghana_card_number', 'ghana_card_front_image', 'ghana_card_back_image'
+            'ghana_card_number', 'ghana_card_front_image', 'ghana_card_back_image',
+            'skip_textract_processing', 'textract_results', 'ghana_card_verified'
         ]
         extra_kwargs = {
             'first_name': {'required': True, 'min_length': 2},
@@ -674,7 +695,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             data._mutable = True
         
         # Convert string booleans to actual booleans for FormData
-        boolean_fields = ['enable_mfa', 'terms_accepted']
+        boolean_fields = ['enable_mfa', 'terms_accepted', 'skip_textract_processing', 'ghana_card_verified']
         for field in boolean_fields:
             if field in data:
                 value = data[field]
@@ -685,9 +706,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 else:
                     data[field] = False
         
+        # textract_results JSON parsing is now handled in the validate() method
+        
         # Force user_type to CLIENT if not provided for security
         data['user_type'] = 'CLIENT'
-        
         
         optional_fields = ['phone_number']
         for field in optional_fields:
@@ -781,34 +803,30 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return normalized_value
     
     def validate_ghana_card_front_image(self, value):
-        """Validate Ghana Card front image"""
-        if not value:
-            raise serializers.ValidationError("Ghana Card front image is required.")
-        
-        # Check file size (10MB limit for card images)
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Ghana Card front image must be smaller than 10MB.")
-        
-        # Check file type
-        allowed_types = ['image/jpeg', 'image/png', 'image/webp']
-        if hasattr(value, 'content_type') and value.content_type not in allowed_types:
-            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card front.")
+        """Validate Ghana Card front image (conditional based on skip_textract_processing)"""
+        if value:
+            # Check file size (10MB limit for card images)
+            if value.size > 10 * 1024 * 1024:
+                raise serializers.ValidationError("Ghana Card front image must be smaller than 10MB.")
+            
+            # Check file type
+            allowed_types = ['image/jpeg', 'image/png', 'image/webp']
+            if hasattr(value, 'content_type') and value.content_type not in allowed_types:
+                raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card front.")
         
         return value
     
     def validate_ghana_card_back_image(self, value):
-        """Validate Ghana Card back image"""
-        if not value:
-            raise serializers.ValidationError("Ghana Card back image is required.")
-        
-        # Check file size (10MB limit for card images)
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Ghana Card back image must be smaller than 10MB.")
-        
-        # Check file type
-        allowed_types = ['image/jpeg', 'image/png', 'image/webp']
-        if hasattr(value, 'content_type') and value.content_type not in allowed_types:
-            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card back.")
+        """Validate Ghana Card back image (conditional based on skip_textract_processing)"""
+        if value:
+            # Check file size (10MB limit for card images)
+            if value.size > 10 * 1024 * 1024:
+                raise serializers.ValidationError("Ghana Card back image must be smaller than 10MB.")
+            
+            # Check file type
+            allowed_types = ['image/jpeg', 'image/png', 'image/webp']
+            if hasattr(value, 'content_type') and value.content_type not in allowed_types:
+                raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed for Ghana Card back.")
         
         return value
     
@@ -823,6 +841,42 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise serializers.ValidationError({"password": list(e.messages)})
         
+        # Validate and parse textract_results if provided
+        textract_results_raw = data.get('textract_results')
+        if textract_results_raw:
+            try:
+                import json
+                # Parse the JSON string into a Python object
+                textract_results_parsed = json.loads(textract_results_raw)
+                data['textract_results'] = textract_results_parsed
+            except (json.JSONDecodeError, TypeError) as e:
+                raise serializers.ValidationError({
+                    "textract_results": f"Invalid JSON format: {str(e)}"
+                })
+        
+        # Validate Ghana Card processing requirements
+        skip_textract = data.get('skip_textract_processing', False)
+        has_front_image = bool(data.get('ghana_card_front_image'))
+        has_back_image = bool(data.get('ghana_card_back_image'))
+        has_textract_results = bool(data.get('textract_results'))
+        
+        if skip_textract:
+            # If skipping Textract, we need the results from previous processing
+            if not has_textract_results:
+                raise serializers.ValidationError({
+                    "textract_results": "Textract results are required when skipping processing."
+                })
+        else:
+            # If not skipping Textract, we need both images
+            if not has_front_image:
+                raise serializers.ValidationError({
+                    "ghana_card_front_image": "Ghana Card front image is required."
+                })
+            if not has_back_image:
+                raise serializers.ValidationError({
+                    "ghana_card_back_image": "Ghana Card back image is required."
+                })
+        
         return data
     
     def create(self, validated_data):
@@ -832,15 +886,48 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         ghana_card_front_image = validated_data.pop('ghana_card_front_image', None)
         ghana_card_back_image = validated_data.pop('ghana_card_back_image', None)
         enable_mfa = validated_data.pop('enable_mfa', False)
+        
+        # Extract skip Textract processing fields
+        skip_textract_processing = validated_data.pop('skip_textract_processing', False)
+        textract_results = validated_data.pop('textract_results', None)
+        ghana_card_verified = validated_data.pop('ghana_card_verified', False)
+        
+        
         validated_data.pop('confirm_password', None)
         validated_data.pop('terms_accepted', None)
         
         try:
-            # Process Ghana Card before creating user using AWS Textract with OCR fallback
+            # Process Ghana Card before creating user
             ghana_card_result = None
-            if ghana_card_front_image and ghana_card_back_image and ghana_card_number:
+            
+            if skip_textract_processing and textract_results:
+                # Use existing Textract results - no need to reprocess
+                logger.info(f"Using existing Textract results for user {validated_data['email']}")
+                
+                # Normalize frontend textract results to backend expected structure
+                if 'results' not in textract_results:
+                    # Convert frontend format to backend format
+                    ghana_card_result = {
+                        'success': True,
+                        'verification_status': 'success' if textract_results.get('verified') else 'error',
+                        'results': {
+                            'name_verified': textract_results.get('verified', False),
+                            'number_verified': textract_results.get('verified', False),
+                            'extracted_name': textract_results.get('name', ''),
+                            'extracted_number': textract_results.get('cardNumber', ''),
+                            'confidence': textract_results.get('confidence', 0),
+                            'message': 'Using pre-processed results from step 3'
+                        }
+                    }
+                else:
+                    # Already in backend format
+                    ghana_card_result = textract_results
+                
+            elif ghana_card_front_image and ghana_card_back_image and ghana_card_number:
+                # Process with AWS Textract
                 from .ghana_card_textract_service import ghana_card_textract_service
                 
+                logger.info(f"Processing Ghana Card with Textract for user {validated_data['email']}")
                 ghana_card_result = ghana_card_textract_service.process_ghana_card_enterprise(
                     ghana_card_front_image,
                     ghana_card_back_image,
@@ -865,6 +952,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 elif not number_verified:
                     # Only number verification failed - allow with warning
                     logger.warning(f"Ghana Card number verification failed but name verified")
+            
+            else:
+                # Should not reach here due to validation, but handle gracefully
+                logger.error(f"Missing Ghana Card processing requirements for {validated_data['email']}")
+                raise serializers.ValidationError({
+                    'ghana_card_front_image': 'Ghana Card processing requirements not met.'
+                })
             
             # Force CLIENT user type for security
             validated_data['user_type'] = 'CLIENT'
