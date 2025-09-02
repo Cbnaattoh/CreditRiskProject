@@ -721,6 +721,8 @@ interface Step6Props {
   isLoading: boolean;
   isVerifyingEmail: boolean;
   isVerifyingPhone: boolean;
+  isSendingEmailOTP: boolean;
+  isSendingPhoneOTP: boolean;
   emailVerified: boolean;
   phoneVerified: boolean;
   emailOtpExpiry?: number;
@@ -743,6 +745,8 @@ export const Step6Verification: React.FC<Step6Props> = ({
   isLoading,
   isVerifyingEmail,
   isVerifyingPhone,
+  isSendingEmailOTP,
+  isSendingPhoneOTP,
   emailVerified,
   phoneVerified,
   emailOtpExpiry,
@@ -824,9 +828,17 @@ export const Step6Verification: React.FC<Step6Props> = ({
               </p>
               <button
                 onClick={onSendEmailOTP}
-                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSendingEmailOTP}
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
-                Send Verification Code
+                {isSendingEmailOTP ? (
+                  <>
+                    <FiLoader className="animate-spin mr-2" />
+                    Sending Verification Code...
+                  </>
+                ) : (
+                  'Send Verification Code'
+                )}
               </button>
             </div>
           ) : emailVerified ? (
@@ -893,9 +905,17 @@ export const Step6Verification: React.FC<Step6Props> = ({
               </p>
               <button
                 onClick={onSendPhoneOTP}
-                className="w-full py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSendingPhoneOTP}
+                className="w-full py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
-                Send Verification Code
+                {isSendingPhoneOTP ? (
+                  <>
+                    <FiLoader className="animate-spin mr-2" />
+                    Sending Verification Code...
+                  </>
+                ) : (
+                  'Send Verification Code'
+                )}
               </button>
             </div>
           ) : phoneVerified ? (

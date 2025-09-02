@@ -151,6 +151,14 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   const [phoneVerificationSent, setPhoneVerificationSent] = useState(false);
   const [emailOTP, setEmailOTP] = useState("");
   const [phoneOTP, setPhoneOTP] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [isVerifyingPhone, setIsVerifyingPhone] = useState(false);
+  const [isSendingEmailOTP, setIsSendingEmailOTP] = useState(false);
+  const [isSendingPhoneOTP, setIsSendingPhoneOTP] = useState(false);
+  const [emailOtpExpiry, setEmailOtpExpiry] = useState<number>();
+  const [phoneOtpExpiry, setPhoneOtpExpiry] = useState<number>();
 
   // Error handling and retry states
   const [retryCount, setRetryCount] = useState(0);
@@ -667,6 +675,113 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
+  // Verification functions
+  const handleSendEmailOTP = async () => {
+    if (isSendingEmailOTP) return; // Prevent multiple clicks
+    
+    setIsSendingEmailOTP(true);
+    try {
+      const email = methods.getValues("email");
+      if (!email) {
+        setLastError("Email address is required");
+        return;
+      }
+
+      const response = await sendVerificationCode({ 
+        type: 'email',
+        contact_info: email
+      }).unwrap();
+      
+      if (response.success) {
+        setEmailVerificationSent(true);
+        setEmailOtpExpiry(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+        setLastError(null);
+      }
+    } catch (error: any) {
+      console.error("Email verification error:", error);
+      setLastError(error?.data?.message || "Failed to send verification code");
+    } finally {
+      setIsSendingEmailOTP(false);
+    }
+  };
+
+  const handleSendPhoneOTP = async () => {
+    if (isSendingPhoneOTP) return; // Prevent multiple clicks
+    
+    setIsSendingPhoneOTP(true);
+    try {
+      const phone = methods.getValues("phone");
+      if (!phone) {
+        setLastError("Phone number is required");
+        return;
+      }
+
+      const response = await sendVerificationCode({ 
+        type: 'phone',
+        contact_info: phone
+      }).unwrap();
+      
+      if (response.success) {
+        setPhoneVerificationSent(true);
+        setPhoneOtpExpiry(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+        setLastError(null);
+      }
+    } catch (error: any) {
+      console.error("Phone verification error:", error);
+      setLastError(error?.data?.message || "Failed to send verification code");
+    } finally {
+      setIsSendingPhoneOTP(false);
+    }
+  };
+
+  const handleVerifyEmailOTP = async () => {
+    if (emailOTP.length !== 6) return;
+
+    setIsVerifyingEmail(true);
+    try {
+      const email = methods.getValues("email");
+      const response = await verifyCode({
+        type: 'email',
+        code: emailOTP,
+        contact_info: email
+      }).unwrap();
+      
+      if (response.success) {
+        setEmailVerified(true);
+        setLastError(null);
+      }
+    } catch (error: any) {
+      console.error("Email verification error:", error);
+      setLastError(error?.data?.message || "Invalid verification code");
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyPhoneOTP = async () => {
+    if (phoneOTP.length !== 6) return;
+
+    setIsVerifyingPhone(true);
+    try {
+      const phone = methods.getValues("phone");
+      const response = await verifyCode({
+        type: 'phone',
+        code: phoneOTP,
+        contact_info: phone
+      }).unwrap();
+      
+      if (response.success) {
+        setPhoneVerified(true);
+        setLastError(null);
+      }
+    } catch (error: any) {
+      console.error("Phone verification error:", error);
+      setLastError(error?.data?.message || "Invalid verification code");
+    } finally {
+      setIsVerifyingPhone(false);
+    }
+  };
+
   const handleFinalSubmit = async () => {
     const data = methods.getValues();
     const startTime = Date.now();
@@ -675,11 +790,6 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
     RegistrationAnalytics.trackRegistrationStart();
     
     try {
-      // Debug: Log all form data
-      console.log("🔍 Form submission data:", data);
-      console.log("🔍 Ghana Card Number:", data.ghana_card_number);
-      console.log("🔍 Ghana Card Front Image:", data.ghana_card_front_image);
-      console.log("🔍 Ghana Card Back Image:", data.ghana_card_back_image);
       
       if (data.password !== data.confirm_password) {
         methods.setError("confirm_password", {
@@ -731,12 +841,22 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       // Add Ghana Card fields
       formData.append("ghana_card_number", data.ghana_card_number);
       
-      if (data.ghana_card_front_image?.[0]) {
-        formData.append("ghana_card_front_image", data.ghana_card_front_image[0]);
-      }
       
-      if (data.ghana_card_back_image?.[0]) {
-        formData.append("ghana_card_back_image", data.ghana_card_back_image[0]);
+      // Only send images if Textract hasn't been processed yet
+      if (textractResults && (textractResults.verification_status === 'success' || textractResults.verified === true)) {
+        // Include flag to skip Textract processing and include results
+        formData.append("skip_textract_processing", "true");
+        formData.append("textract_results", JSON.stringify(textractResults));
+        formData.append("ghana_card_verified", "true");
+      } else {
+        // Include images for Textract processing
+        if (data.ghana_card_front_image?.[0]) {
+          formData.append("ghana_card_front_image", data.ghana_card_front_image[0]);
+        }
+        
+        if (data.ghana_card_back_image?.[0]) {
+          formData.append("ghana_card_back_image", data.ghana_card_back_image[0]);
+        }
       }
       
       // Add profile picture if provided
@@ -748,14 +868,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       formData.append("client_timestamp", Date.now().toString());
       formData.append("registration_version", "2.0");
 
-      // Debug: Log the FormData being sent
-      console.log("🚀 Sending registration FormData:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}:`, value);
-      }
-
       const result = await completeRegistration(formData).unwrap();
-      console.log("🔎 Registration response:", result);
 
       if (result?.access && result?.refresh) {
         const user: User = {
@@ -1010,8 +1123,20 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
             setEmailOTP={setEmailOTP}
             phoneOTP={phoneOTP}
             setPhoneOTP={setPhoneOTP}
+            onSendEmailOTP={handleSendEmailOTP}
+            onSendPhoneOTP={handleSendPhoneOTP}
+            onVerifyEmailOTP={handleVerifyEmailOTP}
+            onVerifyPhoneOTP={handleVerifyPhoneOTP}
             onFinalSubmit={handleFinalSubmit}
             isLoading={isSubmittingRegistration}
+            isVerifyingEmail={isVerifyingEmail}
+            isVerifyingPhone={isVerifyingPhone}
+            isSendingEmailOTP={isSendingEmailOTP}
+            isSendingPhoneOTP={isSendingPhoneOTP}
+            emailVerified={emailVerified}
+            phoneVerified={phoneVerified}
+            emailOtpExpiry={emailOtpExpiry}
+            phoneOtpExpiry={phoneOtpExpiry}
           />
         );
       default:
