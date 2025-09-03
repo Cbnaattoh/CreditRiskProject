@@ -133,7 +133,14 @@ class User(AbstractUser):
         message="Phone number must be entered in the format: '+999999999'. Country code is required."
     )
     phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
-    is_verified = models.BooleanField(default=False)
+    # Verification fields - Dual verification system (email + phone)
+    # Currently only email verification is active due to budget constraints
+    # Phone verification is ready to enable when budget allows
+    is_verified = models.BooleanField(default=False, help_text="True when required verifications are complete (currently email only)")
+    email_verified = models.BooleanField(default=False, help_text="True when email is verified")
+    phone_verified = models.BooleanField(default=False, help_text="True when phone number is verified (ready but disabled)")
+    email_verified_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when email was verified")
+    phone_verified_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when phone was verified")
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=100, blank=True)
     mfa_setup_pending = models.BooleanField(default=False, help_text="True if user requested MFA but hasn't completed setup")
@@ -351,6 +358,49 @@ class User(AbstractUser):
     
     def __str__(self):
         return self.email
+
+    def verify_email(self):
+        """Mark email as verified and update overall verification status"""
+        from django.utils import timezone
+        
+        self.email_verified = True
+        self.email_verified_at = timezone.now()
+        self._update_verification_status()
+        self.save(update_fields=['email_verified', 'email_verified_at', 'is_verified'])
+        
+    def verify_phone(self):
+        """Mark phone as verified and update overall verification status"""
+        from django.utils import timezone
+        
+        self.phone_verified = True
+        self.phone_verified_at = timezone.now()
+        self._update_verification_status()
+        self.save(update_fields=['phone_verified', 'phone_verified_at', 'is_verified'])
+    
+    def _update_verification_status(self):
+        """Update overall verification status based on email and phone verification"""
+        # Currently only email verification required (phone verification ready but disabled due to budget)
+        # When budget allows, change this to: self.email_verified and self.phone_verified
+        self.is_verified = self.email_verified  # and self.phone_verified
+    
+    def is_fully_verified(self):
+        """Check if user has completed all verification requirements"""
+        # Currently only email verification required (phone ready but disabled due to budget)
+        return self.email_verified  # and self.phone_verified
+    
+    def get_verification_status(self):
+        """Get detailed verification status"""
+        return {
+            'is_fully_verified': self.is_fully_verified(),
+            'email_verified': self.email_verified,
+            'phone_verified': self.phone_verified,
+            'email_verified_at': self.email_verified_at,
+            'phone_verified_at': self.phone_verified_at,
+            'pending_verifications': [
+                'email' if not self.email_verified else None,
+                'phone' if not self.phone_verified else None,
+            ]
+        }
 
 
 # Permission audit trail

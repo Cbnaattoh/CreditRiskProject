@@ -960,6 +960,36 @@ def verify_code(request):
             # Log successful verification
             logger.info(f"OTP verification successful for {verification_type}: {contact_info}")
             
+            # Update user verification status
+            try:
+                from .models import User
+                
+                if verification_type == 'email':
+                    # Find user by email and update email verification
+                    user = User.objects.filter(email__iexact=contact_info).first()
+                    if user and not user.email_verified:
+                        user.verify_email()
+                        logger.info(f"Email verified for {contact_info}. Fully verified: {user.is_verified}")
+                    elif user and user.email_verified:
+                        logger.info(f"User {contact_info} email was already verified")
+                    else:
+                        logger.warning(f"User not found for email verification: {contact_info}")
+                        
+                elif verification_type == 'phone':
+                    # Find user by phone and update phone verification
+                    user = User.objects.filter(phone_number=contact_info).first()
+                    if user and not user.phone_verified:
+                        user.verify_phone()
+                        logger.info(f"Phone verified for {contact_info}. Fully verified: {user.is_verified}")
+                    elif user and user.phone_verified:
+                        logger.info(f"User {contact_info} phone was already verified")
+                    else:
+                        logger.warning(f"User not found for phone verification: {contact_info}")
+                        
+            except Exception as e:
+                logger.error(f"Error updating user verification status: {str(e)}")
+                # Don't fail the verification response due to this error
+            
             return Response({
                 'success': True,
                 'verified': True,

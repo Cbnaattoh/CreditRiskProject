@@ -431,7 +431,7 @@ class MFARequiredPermission(BaseRBACPermission):
 
 
 class RequiresMFASetup(BaseRBACPermission):
-    """Permission class for users who need to complete MFA setup"""
+    """Permission class for users who need to complete MFA setup or want to enable MFA"""
     
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
@@ -448,8 +448,10 @@ class RequiresMFASetup(BaseRBACPermission):
             self.log_access(request, "mfa_setup_required", has_setup_access, view)
             return has_setup_access
         
-        self.log_access(request, "mfa_setup_not_required", False, view)
-        return False
+        # Allow any authenticated user to voluntarily set up MFA
+        # This enables users to manually enable MFA from settings
+        self.log_access(request, "mfa_voluntary_setup", True, view)
+        return True
 
 
 class MFAVerificationPermission(BaseRBACPermission):
