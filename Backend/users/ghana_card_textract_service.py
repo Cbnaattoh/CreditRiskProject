@@ -86,11 +86,14 @@ class GhanaCardTextractService:
                     },
                     'errors': [f'AWS Textract processing failed: {error_message}'],
                     'recommendations': [
-                        'Ensure images are clear and well-lit',
-                        'Make sure the Ghana Card is flat and not bent',
-                        'Take photos in good lighting conditions',
-                        'Ensure all text on the card is clearly visible',
-                        'Check AWS Textract service configuration'
+                        'Ensure images are clear and well-lit with good contrast',
+                        'Make sure the Ghana Card is flat and not bent or curved',
+                        'Take photos in good lighting conditions (avoid shadows and glare)',
+                        'Ensure all text on the card is clearly visible and not blurry',
+                        'For Ghana card numbers: Check back of card for clearest number',
+                        'For complex names: Ensure front image shows complete name clearly',
+                        'Use high resolution images (minimum 1080p recommended)',
+                        'Check AWS Textract service configuration and credentials'
                     ]
                 }
                 
@@ -123,8 +126,12 @@ class GhanaCardTextractService:
                 },
                 'errors': [f'Processing exception: {str(e)}'],
                 'recommendations': [
-                    'Ensure images are clear and well-lit',
-                    'Make sure the Ghana Card is flat and not bent', 
+                    'Ensure images are clear and well-lit with good contrast',
+                    'Make sure the Ghana Card is flat and not bent or curved', 
+                    'Take photos in good lighting conditions (avoid shadows and glare)',
+                    'For Ghana card numbers: Check back of card for clearest number',
+                    'For complex names: Ensure front image shows complete name clearly',
+                    'Use high resolution images (minimum 1080p recommended)',
                     'Check AWS Textract service configuration',
                     'Verify AWS credentials and permissions'
                 ]

@@ -245,7 +245,7 @@ class AWSTextractService:
             raise
     
     def _extract_ghana_card_info(self, front_analysis: Dict[str, Any], back_analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract structured information from Textract analysis results"""
+        """Extract structured information from Textract analysis results with enhanced name parsing"""
         
         extracted_info = {
             'surname': None,
@@ -268,42 +268,123 @@ class AWSTextractService:
             # Combine all fields
             all_fields = {**front_fields, **back_fields}
             
-            # Enhanced field mapping for Ghana Card
+            # Enhanced field mapping for Ghana Card with priority order
+            ghana_number_fields = [
+                'PERSONAL_ID_NUMBER',  # Highest priority - this is the actual Ghana card number
+                'NATIONAL_ID',
+                'ID_NUMBER', 
+                'CARD_NUMBER',
+                'DOCUMENT_NUMBER'  # Lowest priority - might be a different document reference
+            ]
+            
             field_mapping = {
                 'FIRST_NAME': 'firstname',
                 'LAST_NAME': 'surname', 
                 'MIDDLE_NAME': 'firstname',  # Append to firstname
-                'DOCUMENT_NUMBER': 'ghana_card_number',
-                'ID_NUMBER': 'ghana_card_number',
-                'CARD_NUMBER': 'ghana_card_number',
-                'NATIONAL_ID': 'ghana_card_number'
             }
             
-            # Process extracted fields
+            # Store all name parts for intelligent parsing
+            name_parts = {
+                'first_names': [],
+                'last_names': [],
+                'confidences': []
+            }
+            
+            # Process name fields
             for textract_field, our_field in field_mapping.items():
                 if textract_field in all_fields:
                     field_data = all_fields[textract_field]
                     value = field_data['value']
                     confidence = field_data['confidence']
                     
-                    if our_field == 'firstname' and extracted_info['firstname']:
-                        # Append middle name to first name
-                        extracted_info['firstname'] += f" {value}"
-                        # Use average confidence
-                        current_conf = extracted_info['confidence_scores']['firstname']
-                        extracted_info['confidence_scores']['firstname'] = (current_conf + confidence) / 2
-                    else:
-                        extracted_info[our_field] = value
-                        extracted_info['confidence_scores'][our_field] = confidence
+                    if textract_field in ['FIRST_NAME', 'MIDDLE_NAME']:
+                        name_parts['first_names'].append(value)
+                        name_parts['confidences'].append(confidence)
+                    elif textract_field == 'LAST_NAME':
+                        name_parts['last_names'].append(value)
+                        name_parts['confidences'].append(confidence)
             
-            # If Ghana card number not found via structured fields, try pattern matching on all text
+            # Process Ghana card number with priority
+            logger.info("Searching for Ghana card number in structured fields...")
+            for field_name in ghana_number_fields:
+                if field_name in all_fields:
+                    field_data = all_fields[field_name]
+                    value = field_data['value']
+                    confidence = field_data['confidence']
+                    
+                    logger.info(f"Found {field_name}: '{value}' (confidence: {confidence:.2f})")
+                    
+                    # Use the first (highest priority) field found
+                    if not extracted_info['ghana_card_number']:
+                        extracted_info['ghana_card_number'] = value
+                        extracted_info['confidence_scores']['ghana_card_number'] = confidence
+                        logger.info(f"Using {field_name} as Ghana card number: '{value}'")
+                        break
+            
+            # Intelligent name parsing for complex names (only if structured fields found names)
+            if name_parts['first_names'] or name_parts['last_names']:
+                logger.info(f"Name parts found - First names: {name_parts['first_names']}, Last names: {name_parts['last_names']}")
+                parsed_names = self._parse_complex_names(name_parts, front_analysis)
+                logger.info(f"Parsed names result - First: '{parsed_names.get('firstname')}', Last: '{parsed_names.get('surname')}'")
+                # Update names safely without overwriting other fields
+                if parsed_names.get('firstname'):
+                    extracted_info['firstname'] = parsed_names['firstname']
+                    extracted_info['confidence_scores']['firstname'] = parsed_names['confidence_scores']['firstname']
+                if parsed_names.get('surname'):
+                    extracted_info['surname'] = parsed_names['surname'] 
+                    extracted_info['confidence_scores']['surname'] = parsed_names['confidence_scores']['surname']
+                
+                # Additional check: Try to find missing middle names in raw text
+                if len(name_parts['first_names']) == 1 and not name_parts.get('middle_names'):
+                    logger.info("Only one first name found in structured fields, checking raw text for additional names...")
+                    logger.info(f"Searching for names beyond: '{extracted_info['firstname']}' and '{extracted_info['surname']}'")
+                    additional_names = self._find_additional_names_in_text(front_analysis, extracted_info['firstname'], extracted_info['surname'])
+                    if additional_names:
+                        logger.info(f"Found additional names in raw text: '{additional_names}'")
+                        extracted_info['firstname'] = f"{extracted_info['firstname']} {additional_names}"
+                    else:
+                        logger.info("No additional names found in raw text")
+            else:
+                # Fallback: try original simple field mapping if no structured names found
+                logger.info("No structured name fields found, trying simple field extraction...")
+                for textract_field, our_field in field_mapping.items():
+                    if textract_field in all_fields and our_field in ['firstname', 'surname']:
+                        field_data = all_fields[textract_field]
+                        value = field_data['value']
+                        confidence = field_data['confidence']
+                        
+                        if our_field in extracted_info and not extracted_info[our_field]:  # Only set if field exists and is empty
+                            extracted_info[our_field] = value
+                            extracted_info['confidence_scores'][our_field] = confidence
+            
+            # Ghana card number extraction with fallback strategies
             if not extracted_info['ghana_card_number']:
-                logger.info("Ghana card number not found in structured fields, trying pattern matching...")
+                logger.info("Ghana card number not found in structured fields, trying original pattern matching...")
+                # Try original method first (known to work for your card)
                 extracted_info['ghana_card_number'], extracted_info['confidence_scores']['ghana_card_number'] = \
                     self._extract_ghana_number_from_text(back_analysis)
+                
+                # If original method fails, try enhanced method
+                if not extracted_info['ghana_card_number']:
+                    logger.info("Original method failed, trying enhanced pattern matching with OCR correction...")
+                    try:
+                        enhanced_number, enhanced_confidence = self._extract_ghana_number_enhanced(back_analysis, front_analysis)
+                        extracted_info['ghana_card_number'] = enhanced_number
+                        extracted_info['confidence_scores']['ghana_card_number'] = enhanced_confidence
+                    except Exception as e:
+                        logger.error(f"Enhanced Ghana card extraction failed: {str(e)}")
+                        extracted_info['ghana_card_number'] = None
+                        extracted_info['confidence_scores']['ghana_card_number'] = 0.0
             
-            # Post-process Ghana Card number format
+            # Post-process Ghana Card number format and apply OCR correction
             if extracted_info['ghana_card_number']:
+                # Apply OCR correction even to structured field results
+                corrected_number = self._correct_ocr_errors(extracted_info['ghana_card_number'])
+                if corrected_number != extracted_info['ghana_card_number']:
+                    logger.info(f"Applied OCR correction to structured field: '{extracted_info['ghana_card_number']}' → '{corrected_number}'")
+                    extracted_info['ghana_card_number'] = corrected_number
+                
+                # Format the number
                 extracted_info['ghana_card_number'] = self._format_ghana_card_number(
                     extracted_info['ghana_card_number']
                 )
@@ -314,11 +395,358 @@ class AWSTextractService:
             if extracted_info['firstname']:
                 extracted_info['firstname'] = extracted_info['firstname'].title().strip()
             
+            # Log extraction results for debugging (with safe key access)
+            logger.info(f"Final extraction results:")
+            logger.info(f"  First name: '{extracted_info.get('firstname', 'None')}' (confidence: {extracted_info.get('confidence_scores', {}).get('firstname', 0.0):.2f})")
+            logger.info(f"  Surname: '{extracted_info.get('surname', 'None')}' (confidence: {extracted_info.get('confidence_scores', {}).get('surname', 0.0):.2f})")
+            logger.info(f"  Ghana card number: '{extracted_info.get('ghana_card_number', 'None')}' (confidence: {extracted_info.get('confidence_scores', {}).get('ghana_card_number', 0.0):.2f})")
+            
+            # Additional debug info
+            logger.info(f"Structured fields found: {list(all_fields.keys())}")
+            for field_name, field_data in all_fields.items():
+                if 'NAME' in field_name:
+                    logger.info(f"  {field_name}: '{field_data['value']}' (confidence: {field_data['confidence']:.2f})")
+            logger.info(f"Extracted info keys: {list(extracted_info.keys())}")
+            if not extracted_info.get('ghana_card_number'):
+                logger.warning("🚨 Ghana card number extraction failed - check image quality or card format")
+            
             return extracted_info
             
         except Exception as e:
             logger.error(f"Error extracting Ghana Card info: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return extracted_info
+    
+    def _parse_complex_names(self, name_parts: Dict[str, Any], front_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """Intelligently parse complex names with multiple parts, hyphens, and middle names"""
+        try:
+            result = {
+                'firstname': None,
+                'surname': None,
+                'confidence_scores': {
+                    'firstname': 0.0,
+                    'surname': 0.0
+                }
+            }
+            
+            # Combine all first names
+            if name_parts['first_names']:
+                result['firstname'] = ' '.join(name_parts['first_names']).strip()
+                result['confidence_scores']['firstname'] = sum(name_parts['confidences']) / len(name_parts['confidences'])
+            
+            # Handle surnames
+            if name_parts['last_names']:
+                # Take the surname with highest confidence
+                best_surname = max(zip(name_parts['last_names'], name_parts['confidences']), key=lambda x: x[1])
+                result['surname'] = best_surname[0].strip()
+                result['confidence_scores']['surname'] = best_surname[1]
+            
+            # Fallback: Try to extract names from raw text if structured fields failed
+            if not result['firstname'] or not result['surname']:
+                logger.info("Attempting fallback name extraction from raw text...")
+                fallback_names = self._extract_names_from_text(front_analysis)
+                if fallback_names['firstname'] and not result['firstname']:
+                    result['firstname'] = fallback_names['firstname']
+                    result['confidence_scores']['firstname'] = fallback_names['firstname_confidence']
+                if fallback_names['surname'] and not result['surname']:
+                    result['surname'] = fallback_names['surname']
+                    result['confidence_scores']['surname'] = fallback_names['surname_confidence']
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error parsing complex names: {str(e)}")
+            return {
+                'firstname': None,
+                'surname': None,
+                'confidence_scores': {'firstname': 0.0, 'surname': 0.0}
+            }
+    
+    def _extract_names_from_text(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract names from raw text as fallback method"""
+        try:
+            result = {
+                'firstname': None,
+                'surname': None,
+                'firstname_confidence': 0.0,
+                'surname_confidence': 0.0
+            }
+            
+            # Get all text blocks from the analysis
+            text_blocks = []
+            if 'Blocks' in analysis_result:
+                for block in analysis_result['Blocks']:
+                    if block.get('BlockType') == 'LINE' and 'Text' in block:
+                        text = block['Text'].strip()
+                        confidence = block.get('Confidence', 0.0)
+                        if text and confidence > 50:  # Only consider high-confidence text
+                            text_blocks.append((text, confidence))
+            
+            # Look for name patterns (common Ghana name structures)
+            for text, confidence in text_blocks:
+                words = text.split()
+                if len(words) >= 2:
+                    # Look for patterns like "SURNAME: John Doe" or "NAME: John Doe"
+                    if any(keyword in text.upper() for keyword in ['SURNAME', 'LAST NAME', 'FAMILY NAME']):
+                        potential_surname = ' '.join(words[1:])  # Take everything after the keyword
+                        if len(potential_surname.split()) == 1:  # Single word surnames are more reliable
+                            result['surname'] = potential_surname.title()
+                            result['surname_confidence'] = confidence
+                    
+                    elif any(keyword in text.upper() for keyword in ['FIRST NAME', 'GIVEN NAME', 'FORENAME']):
+                        potential_firstname = ' '.join(words[1:])  # Take everything after the keyword
+                        result['firstname'] = potential_firstname.title()
+                        result['firstname_confidence'] = confidence
+                    
+                    # Look for full name patterns with multiple words (likely first names)
+                    elif len(words) >= 3 and all(word.isalpha() for word in words):
+                        # Assume last word is surname, rest are first names
+                        potential_firstname = ' '.join(words[:-1])
+                        potential_surname = words[-1]
+                        
+                        if not result['firstname'] and confidence > result['firstname_confidence']:
+                            result['firstname'] = potential_firstname.title()
+                            result['firstname_confidence'] = confidence
+                        if not result['surname'] and confidence > result['surname_confidence']:
+                            result['surname'] = potential_surname.title()
+                            result['surname_confidence'] = confidence
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error extracting names from text: {str(e)}")
+            return {
+                'firstname': None,
+                'surname': None, 
+                'firstname_confidence': 0.0,
+                'surname_confidence': 0.0
+            }
+    
+    def _extract_ghana_number_enhanced(self, back_analysis: Dict[str, Any], front_analysis: Dict[str, Any]) -> tuple:
+        """Enhanced Ghana card number extraction with multiple strategies and OCR correction"""
+        try:
+            candidates = []
+            
+            # Strategy 1: Pattern matching with multiple formats
+            ghana_patterns = [
+                r'GHA[- ]?(\d{9})[- ]?(\d)',  # Standard format
+                r'GHA[- ]?([A-Z0-9]{9})[- ]?(\d)',  # Allow mixed alphanumeric
+                r'(\d{3}[- ]?\d{3}[- ]?\d{3}[- ]?\d)',  # Numbers only
+                r'([A-Z]{3}[- ]?\d{9}[- ]?\d)',  # Full format
+            ]
+            
+            # Check both back and front images
+            for analysis, source in [(back_analysis, 'back'), (front_analysis, 'front')]:
+                if 'Blocks' in analysis:
+                    for block in analysis['Blocks']:
+                        if block.get('BlockType') == 'LINE' and 'Text' in block:
+                            text = block['Text'].strip().upper()
+                            confidence = block.get('Confidence', 0.0)
+                            
+                            for pattern in ghana_patterns:
+                                match = re.search(pattern, text)
+                                if match:
+                                    if len(match.groups()) == 2:
+                                        ghana_number = f"GHA-{match.group(1)}-{match.group(2)}"
+                                    else:
+                                        ghana_number = self._standardize_ghana_number(match.group(0))
+                                    
+                                    # Apply OCR error correction
+                                    corrected_number = self._correct_ocr_errors(ghana_number)
+                                    
+                                    candidates.append({
+                                        'number': corrected_number,
+                                        'confidence': confidence,
+                                        'source': source,
+                                        'original_text': text
+                                    })
+                                    
+                                    logger.info(f"Found Ghana number candidate from {source}: '{corrected_number}' (original: '{ghana_number}', confidence: {confidence:.2f})")
+            
+            # Strategy 2: Look for 10-digit sequences (might be missing GHA prefix)
+            for analysis, source in [(back_analysis, 'back'), (front_analysis, 'front')]:
+                if 'Blocks' in analysis:
+                    for block in analysis['Blocks']:
+                        if block.get('BlockType') == 'LINE' and 'Text' in block:
+                            text = block['Text'].strip()
+                            confidence = block.get('Confidence', 0.0)
+                            
+                            # Look for 10-digit sequences
+                            digits_only = re.sub(r'[^0-9]', '', text)
+                            if len(digits_only) == 10:
+                                ghana_number = f"GHA-{digits_only[:9]}-{digits_only[9]}"
+                                corrected_number = self._correct_ocr_errors(ghana_number)
+                                
+                                candidates.append({
+                                    'number': corrected_number,
+                                    'confidence': confidence * 0.8,  # Lower confidence for inferred format
+                                    'source': source,
+                                    'original_text': text
+                                })
+            
+            # Return best candidate based on confidence and source priority
+            if candidates:
+                # Prioritize back image (where ID number usually appears)
+                back_candidates = [c for c in candidates if c['source'] == 'back']
+                if back_candidates:
+                    best_candidate = max(back_candidates, key=lambda x: x['confidence'])
+                else:
+                    best_candidate = max(candidates, key=lambda x: x['confidence'])
+                
+                logger.info(f"Selected best Ghana number candidate: '{best_candidate['number']}' from {best_candidate['source']} image")
+                return best_candidate['number'], best_candidate['confidence']
+            
+            return None, 0.0
+            
+        except Exception as e:
+            logger.error(f"Error in enhanced Ghana number extraction: {str(e)}")
+            return None, 0.0
+    
+    def _correct_ocr_errors(self, ghana_number: str) -> str:
+        """Correct common OCR errors in Ghana card numbers"""
+        try:
+            # Common OCR misreadings in Ghana card numbers
+            corrections = {
+                'B': '6',  # B often misread as 6
+                'L': '1',  # L often misread as 1  
+                'O': '0',  # O often misread as 0
+                'S': '5',  # S often misread as 5
+                'I': '1',  # I often misread as 1
+                'Z': '2',  # Z often misread as 2
+                'G': '6',  # G sometimes misread as 6
+                'D': '0',  # D sometimes misread as 0
+            }
+            
+            # Only apply corrections to the numeric part (not the GHA prefix)
+            if ghana_number.startswith('GHA-'):
+                parts = ghana_number.split('-')
+                if len(parts) == 3:
+                    # Standard format: GHA-XXXXXXXXX-X
+                    prefix = parts[0]  # GHA
+                    main_digits = parts[1]  # 9 digits
+                    check_digit = parts[2]  # 1 digit
+                    
+                    # Correct the main digits and check digit
+                    corrected_main = ''.join(corrections.get(char, char) for char in main_digits)
+                    corrected_check = ''.join(corrections.get(char, char) for char in check_digit)
+                    
+                    corrected_number = f"{prefix}-{corrected_main}-{corrected_check}"
+                    
+                elif len(parts) == 2:
+                    # Format: GHA-XXXXXXXXXX (missing final dash and check digit)
+                    prefix = parts[0]  # GHA
+                    all_digits = parts[1]  # All digits together
+                    
+                    # Apply corrections to all digits
+                    corrected_digits = ''.join(corrections.get(char, char) for char in all_digits)
+                    
+                    # Try to format properly if we have 10 characters (9 + 1 check digit)
+                    if len(corrected_digits) == 10:
+                        corrected_number = f"{prefix}-{corrected_digits[:9]}-{corrected_digits[9]}"
+                    else:
+                        corrected_number = f"{prefix}-{corrected_digits}"
+                    
+                else:
+                    # Unexpected format, just apply corrections to the whole string
+                    corrected_number = ''.join(corrections.get(char, char) if char not in ['G', 'H', 'A', '-'] else char for char in ghana_number)
+                
+                if corrected_number != ghana_number:
+                    logger.info(f"OCR correction applied: '{ghana_number}' → '{corrected_number}'")
+                
+                return corrected_number
+            
+            return ghana_number
+            
+        except Exception as e:
+            logger.error(f"Error correcting OCR errors: {str(e)}")
+            return ghana_number
+    
+    def _find_additional_names_in_text(self, analysis_result: Dict[str, Any], known_firstname: str, known_surname: str) -> str:
+        """Find additional names in raw text that weren't captured in structured fields"""
+        try:
+            additional_names = []
+            
+            # Get all text blocks from front image
+            if 'Blocks' in analysis_result:
+                for block in analysis_result['Blocks']:
+                    if block.get('BlockType') == 'LINE' and 'Text' in block:
+                        text = block['Text'].strip()
+                        confidence = block.get('Confidence', 0.0)
+                        
+                        # Only consider high confidence text
+                        if confidence > 70:
+                            words = text.upper().split()
+                            
+                            # Look for lines that contain the first name and have additional words
+                            if known_firstname.upper() in text.upper() and len(words) > 1:
+                                
+                                # Method 1: Look for text with both first and last name
+                                if known_surname.upper() in text.upper():
+                                    try:
+                                        first_idx = words.index(known_firstname.upper())
+                                        last_idx = words.index(known_surname.upper())
+                                        
+                                        if last_idx > first_idx + 1:
+                                            # Words between first and last name
+                                            middle_words = words[first_idx + 1:last_idx]
+                                            name_words = [w for w in middle_words if w.isalpha() and len(w) > 1]
+                                            if name_words:
+                                                additional_names.extend(name_words)
+                                                logger.info(f"Found middle names in full name line: '{text}' -> {name_words}")
+                                    except ValueError:
+                                        pass
+                                
+                                # Method 2: Look for text that starts with first name and has more words
+                                else:
+                                    try:
+                                        first_idx = words.index(known_firstname.upper())
+                                        if first_idx == 0 and len(words) > 1:
+                                            # Line starts with first name, get additional words
+                                            remaining_words = words[1:]
+                                            # Filter out common non-name words and single characters
+                                            name_words = [w for w in remaining_words 
+                                                        if w.isalpha() and len(w) > 1 
+                                                        and w not in ['DE', 'THE', 'AND', 'OF']]
+                                            if name_words:
+                                                additional_names.extend(name_words)
+                                                logger.info(f"Found additional names after first name: '{text}' -> {name_words}")
+                                    except ValueError:
+                                        pass
+            
+            # Return unique additional names
+            unique_names = []
+            for name in additional_names:
+                if name.title() not in unique_names:
+                    unique_names.append(name.title())
+            
+            return ' '.join(unique_names) if unique_names else ''
+            
+        except Exception as e:
+            logger.error(f"Error finding additional names in text: {str(e)}")
+            return ''
+
+    def _standardize_ghana_number(self, raw_number: str) -> str:
+        """Standardize Ghana card number format"""
+        try:
+            # Remove all non-alphanumeric characters
+            clean = ''.join(c for c in raw_number if c.isalnum())
+            
+            # Handle different formats
+            if clean.upper().startswith('GHA'):
+                digits = clean[3:]
+                if len(digits) >= 10:
+                    return f"GHA-{digits[:9]}-{digits[9]}"
+                else:
+                    return f"GHA-{digits}"
+            elif len(clean) == 10 and clean.isdigit():
+                return f"GHA-{clean[:9]}-{clean[9]}"
+            else:
+                return raw_number
+                
+        except Exception as e:
+            logger.error(f"Error standardizing Ghana number: {str(e)}")
+            return raw_number
     
     def _extract_identity_fields(self, analysis_result: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """Extract identity fields from Textract analysis result"""
