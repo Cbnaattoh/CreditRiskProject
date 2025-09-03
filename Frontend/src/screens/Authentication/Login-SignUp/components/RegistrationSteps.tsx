@@ -16,6 +16,8 @@ import {
   FiEyeOff,
   FiShield,
   FiCamera,
+  FiClock,
+  FiInfo,
 } from "react-icons/fi";
 
 // Step 2: Personal Identity
@@ -100,6 +102,203 @@ export const Step2PersonalIdentity: React.FC<StepProps> = ({ methods }) => {
   );
 };
 
+// Progress stages for Ghana card processing
+interface ProcessingStage {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  estimatedTime: number; // in milliseconds
+}
+
+const PROCESSING_STAGES: ProcessingStage[] = [
+  {
+    id: 'upload',
+    title: 'Uploading Images',
+    description: 'Securely uploading your Ghana card images to AWS servers',
+    icon: <FiUpload className="w-5 h-5" />,
+    estimatedTime: 3000,
+  },
+  {
+    id: 'textract_front', 
+    title: 'Analyzing Front Image',
+    description: 'Extracting personal information and photo from front side',
+    icon: <FiImage className="w-5 h-5" />,
+    estimatedTime: 5000,
+  },
+  {
+    id: 'textract_back',
+    title: 'Analyzing Back Image', 
+    description: 'Extracting Ghana card number and validation details',
+    icon: <FiCreditCard className="w-5 h-5" />,
+    estimatedTime: 5000,
+  },
+  {
+    id: 'verification',
+    title: 'Cross-Verification',
+    description: 'Comparing extracted data with your entered information',
+    icon: <FiCheckCircle className="w-5 h-5" />,
+    estimatedTime: 2000,
+  },
+  {
+    id: 'finalization',
+    title: 'Finalizing Results',
+    description: 'Processing verification results and generating report',
+    icon: <FiShield className="w-5 h-5" />,
+    estimatedTime: 2000,
+  }
+];
+
+// Progress loader component for Ghana Card processing
+interface ProgressLoaderProps {
+  currentStage: number;
+  stages: ProcessingStage[];
+}
+
+const ProgressLoader: React.FC<ProgressLoaderProps> = ({ currentStage, stages }) => {
+  const [progress, setProgress] = React.useState(0);
+  const [elapsedTime, setElapsedTime] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedTime(prev => prev + 100);
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  React.useEffect(() => {
+    if (currentStage >= 0 && currentStage < stages.length) {
+      const currentStageData = stages[currentStage];
+      const targetProgress = ((currentStage + 1) / stages.length) * 100;
+      
+      const progressTimer = setInterval(() => {
+        setProgress(prev => {
+          const increment = Math.min(2, targetProgress - prev);
+          return prev + increment;
+        });
+      }, 50);
+
+      const timeout = setTimeout(() => {
+        clearInterval(progressTimer);
+      }, currentStageData.estimatedTime);
+
+      return () => {
+        clearInterval(progressTimer);
+        clearTimeout(timeout);
+      };
+    }
+  }, [currentStage, stages]);
+
+  const formatElapsedTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    return `${seconds}s`;
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+            <FiLoader className="animate-spin text-white" size={20} />
+          </div>
+          <div>
+            <h4 className="font-semibold text-blue-900 dark:text-blue-100">Processing Ghana Card</h4>
+            <p className="text-sm text-blue-600 dark:text-blue-300">Analyzing your documents with AWS Textract</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            {Math.round(progress)}%
+          </p>
+          <p className="text-xs text-blue-500 dark:text-blue-400">
+            {formatElapsedTime(elapsedTime)}
+          </p>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="w-full bg-blue-100 dark:bg-blue-800/30 rounded-full h-3">
+          <div 
+            className="h-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stages */}
+      <div className="space-y-3">
+        {stages.map((stage, index) => {
+          const isActive = index === currentStage;
+          const isCompleted = index < currentStage;
+          const isPending = index > currentStage;
+
+          return (
+            <div key={stage.id} className={`flex items-center p-3 rounded-lg transition-all ${
+              isActive ? 'bg-blue-100 dark:bg-blue-800/50 border border-blue-300 dark:border-blue-600' :
+              isCompleted ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' :
+              'bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                isActive ? 'bg-blue-600 text-white' :
+                isCompleted ? 'bg-green-600 text-white' :
+                'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+              }`}>
+                {isCompleted ? (
+                  <FiCheck size={16} />
+                ) : isActive ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  React.cloneElement(stage.icon as React.ReactElement, { size: 16 })
+                )}
+              </div>
+              <div className="flex-1">
+                <h5 className={`font-medium ${
+                  isActive ? 'text-blue-800 dark:text-blue-200' :
+                  isCompleted ? 'text-green-800 dark:text-green-200' :
+                  'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {stage.title}
+                </h5>
+                <p className={`text-sm ${
+                  isActive ? 'text-blue-600 dark:text-blue-300' :
+                  isCompleted ? 'text-green-600 dark:text-green-300' :
+                  'text-gray-500 dark:text-gray-500'
+                }`}>
+                  {stage.description}
+                </p>
+              </div>
+              {isActive && (
+                <div className="flex items-center text-xs text-blue-500 dark:text-blue-400">
+                  <FiClock className="mr-1" size={12} />
+                  ~{Math.ceil(stage.estimatedTime / 1000)}s
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+        <div className="flex items-start">
+          <FiInfo className="text-blue-600 mr-2 mt-0.5" size={16} />
+          <div className="text-sm text-blue-700 dark:text-blue-300">
+            <p className="font-medium mb-1">What's happening?</p>
+            <p>
+              We're using AWS Textract to extract text from your Ghana Card images. 
+              This process involves analyzing both sides of your card, extracting your personal information, 
+              and verifying it matches what you entered.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Step 3: Ghana Card Verification
 interface Step3Props {
   methods: any;
@@ -111,6 +310,7 @@ interface Step3Props {
   ocrResults: any;
   verificationStatus: "pending" | "success" | "warning" | "error";
   onProcessOCR?: (frontImage: File, backImage: File) => Promise<void>;
+  currentProcessingStage?: number; // New prop for tracking current stage
 }
 
 export const Step3GhanaCardVerification: React.FC<Step3Props> = ({
@@ -123,6 +323,7 @@ export const Step3GhanaCardVerification: React.FC<Step3Props> = ({
   ocrResults,
   verificationStatus,
   onProcessOCR,
+  currentProcessingStage = 0,
 }) => {
   const handleImageUpload = (
     file: File,
@@ -318,17 +519,10 @@ export const Step3GhanaCardVerification: React.FC<Step3Props> = ({
       {frontPreview && backPreview && (
         <div className="space-y-4">
           {isProcessingOCR ? (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center">
-                <FiLoader className="animate-spin text-blue-600 mr-3" />
-                <div>
-                  <h4 className="font-medium text-blue-800">Processing Ghana Card...</h4>
-                  <p className="text-sm text-blue-600">
-                    We're extracting and verifying information from your Ghana Card images.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ProgressLoader 
+              currentStage={currentProcessingStage} 
+              stages={PROCESSING_STAGES} 
+            />
           ) : (
             ocrResults && (
               <div
