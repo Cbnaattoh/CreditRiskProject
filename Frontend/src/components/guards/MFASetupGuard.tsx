@@ -86,15 +86,19 @@ export const MFASetupGuard: React.FC<MFASetupGuardProps> = ({
   return (
     <>
       {showBanner && (
-        <div className="sticky top-0 z-40 px-4 pt-4">
-          <MFASetupBanner
-            onStartSetup={() => setShowMFAModal(true)}
-            showDismiss={!hasLimitedAccess}
-          />
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-amber-50/95 to-orange-50/95 dark:from-amber-900/95 dark:to-orange-900/95 backdrop-blur-md border-b border-amber-200/50 dark:border-amber-700/50 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <MFASetupBanner
+              onStartSetup={() => setShowMFAModal(true)}
+              showDismiss={!hasLimitedAccess}
+            />
+          </div>
         </div>
       )}
       
-      {children}
+      <div className={showBanner ? "pt-20" : ""}>
+        {children}
+      </div>
       
       <MFASetupModal
         isOpen={showMFAModal}

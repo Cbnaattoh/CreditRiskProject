@@ -101,7 +101,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       password: "",
       confirm_password: "",
       user_type: "CLIENT",
-      mfa_enabled: false,
+      enable_mfa: false,
       terms_accepted: false,
       profile_picture: undefined,
       ghana_card_number: "",
@@ -366,7 +366,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
               validateStep4({
                 password: data.password,
                 confirm_password: data.confirm_password,
-                mfa_enabled: data.mfa_enabled,
+                enable_mfa: data.enable_mfa,
               }).unwrap()
             );
             
@@ -835,7 +835,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       formData.append("password", data.password);
       formData.append("confirm_password", data.confirm_password);
       formData.append("user_type", data.user_type);
-      formData.append("enable_mfa", data.mfa_enabled ? "true" : "false");
+      formData.append("enable_mfa", data.enable_mfa ? "true" : "false");
       formData.append("terms_accepted", data.terms_accepted ? "true" : "false");
       
       // Add Ghana Card fields

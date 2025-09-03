@@ -3046,64 +3046,9 @@ export const AuditCoverageAnalysis: React.FC = () => {
   );
 };
 
-// Client Risk Profile data generator
-const generateClientRiskData = () => ({
-  overallScore: 742,
-  riskLevel: 'Good',
-  factors: [
-    { factor: 'Credit History', score: 85, weight: 25, status: 'excellent' },
-    { factor: 'Income Stability', score: 78, weight: 20, status: 'good' },
-    { factor: 'Debt-to-Income', score: 72, weight: 20, status: 'fair' },
-    { factor: 'Employment History', score: 88, weight: 15, status: 'excellent' },
-    { factor: 'Assets & Collateral', score: 65, weight: 10, status: 'fair' },
-    { factor: 'Payment Behavior', score: 92, weight: 10, status: 'excellent' }
-  ],
-  trends: [
-    { month: 'Jan', score: 720 },
-    { month: 'Feb', score: 725 },
-    { month: 'Mar', score: 735 },
-    { month: 'Apr', score: 738 },
-    { month: 'May', score: 742 },
-    { month: 'Jun', score: 742 }
-  ]
-});
+// Removed unused generateClientRiskData function - now using only real ML assessment data
 
-// Client Application History data generator
-const generateClientApplicationData = () => [
-  {
-    id: 'APP-2024-001',
-    type: 'Personal Loan',
-    amount: 25000,
-    status: 'Approved',
-    appliedDate: '2024-01-15',
-    approvedDate: '2024-01-20',
-    riskScore: 742,
-    interestRate: 8.5,
-    term: 36
-  },
-  {
-    id: 'APP-2023-045',
-    type: 'Credit Card',
-    amount: 5000,
-    status: 'Approved',
-    appliedDate: '2023-10-12',
-    approvedDate: '2023-10-15',
-    riskScore: 720,
-    interestRate: 16.99,
-    term: 12
-  },
-  {
-    id: 'APP-2023-032',
-    type: 'Auto Loan',
-    amount: 45000,
-    status: 'Under Review',
-    appliedDate: '2023-11-28',
-    approvedDate: null,
-    riskScore: 735,
-    interestRate: null,
-    term: 60
-  }
-];
+// Removed unused generateClientApplicationData function - now using only real application data
 
 // Function to generate client risk data from ML assessment
 const generateClientRiskDataFromML = (assessment: {
@@ -3187,16 +3132,19 @@ export const ClientRiskProfileChart: React.FC<ClientRiskProfileProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'radar' | 'trend'>('radar');
   
-  // Use ML assessment data if available, otherwise fall back to generated data
-  const data = mlAssessmentData?.latest_assessment ? 
+  // Check if we have real ML assessment data
+  const hasRealData = mlAssessmentData?.latest_assessment;
+  
+  // Only use real data, no fake fallback
+  const data = hasRealData ? 
     generateClientRiskDataFromML(mlAssessmentData.latest_assessment) : 
-    generateClientRiskData();
+    null;
 
-  const radarData = data.factors.map(factor => ({
+  const radarData = data?.factors.map(factor => ({
     factor: factor.factor.split(' ')[0],
     score: factor.score,
     fullMark: 100
-  }));
+  })) || [];
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return '#10b981'; // green
@@ -3220,6 +3168,34 @@ export const ClientRiskProfileChart: React.FC<ClientRiskProfileProps> = ({
         <div className="animate-pulse text-gray-500 dark:text-gray-400">
           Loading risk profile...
         </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no real data available
+  if (!hasRealData) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center p-8">
+        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          No Risk Profile Available
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 max-w-sm">
+          Submit a credit application to generate your personalized risk assessment and credit profile.
+        </p>
+        <button
+          onClick={() => window.location.href = '/home/loan-applications'}
+          className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Submit Application
+        </button>
       </div>
     );
   }
@@ -3438,10 +3414,7 @@ export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryPro
   // Debug logging can be removed in production
   // console.log('🔍 ApplicationHistory Debug:', { applicationsData, isLoading });
   
-  // Use real data if available, otherwise fall back to generated data
-  let data;
-  
-  // Handle both cases: applicationsData as array or as object with results property
+  // Check for real application data, no fake fallback
   let applicationsArray;
   if (Array.isArray(applicationsData)) {
     applicationsArray = applicationsData;
@@ -3449,11 +3422,9 @@ export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryPro
     applicationsArray = applicationsData.results;
   }
   
-  if (applicationsArray && applicationsArray.length > 0) {
-    data = transformApplicationData(applicationsArray);
-  } else {
-    data = generateClientApplicationData();
-  }
+  // Only use real data if available
+  const hasRealData = applicationsArray && applicationsArray.length > 0;
+  const data = hasRealData ? transformApplicationData(applicationsArray) : [];
 
   // Keep all data for statistics, but limit timeline display to recent 3
   const allData = data;
@@ -3501,11 +3472,40 @@ export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryPro
 
   if (data.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-500 dark:text-gray-400">
-          <div className="text-4xl mb-2">📝</div>
-          <div className="text-sm">No applications found</div>
-          <div className="text-xs mt-1">Submit your first application to see history</div>
+      <div className="h-full flex flex-col items-center justify-center text-center p-8">
+        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          No Applications Yet
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 max-w-sm">
+          Start your credit journey by submitting your first application. Track your progress and history here.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => window.location.href = '/home/loan-applications'}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            New Application
+          </button>
+          {onViewAll && (
+            <button
+              onClick={onViewAll}
+              className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              View All Applications
+            </button>
+          )}
         </div>
       </div>
     );

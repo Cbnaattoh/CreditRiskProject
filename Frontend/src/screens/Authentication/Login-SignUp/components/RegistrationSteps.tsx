@@ -794,7 +794,8 @@ export const Step6Verification: React.FC<Step6Props> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Temporarily only require email verification (phone verification disabled due to budget)
+  // Currently only email verification required (phone verification ready but disabled due to budget)
+  // When budget allows, change this to: emailVerified && phoneVerified
   const bothVerified = emailVerified; // && phoneVerified;
 
   return (
