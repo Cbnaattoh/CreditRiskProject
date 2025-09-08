@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AlertCard from './AlertCard';
 import { 
@@ -14,6 +14,8 @@ import {
 } from '../../../components/redux/features/api/notifications/notificationsApi';
 import { useGetRBACDashboardQuery } from '../../../components/redux/features/api/RBAC/rbacApi';
 import { useNotificationContext } from '../../../components/notifications/NotificationProvider';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../../../components/redux/features/auth/authSlice';
 
 interface SystemAlertsWidgetProps {
   userType: 'admin' | 'staff' | 'client';
@@ -39,12 +41,17 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
   isLoading = false
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'high' | 'security' | 'ml_processing'>('all');
+  const [isWelcomeMessageDismissed, setIsWelcomeMessageDismissed] = useState(false);
+  const [dismissedSystemAlerts, setDismissedSystemAlerts] = useState<Set<string>>(new Set());
   const [mlProcessingStats, setMlProcessingStats] = useState({
     processing: 2,
     completed_today: 15,
     failed_today: 1,
     avg_processing_time: 45
   });
+  
+  // Get current user for localStorage key
+  const currentUser = useSelector(selectCurrentUser);
   
   // Use notification context for synchronized data
   const { notifications: contextNotifications, refreshNotifications } = useNotificationContext();
@@ -67,6 +74,64 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
   const [deleteAllNotifications] = useDeleteAllNotificationsMutation();
   const [archiveNotification] = useArchiveNotificationMutation();
   const [clearReadNotifications] = useClearReadNotificationsMutation();
+
+  // Check localStorage for welcome message and system alerts dismissal state
+  useEffect(() => {
+    if (currentUser) {
+      // Welcome message dismissal (client users only)
+      if (userType === 'client') {
+        const dismissalKey = `welcomeMessageDismissed_${currentUser.id}`;
+        const isDismissed = localStorage.getItem(dismissalKey) === 'true';
+        setIsWelcomeMessageDismissed(isDismissed);
+      }
+      
+      // System alerts dismissal (admin users)
+      if (userType === 'admin' || userType === 'staff') {
+        const systemAlertsKey = `dismissedSystemAlerts_${currentUser.id}`;
+        const dismissedAlerts = localStorage.getItem(systemAlertsKey);
+        if (dismissedAlerts) {
+          try {
+            const parsedAlerts = JSON.parse(dismissedAlerts);
+            setDismissedSystemAlerts(new Set(parsedAlerts));
+          } catch (e) {
+            // If parsing fails, start with empty set
+            setDismissedSystemAlerts(new Set());
+          }
+        }
+      }
+    }
+  }, [currentUser, userType]);
+
+  // Handle welcome message dismissal
+  const handleDismissWelcomeMessage = () => {
+    if (currentUser) {
+      const dismissalKey = `welcomeMessageDismissed_${currentUser.id}`;
+      localStorage.setItem(dismissalKey, 'true');
+      setIsWelcomeMessageDismissed(true);
+    }
+  };
+
+  // Handle system alert dismissal
+  const handleDismissSystemAlert = (alertId: string) => {
+    if (currentUser) {
+      const newDismissedAlerts = new Set(dismissedSystemAlerts);
+      newDismissedAlerts.add(alertId);
+      setDismissedSystemAlerts(newDismissedAlerts);
+      
+      // Save to localStorage
+      const systemAlertsKey = `dismissedSystemAlerts_${currentUser.id}`;
+      localStorage.setItem(systemAlertsKey, JSON.stringify([...newDismissedAlerts]));
+    }
+  };
+
+  // Handle reset dismissed alerts (admin only)
+  const handleResetDismissedAlerts = () => {
+    if (currentUser && (userType === 'admin' || userType === 'staff')) {
+      setDismissedSystemAlerts(new Set());
+      const systemAlertsKey = `dismissedSystemAlerts_${currentUser.id}`;
+      localStorage.removeItem(systemAlertsKey);
+    }
+  };
 
   // Create notification action handlers that refresh data
   const handleMarkNotificationRead = async (id: number) => {
@@ -202,92 +267,116 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
         });
       }
 
-      // Alert for high activity
-      if (rbacData.recent_activity.assignments_24h > 10) {
+      // Alert for high activity (dismissible)
+      if (rbacData.recent_activity.assignments_24h > 10 && !dismissedSystemAlerts.has('high-activity')) {
         alerts.push({
           id: 'high-activity',
           severity: 'info',
           title: 'High Role Assignment Activity',
           description: `${rbacData.recent_activity.assignments_24h} new role assignments in the last 24 hours`,
           time: 'Last 24 hours',
-          type: 'system'
+          type: 'system',
+          actionable: true,
+          onAction: () => handleDismissSystemAlert('high-activity')
         });
       }
 
-      // Alert for permission check activity
-      if (rbacData.recent_activity.permission_checks_24h > 100) {
+      // Alert for permission check activity (dismissible)
+      if (rbacData.recent_activity.permission_checks_24h > 100 && !dismissedSystemAlerts.has('high-permission-activity')) {
         alerts.push({
           id: 'high-permission-activity',
           severity: 'info',
           title: 'High System Activity',
           description: `${rbacData.recent_activity.permission_checks_24h} permission checks performed in the last 24 hours`,
           time: 'Last 24 hours',
-          type: 'system'
+          type: 'system',
+          actionable: true,
+          onAction: () => handleDismissSystemAlert('high-permission-activity')
         });
       }
 
-      // Alert for new users
-      if (rbacData.summary.total_users > 0) {
-        // This would need to be enhanced with actual new user data
-        // For demo purposes, showing system health
+      // Alert for system status (dismissible)
+      if (rbacData.summary.total_users > 0 && !dismissedSystemAlerts.has('system-health')) {
         alerts.push({
           id: 'system-health',
           severity: 'info',
           title: 'System Status Update',
           description: `Managing ${rbacData.summary.total_users} users with ${rbacData.summary.active_assignments} active role assignments`,
           time: 'System overview',
-          type: 'system'
+          type: 'system',
+          actionable: true,
+          onAction: () => handleDismissSystemAlert('system-health')
         });
       }
     }
 
     // Add ML Processing system alerts
     if (userType === 'admin' || userType === 'staff') {
-      // ML Processing queue status
+      // ML Processing queue status (dismissible if info level)
       if (mlProcessingStats.processing > 0) {
-        alerts.push({
-          id: 'ml-processing-queue',
-          severity: mlProcessingStats.processing > 5 ? 'medium' : 'info',
-          title: 'ML Processing Queue',
-          description: `${mlProcessingStats.processing} credit applications currently being processed by ML models`,
-          time: 'Real-time',
-          type: 'ml_processing'
-        });
+        const severity = mlProcessingStats.processing > 5 ? 'medium' : 'info';
+        const isDismissible = severity === 'info';
+        const alertId = 'ml-processing-queue';
+        
+        if (!isDismissible || !dismissedSystemAlerts.has(alertId)) {
+          alerts.push({
+            id: alertId,
+            severity,
+            title: 'ML Processing Queue',
+            description: `${mlProcessingStats.processing} credit applications currently being processed by ML models`,
+            time: 'Real-time',
+            type: 'ml_processing',
+            actionable: isDismissible,
+            onAction: isDismissible ? () => handleDismissSystemAlert(alertId) : undefined
+          });
+        }
       }
 
-      // Daily ML processing summary
-      if (mlProcessingStats.completed_today > 0) {
+      // Daily ML processing summary (dismissible)
+      if (mlProcessingStats.completed_today > 0 && !dismissedSystemAlerts.has('ml-daily-summary')) {
         alerts.push({
           id: 'ml-daily-summary',
           severity: 'info',
           title: 'Daily ML Processing Summary',
           description: `${mlProcessingStats.completed_today} credit scores generated today with avg processing time of ${mlProcessingStats.avg_processing_time}s`,
           time: 'Today',
-          type: 'ml_processing'
+          type: 'ml_processing',
+          actionable: true,
+          onAction: () => handleDismissSystemAlert('ml-daily-summary')
         });
       }
 
-      // ML Processing failures
+      // ML Processing failures (dismissible for low counts, always visible for high counts)
       if (mlProcessingStats.failed_today > 0) {
-        alerts.push({
-          id: 'ml-failures',
-          severity: mlProcessingStats.failed_today > 3 ? 'high' : 'medium',
-          title: 'ML Processing Issues',
-          description: `${mlProcessingStats.failed_today} ML processing ${mlProcessingStats.failed_today === 1 ? 'failure' : 'failures'} detected today. Review system logs.`,
-          time: 'Today',
-          type: 'ml_processing'
-        });
+        const severity = mlProcessingStats.failed_today > 3 ? 'high' : 'medium';
+        const isDismissible = mlProcessingStats.failed_today <= 2; // Only dismiss if 1-2 failures
+        const alertId = 'ml-failures';
+        
+        if (!isDismissible || !dismissedSystemAlerts.has(alertId)) {
+          alerts.push({
+            id: alertId,
+            severity,
+            title: 'ML Processing Issues',
+            description: `${mlProcessingStats.failed_today} ML processing ${mlProcessingStats.failed_today === 1 ? 'failure' : 'failures'} detected today. Review system logs.`,
+            time: 'Today',
+            type: 'ml_processing',
+            actionable: isDismissible,
+            onAction: isDismissible ? () => handleDismissSystemAlert(alertId) : undefined
+          });
+        }
       }
 
-      // ML Model performance alert
-      if (mlProcessingStats.avg_processing_time > 60) {
+      // ML Model performance alert (dismissible)
+      if (mlProcessingStats.avg_processing_time > 60 && !dismissedSystemAlerts.has('ml-performance')) {
         alerts.push({
           id: 'ml-performance',
           severity: 'medium',
           title: 'ML Model Performance Alert',
           description: `Average processing time is ${mlProcessingStats.avg_processing_time}s. Consider model optimization.`,
           time: 'Performance monitoring',
-          type: 'ml_processing'
+          type: 'ml_processing',
+          actionable: true,
+          onAction: () => handleDismissSystemAlert('ml-performance')
         });
       }
     }
@@ -326,15 +415,17 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
 
     // Add client-specific alerts
     if (userType === 'client') {
-      // Fallback alerts for clients when no notifications
-      if (!currentNotifications || currentNotifications.length === 0) {
+      // Show welcome message only if it hasn't been dismissed and there are no notifications
+      if (!isWelcomeMessageDismissed && (!currentNotifications || currentNotifications.length === 0)) {
         alerts.push({
           id: 'welcome-client',
           severity: 'info',
           title: 'Welcome to Your Dashboard',
           description: 'Your account is active. You will receive notifications about application updates here.',
           time: 'Welcome message',
-          type: 'notification'
+          type: 'notification',
+          actionable: true,
+          onAction: handleDismissWelcomeMessage
         });
       }
     }
@@ -344,7 +435,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
       const severityOrder = { high: 0, medium: 1, low: 2, info: 3 };
       return severityOrder[a.severity] - severityOrder[b.severity];
     });
-  }, [currentNotifications, rbacData, auditLogs, userType, handleMarkNotificationRead]);
+  }, [currentNotifications, rbacData, auditLogs, userType, isWelcomeMessageDismissed, dismissedSystemAlerts, handleMarkNotificationRead, handleDismissWelcomeMessage, handleDismissSystemAlert]);
 
   // Filter alerts
   const filteredAlerts = useMemo(() => {
@@ -470,7 +561,7 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
                     onClick={alert.onAction}
                     className="absolute top-4 right-4 text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
                   >
-                    Mark Read
+                    {alert.id === 'welcome-client' || alert.id?.startsWith('system-') || alert.id?.startsWith('ml-') || alert.id?.includes('activity') ? 'Dismiss' : 'Mark Read'}
                   </button>
                 )}
               </motion.div>
@@ -514,6 +605,16 @@ export const SystemAlertsWidget: React.FC<SystemAlertsWidgetProps> = ({
                       Delete All
                     </button>
                   </div>
+                )}
+
+                {/* Reset dismissed alerts for admin/staff */}
+                {(userType === 'admin' || userType === 'staff') && dismissedSystemAlerts.size > 0 && (
+                  <button
+                    onClick={handleResetDismissedAlerts}
+                    className="w-full px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                  >
+                    Show Dismissed System Alerts ({dismissedSystemAlerts.size})
+                  </button>
                 )}
               </div>
             )}

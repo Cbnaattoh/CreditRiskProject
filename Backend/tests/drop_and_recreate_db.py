@@ -10,7 +10,7 @@ Usage:
     python drop_and_recreate_db.py --confirm
     python drop_and_recreate_db.py --dry-run
 
-Author: Generated for RiskGuard Pro
+Author: Generated for RiskGuard
 """
 
 import os

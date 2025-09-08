@@ -2,22 +2,18 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiPlus, FiList, FiFileText } from "react-icons/fi";
 import { useIsClientUser } from "../../components/utils/hooks/useRBAC";
-import Applicants from "../Applicants"; // This is the list view component
-import Applications from "./index"; // This is the form component
+import Applicants from "../Applicants";
+import Applications from "./index";
 
 const ApplicationsWrapper: React.FC = () => {
   const isClientUser = useIsClientUser();
   const [activeView, setActiveView] = useState<'list' | 'create'>('list');
   
-  // RBAC working correctly
-  console.log('✅ ApplicationsWrapper: Showing client applications view');
   
-  // For admin/staff users who somehow access this route, show the filtered applicants list
   if (!isClientUser) {
     return <Applicants showClientView={true} />;
   }
   
-  // For client users, show both list and create options
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 transition-all duration-500">
       <div className="max-w-7xl mx-auto p-6">

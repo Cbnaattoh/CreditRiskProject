@@ -1,5 +1,4 @@
 import FormSection from "../../FormSection";
-import { FormInput } from "../../FormInput";
 import { EnhancedFormInput } from "../../FormInput/EnhancedFormInput";
 import { LocationInput } from "../../LocationInput";
 import type { UseFormRegister, FieldErrors, UseFormSetValue, UseFormWatch } from "react-hook-form";
@@ -66,8 +65,10 @@ export const PersonalInfoStep = ({
           error={errors.nationalIDNumber}
           required
           placeholder={getFieldHelper('nationalIDNumber')?.example || "GHA-XXXXXXXXX-X"}
+          disabled={prefilledFields.nationalIDNumber}
           useEnhancedHelper={true}
         />
+
         <EnhancedFormInput
           label="SSNIT Number"
           name="ssnitNumber"

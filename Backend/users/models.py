@@ -289,6 +289,13 @@ class User(AbstractUser):
             
         return self.get_permissions().filter(codename=permission_codename).exists()
     
+    def has_perm(self, perm, obj=None):
+        """
+        Django's built-in permission method - override to use our custom permission system
+        This is called by DRF's permission classes
+        """
+        return self.has_permission(perm)
+    
     def has_role(self, role_name):
         """Check if user has specific role"""
         return self.get_roles().filter(name=role_name).exists()
@@ -343,9 +350,10 @@ class User(AbstractUser):
     def complete_mfa_setup(self):
         """Mark MFA setup as completed"""
         from django.utils import timezone
+        self.mfa_enabled = True
         self.mfa_setup_pending = False
         self.mfa_completed_at = timezone.now()
-        self.save(update_fields=['mfa_setup_pending', 'mfa_completed_at'])
+        self.save(update_fields=['mfa_enabled', 'mfa_setup_pending', 'mfa_completed_at'])
     
     def reset_mfa(self):
         """Reset MFA configuration"""

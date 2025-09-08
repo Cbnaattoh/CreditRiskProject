@@ -345,7 +345,7 @@ export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
             <span>Page {currentPage} of {Math.max(1, totalPages)}</span>
             <span>•</span>
             <span className="flex items-center space-x-1">
-              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse block"></span>
               <span>Live data</span>
             </span>
             {showMLActivity && (

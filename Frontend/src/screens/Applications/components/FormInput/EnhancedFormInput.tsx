@@ -1,4 +1,3 @@
-import React from "react";
 import type { UseFormRegister, FieldError } from "react-hook-form";
 import type { FormData } from "../types";
 import { FiInfo } from "react-icons/fi";
@@ -139,7 +138,7 @@ export const EnhancedFormInput = ({
         />
       )}
 
-      {/* Enhanced helper text with better styling */}
+      {/* Helper text */}
       {helperText && (
         <div className="mt-2 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700/30">
           <FiInfo className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
@@ -149,7 +148,7 @@ export const EnhancedFormInput = ({
         </div>
       )}
 
-      {/* Enhanced example with better formatting */}
+      {/* Enhanced example*/}
       {example && (
         <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
           <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -159,7 +158,7 @@ export const EnhancedFormInput = ({
         </div>
       )}
 
-      {/* Error message with enhanced styling */}
+      {/* Error message */}
       {error && (
         <div className="mt-2 flex items-start gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700/30">
           <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0" />

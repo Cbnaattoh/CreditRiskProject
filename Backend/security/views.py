@@ -207,7 +207,7 @@ class SecurityDashboardView(APIView):
             'behavioral_profiles_count': behavioral_profiles,
             'avg_confidence_score': round(avg_confidence, 2),
             'top_threat_types': list(threat_types),
-            'recent_activities': SuspiciousActivitySerializer(recent_activities, many=True).data
+            'recent_activities': recent_activities  # Pass model instances directly
         }
         
         serializer = SecurityDashboardStatsSerializer(stats)

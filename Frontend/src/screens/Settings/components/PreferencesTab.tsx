@@ -29,6 +29,7 @@ import {
 import { useToast } from "../../../components/utils/Toast";
 import { useOptimizedRealTime } from "../../../hooks/useRealTimeSettings";
 import { RealTimeIndicator } from "../../../components/ui/RealTimeIndicator";
+import { useNotificationContext } from "../../../components/notifications/NotificationProvider";
 
 interface PreferenceItem {
   id: string;
@@ -38,11 +39,14 @@ interface PreferenceItem {
   type: 'toggle' | 'select';
   value?: boolean | string;
   options?: { label: string; value: string }[];
+  premium?: boolean;
+  hasTestButton?: boolean;
 }
 
 export const PreferencesTab: React.FC = () => {
   const user = useSelector(selectCurrentUser);
   const { showToast } = useToast();
+  const { testNotificationSound, isSoundEnabled } = useNotificationContext();
   
   // Real-time updates for preferences
   const realTimeData = useOptimizedRealTime(['preferences'], 90000); // Reduced to 1.5 minutes
@@ -239,7 +243,8 @@ export const PreferencesTab: React.FC = () => {
           icon: <FiVolume2 className="h-5 w-5" />,
           type: 'toggle',
           value: preferences.soundEnabled,
-          premium: true
+          premium: true,
+          hasTestButton: true
         }
       ]
     },
@@ -488,7 +493,20 @@ export const PreferencesTab: React.FC = () => {
                       </div>
                       
                       {/* Controls */}
-                      <div className="relative z-10 flex items-center ml-4">
+                      <div className="relative z-10 flex items-center space-x-3 ml-4">
+                        {/* Test Sound Button */}
+                        {item.hasTestButton && item.value && (
+                          <motion.button
+                            onClick={() => testNotificationSound('default')}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-3 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-300 dark:border-blue-700 rounded-lg text-blue-600 dark:text-blue-400 text-xs font-medium hover:from-blue-500/30 hover:to-purple-500/30 transition-all duration-200"
+                            title="Test notification sound"
+                          >
+                            Test Sound
+                          </motion.button>
+                        )}
+                        
                         {item.type === 'toggle' ? (
                           <motion.button
                             onClick={() => handleToggle(item.id)}

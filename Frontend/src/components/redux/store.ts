@@ -3,7 +3,6 @@ import { apiSlice } from "./features/api/baseApi";
 import { applicationsApi } from "./features/api/applications/applicationsApi";
 import { riskApi } from "./features/api/risk/riskApi";
 import { notificationsApi } from "./features/api/notifications/notificationsApi";
-import { securityApi } from "./features/api/security/securityApi";
 import { mlApi } from "./features/api/ml/mlApi";
 import authReducer from "./features/auth/authSlice";
 import userReducer from "./features/user/userSlice";
@@ -34,7 +33,6 @@ export const store = configureStore({
     [applicationsApi.reducerPath]: applicationsApi.reducer,
     [riskApi.reducerPath]: riskApi.reducer,
     [notificationsApi.reducerPath]: notificationsApi.reducer,
-    [securityApi.reducerPath]: securityApi.reducer,
     [mlApi.reducerPath]: mlApi.reducer,
     [registrationApi.reducerPath]: registrationApi.reducer,
     auth: authReducer,
@@ -64,7 +62,6 @@ export const store = configureStore({
       .concat(applicationsApi.middleware)
       .concat(riskApi.middleware)
       .concat(notificationsApi.middleware)
-      .concat(securityApi.middleware)
       .concat(mlApi.middleware)
       .concat(registrationApi.middleware)
       .concat(authUserSyncMiddleware),
@@ -112,7 +109,6 @@ export const resetApplicationState = () => {
   store.dispatch(applicationsApi.util.resetApiState());
   store.dispatch(riskApi.util.resetApiState());
   store.dispatch(notificationsApi.util.resetApiState());
-  store.dispatch(securityApi.util.resetApiState());
   store.dispatch(mlApi.util.resetApiState());
   store.dispatch(registrationApi.util.resetApiState());
 };

@@ -1559,9 +1559,10 @@ class MFASetupView(generics.GenericAPIView):
         codes, hashes = generate_backup_codes()
         
         user.mfa_secret = secret
-        user.mfa_enabled = True
+        user.mfa_enabled = False  # Don't enable until verification is complete
+        user.mfa_setup_pending = True  # Mark as pending setup
         user.backup_codes = hashes
-        user.save()
+        user.save(update_fields=['mfa_secret', 'mfa_enabled', 'mfa_setup_pending', 'backup_codes'])
         
         # Generate provisioning URI
         totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(

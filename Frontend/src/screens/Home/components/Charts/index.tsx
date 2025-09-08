@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useGetRiskChartsDataQuery } from "../../../../components/redux/features/api/risk/riskApi";
 import {
   PieChart,
   Pie,
@@ -145,6 +146,12 @@ const CustomLegend = ({ payload }: any) => {
 export const RiskDistributionChart: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [hoveredLegend, setHoveredLegend] = useState<number | null>(null);
+  
+  // Fetch real risk chart data
+  const { data: chartsData, isLoading, error } = useGetRiskChartsDataQuery();
+  
+  // Use real data or show empty state
+  const riskDataToUse = chartsData?.risk_distribution || [];
 
   const renderCustomizedLabel = ({
     cx,
@@ -182,6 +189,45 @@ export const RiskDistributionChart: React.FC = () => {
     setActiveIndex(null);
   };
 
+  // Show loading state with skeleton
+  if (isLoading) {
+    return (
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1">
+          <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+        </div>
+        <div className="flex-1 space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-2"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+                </div>
+                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12"></div>
+              </div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2"></div>
+              <div className="h-1.5 bg-gray-300 dark:bg-gray-600 rounded w-full"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!riskDataToUse || riskDataToUse.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-80 text-gray-500 dark:text-gray-400">
+        <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <p className="text-lg font-medium">No Risk Data Available</p>
+        <p className="text-sm text-center">Risk distribution data will appear here once assessments are processed.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Enhanced Pie Chart */}
@@ -189,7 +235,7 @@ export const RiskDistributionChart: React.FC = () => {
         <ResponsiveContainer width="100%" height={320}>
           <PieChart>
             <defs>
-              {riskData.map((item, index) => (
+              {riskDataToUse.map((item, index) => (
                 <React.Fragment key={index}>
                   <linearGradient
                     id={`gradient-${index}`}
@@ -216,7 +262,7 @@ export const RiskDistributionChart: React.FC = () => {
               ))}
             </defs>
             <Pie
-              data={riskData}
+              data={riskDataToUse}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -230,7 +276,7 @@ export const RiskDistributionChart: React.FC = () => {
               stroke="rgba(255,255,255,0.3)"
               strokeWidth={2}
             >
-              {riskData.map((entry, index) => (
+              {riskDataToUse.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={`url(#gradient-${index})`}
@@ -258,7 +304,7 @@ export const RiskDistributionChart: React.FC = () => {
       {/* Compact Interactive Legend */}
       <div className="flex-1 min-w-0">
         <div className="space-y-3">
-          {riskData.map((item, index) => (
+          {riskDataToUse.map((item, index) => (
             <div
               key={index}
               className={`
@@ -309,7 +355,7 @@ export const RiskDistributionChart: React.FC = () => {
                   style={{
                     backgroundColor: item.color,
                     width: `${
-                      (item.value / Math.max(...riskData.map((d) => d.value))) *
+                      (item.value / Math.max(...riskDataToUse.map((d) => d.value))) *
                       100
                     }%`,
                   }}
@@ -401,9 +447,38 @@ export const ApplicationTrendChart: React.FC = () => (
   </ResponsiveContainer>
 );
 
-export const RiskFactorsRadar: React.FC = () => (
-  <ResponsiveContainer width="100%" height={320}>
-    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+export const RiskFactorsRadar: React.FC = () => {
+  // Fetch real risk chart data
+  const { data: chartsData, isLoading, error } = useGetRiskChartsDataQuery();
+  
+  // Use real data or empty array
+  const radarDataToUse = chartsData?.risk_factors_radar || [];
+
+  // Show loading state with skeleton
+  if (isLoading) {
+    return (
+      <div className="relative h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex items-center justify-center">
+        <div className="w-48 h-48 rounded-full border-4 border-gray-300 dark:border-gray-600"></div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!radarDataToUse || radarDataToUse.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-80 text-gray-500 dark:text-gray-400">
+        <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <p className="text-lg font-medium">No Risk Factors Data Available</p>
+        <p className="text-sm text-center">Risk factor analysis will appear here once data is available.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarDataToUse}>
       <defs>
         <linearGradient id="radarGradient" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#6366F1" stopOpacity={0.8} />
@@ -445,7 +520,8 @@ export const RiskFactorsRadar: React.FC = () => (
       <Legend content={<CustomLegend />} />
     </RadarChart>
   </ResponsiveContainer>
-);
+  );
+};
 
 export const ApprovalRateChart: React.FC = () => {
   const approvalRateData = trendData.map((month) => ({
@@ -604,20 +680,29 @@ export const ChartContainer: React.FC<{
 export const CreditScoreDistributionChart: React.FC = () => {
   const [activeRange, setActiveRange] = useState<number | null>(null);
   const [animationComplete, setAnimationComplete] = useState(false);
+  
+  // Fetch real risk chart data
+  const { data: chartsData, isLoading, error } = useGetRiskChartsDataQuery();
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Credit score distribution data with realistic ranges
-  const creditScoreData = [
+  // Credit score distribution data with realistic ranges (fallback)
+  const defaultCreditScoreData = [
     { range: "300-579", label: "Poor", count: 145, percentage: 8.2, color: "#DC2626", icon: "🔴", description: "High risk borrowers", benchmark: 10.5 },
     { range: "580-669", label: "Fair", count: 289, percentage: 16.4, color: "#EA580C", icon: "🟠", description: "Subprime borrowers", benchmark: 18.2 },
     { range: "670-739", label: "Good", count: 456, percentage: 25.8, color: "#F59E0B", icon: "🟡", description: "Prime borrowers", benchmark: 24.1 },
     { range: "740-799", label: "Very Good", count: 523, percentage: 29.6, color: "#059669", icon: "🟢", description: "Low risk borrowers", benchmark: 28.7 },
     { range: "800-850", label: "Excellent", count: 354, percentage: 20.0, color: "#047857", icon: "💎", description: "Exceptional credit", benchmark: 18.5 },
   ];
+  
+  // Use real data or empty array
+  const creditScoreData = chartsData?.credit_score_distribution?.map(item => ({
+    ...item,
+    benchmark: item.percentage + 2 // Add benchmark for comparison
+  })) || [];
 
   const CustomCreditTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -680,24 +765,68 @@ export const CreditScoreDistributionChart: React.FC = () => {
     return null;
   };
 
+  // Show loading state with skeleton
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Statistics Header Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 animate-pulse">
+              <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+            </div>
+          ))}
+        </div>
+        {/* Chart Skeleton */}
+        <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!creditScoreData || creditScoreData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-gray-500 dark:text-gray-400">
+        <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-lg font-medium">No Credit Score Data Available</p>
+        <p className="text-sm text-center">Credit score distribution will appear here once ML assessments are completed.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Premium Statistics Header */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-2xl p-4 border border-indigo-200 dark:border-indigo-800">
-          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">742</div>
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+            {chartsData?.credit_statistics?.avg_score || 0}
+          </div>
           <div className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">Avg Score</div>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-4 border border-green-200 dark:border-green-800">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">1,767</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {chartsData?.credit_statistics?.total_apps?.toLocaleString() || 0}
+          </div>
           <div className="text-sm text-green-700 dark:text-green-300 font-medium">Total Apps</div>
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-4 border border-purple-200 dark:border-purple-800">
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">72.4%</div>
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {chartsData?.credit_statistics?.prime_plus_percentage || 0}%
+          </div>
           <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Prime+</div>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-2xl p-4 border border-amber-200 dark:border-amber-800">
-          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">+2.1%</div>
+          <div className={`text-2xl font-bold ${
+            (chartsData?.credit_statistics?.vs_target || 0) >= 0 
+              ? 'text-amber-600 dark:text-amber-400' 
+              : 'text-red-600 dark:text-red-400'
+          }`}>
+            {(chartsData?.credit_statistics?.vs_target || 0) >= 0 ? '+' : ''}{chartsData?.credit_statistics?.vs_target || 0}%
+          </div>
           <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">vs Target</div>
         </div>
       </div>
@@ -872,9 +1001,12 @@ export const CreditScoreDistributionChart: React.FC = () => {
 export const ComplianceViolationsTrendChart: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<string>('all');
   const [timeRange, setTimeRange] = useState<string>('6m');
+  
+  // Fetch real risk chart data
+  const { data: chartsData, isLoading, error } = useGetRiskChartsDataQuery();
 
-  // Compliance violations trend data with multiple metrics
-  const violationsData = [
+  // Default compliance violations trend data with multiple metrics (fallback)
+  const defaultViolationsData = [
     {
       month: "Jan 2024",
       total: 12,
@@ -954,6 +1086,9 @@ export const ComplianceViolationsTrendChart: React.FC = () => {
       regulatory_breaches: 0
     },
   ];
+  
+  // Use real data or empty array
+  const violationsData = chartsData?.compliance_violations_trend || [];
 
   const violationTypes = [
     { key: 'critical', label: 'Critical', color: '#DC2626', icon: '🚨' },
@@ -1043,11 +1178,51 @@ export const ComplianceViolationsTrendChart: React.FC = () => {
     return null;
   };
 
+  // Show loading state with skeleton
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Control Panel Skeleton */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 animate-pulse">
+                <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+                <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-16"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Chart Skeleton */}
+        <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!violationsData || violationsData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-gray-500 dark:text-gray-400">
+        <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-lg font-medium">No Compliance Data Available</p>
+        <p className="text-sm text-center">Compliance violations trend will appear here once compliance data is tracked.</p>
+      </div>
+    );
+  }
+
   const currentData = violationsData;
-  const avgCompliance = currentData.reduce((sum, item) => sum + item.compliance_score, 0) / currentData.length;
-  const totalViolations = currentData.reduce((sum, item) => sum + item.total, 0);
-  const totalResolved = currentData.reduce((sum, item) => sum + item.resolved, 0);
-  const criticalViolations = currentData.reduce((sum, item) => sum + item.critical, 0);
+  
+  // Use statistics from API or calculate as fallback
+  const avgCompliance = chartsData?.compliance_statistics?.avg_compliance || 
+    (currentData.length > 0 ? currentData.reduce((sum, item) => sum + item.compliance_score, 0) / currentData.length : 0);
+  const totalViolations = chartsData?.compliance_statistics?.total_violations || 
+    currentData.reduce((sum, item) => sum + item.total, 0);
+  const criticalViolations = chartsData?.compliance_statistics?.critical_issues || 
+    currentData.reduce((sum, item) => sum + item.critical, 0);
+  const resolutionRate = chartsData?.compliance_statistics?.resolution_rate || 
+    (totalViolations > 0 ? (currentData.reduce((sum, item) => sum + item.resolved, 0) / totalViolations * 100) : 0);
 
   return (
     <div className="space-y-6">
@@ -1068,7 +1243,7 @@ export const ComplianceViolationsTrendChart: React.FC = () => {
             <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">Critical Issues</div>
           </div>
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{((totalResolved/totalViolations)*100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{resolutionRate.toFixed(1)}%</div>
             <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Resolution Rate</div>
           </div>
         </div>

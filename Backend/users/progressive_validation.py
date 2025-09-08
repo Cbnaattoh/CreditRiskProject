@@ -536,7 +536,7 @@ def process_ghana_card_ocr(request):
         cache_data = f"{first_name}{last_name}{ghana_card_number}{front_image.size}{back_image.size}"
         cache_key = ValidationCache.get_cache_key('textract', cache_data)
         
-        # Check if cache bypass is requested (for debugging)
+        # Check if cache bypass is requested
         bypass_cache = request.data.get('bypass_cache', False) or request.GET.get('bypass_cache', False)
         
         if not bypass_cache:
@@ -963,32 +963,47 @@ def verify_code(request):
             # Update user verification status
             try:
                 from .models import User
+                from django.db import transaction
                 
-                if verification_type == 'email':
-                    # Find user by email and update email verification
-                    user = User.objects.filter(email__iexact=contact_info).first()
-                    if user and not user.email_verified:
-                        user.verify_email()
-                        logger.info(f"Email verified for {contact_info}. Fully verified: {user.is_verified}")
-                    elif user and user.email_verified:
-                        logger.info(f"User {contact_info} email was already verified")
-                    else:
-                        logger.warning(f"User not found for email verification: {contact_info}")
-                        
-                elif verification_type == 'phone':
-                    # Find user by phone and update phone verification
-                    user = User.objects.filter(phone_number=contact_info).first()
-                    if user and not user.phone_verified:
-                        user.verify_phone()
-                        logger.info(f"Phone verified for {contact_info}. Fully verified: {user.is_verified}")
-                    elif user and user.phone_verified:
-                        logger.info(f"User {contact_info} phone was already verified")
-                    else:
-                        logger.warning(f"User not found for phone verification: {contact_info}")
+                with transaction.atomic():
+                    if verification_type == 'email':
+                        # Find user by email and update email verification
+                        user = User.objects.filter(email__iexact=contact_info).first()
+                        if user:
+                            if not user.email_verified:
+                                logger.info(f"Found user {user.email} (ID: {user.id}), calling verify_email()...")
+                                user.verify_email()
+                                # Refresh from database to verify the update
+                                user.refresh_from_db()
+                                logger.info(f"Email verified for {contact_info}. email_verified={user.email_verified}, email_verified_at={user.email_verified_at}, is_verified={user.is_verified}")
+                                
+                                # Double-check by querying directly
+                                updated_user = User.objects.get(id=user.id)
+                                logger.info(f"Database verification - email_verified={updated_user.email_verified}, is_verified={updated_user.is_verified}")
+                            else:
+                                logger.info(f"User {contact_info} email was already verified")
+                        else:
+                            logger.warning(f"User not found for email verification: {contact_info}")
+                            # Try finding user without case sensitivity for debugging
+                            debug_user = User.objects.filter(email__icontains=contact_info.split('@')[0]).first()
+                            if debug_user:
+                                logger.warning(f"Found similar user: {debug_user.email} (looking for: {contact_info})")
+                            
+                    elif verification_type == 'phone':
+                        # Find user by phone and update phone verification
+                        user = User.objects.filter(phone_number=contact_info).first()
+                        if user and not user.phone_verified:
+                            user.verify_phone()
+                            logger.info(f"Phone verified for {contact_info}. Fully verified: {user.is_verified}")
+                        elif user and user.phone_verified:
+                            logger.info(f"User {contact_info} phone was already verified")
+                        else:
+                            logger.warning(f"User not found for phone verification: {contact_info}")
                         
             except Exception as e:
-                logger.error(f"Error updating user verification status: {str(e)}")
-                # Don't fail the verification response due to this error
+                logger.error(f"Error updating user verification status: {str(e)}", exc_info=True)
+                # Don't fail the verification response due to this error, but log the full stack trace
+                # This might be why email_verified is not being updated despite successful OTP verification
             
             return Response({
                 'success': True,

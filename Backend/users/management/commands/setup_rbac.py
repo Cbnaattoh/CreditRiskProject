@@ -146,7 +146,7 @@ class Command(BaseCommand):
                     'view_permissions',
                     'risk_view', 'risk_edit', 'risk_approve',
                     'compliance_view', 'compliance_edit',
-                    'report_view', 'report_create', 'report_edit', 'report_share', 'report_comment',
+                    'report_view', 'report_create', 'report_edit', 'report_share', 'report_comment', 'report_admin',
                     'data_export', 'client_view',
                     'view_own_profile', 'edit_own_profile',
                 ],

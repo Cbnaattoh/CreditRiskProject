@@ -9,11 +9,15 @@ import {
   FiTrendingUp,
   FiClock,
   FiRefreshCw,
+  FiTrash2,
 } from 'react-icons/fi';
+import { useAppSelector } from '../../components/utils/hooks';
+import { selectIsAuthenticated } from '../../components/redux/features/auth/authSlice';
 import {
   useGetSecurityDashboardStatsQuery,
   useGetSecurityAlertsQuery,
   useGetCriticalAlertsQuery,
+  useDeleteSuspiciousActivityMutation,
 } from '../../components/redux/features/api/security/securityApi';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -133,38 +137,85 @@ const ThreatTypeChart: React.FC<{
 
 const SecurityDashboard: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
-  
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+
   const {
     data: stats,
     isLoading: statsLoading,
     error: statsError,
     refetch: refetchStats,
   } = useGetSecurityDashboardStatsQuery(undefined, {
+    skip: !isAuthenticated, // Skip API call if not authenticated
     refetchOnMountOrArgChange: true,
-    pollingInterval: 30000, // Refresh every 30 seconds
+    pollingInterval: isAuthenticated ? 30000 : 0, // Only poll if authenticated
   });
+
+  // Debug logging for authentication state
+  React.useEffect(() => {
+    console.log('🔍 SecurityDashboard - Authentication State:', { isAuthenticated });
+  }, [isAuthenticated]);
+
+  // Debug logging for API call states
+  React.useEffect(() => {
+    console.log('🔍 SecurityDashboard Stats Query:', {
+      isLoading: statsLoading,
+      hasData: !!stats,
+      error: statsError,
+      isAuthenticated
+    });
+  }, [statsLoading, stats, statsError, isAuthenticated]);
+
+  React.useEffect(() => {
+    if (statsError) {
+      console.error('🔴 SecurityDashboard Stats Error:', statsError);
+    }
+  }, [statsError]);
 
   const {
     data: alerts,
     isLoading: alertsLoading,
     refetch: refetchAlerts,
   } = useGetSecurityAlertsQuery(undefined, {
+    skip: !isAuthenticated, // Skip API call if not authenticated
     refetchOnMountOrArgChange: true,
-    pollingInterval: 15000, // Refresh every 15 seconds
+    pollingInterval: isAuthenticated ? 15000 : 0, // Only poll if authenticated
   });
 
   const {
     data: criticalAlerts,
     isLoading: criticalLoading,
   } = useGetCriticalAlertsQuery(undefined, {
+    skip: !isAuthenticated, // Skip API call if not authenticated
     refetchOnMountOrArgChange: true,
-    pollingInterval: 10000, // Refresh every 10 seconds
+    pollingInterval: isAuthenticated ? 10000 : 0, // Only poll if authenticated
   });
 
+  const [deleteSuspiciousActivity] = useDeleteSuspiciousActivityMutation();
+
   const handleRefresh = () => {
+    console.log('🔄 SecurityDashboard - Manual Refresh Triggered', { isAuthenticated });
     setRefreshKey(prev => prev + 1);
-    refetchStats();
-    refetchAlerts();
+    if (isAuthenticated) {
+      refetchStats().then(result => {
+        console.log('🔄 Stats Refetch Result:', result);
+      }).catch(err => {
+        console.error('🔴 Stats Refetch Error:', err);
+      });
+      refetchAlerts();
+    } else {
+      console.warn('⚠️ Cannot refresh - user not authenticated');
+    }
+  };
+
+  const handleDeleteActivity = async (id: number) => {
+    try {
+      await deleteSuspiciousActivity(id).unwrap();
+      console.log('🗑️ Suspicious activity deleted successfully');
+      setDeleteConfirmId(null);
+    } catch (error) {
+      console.error('❌ Failed to delete suspicious activity:', error);
+    }
   };
 
   if (statsLoading) {
@@ -335,6 +386,7 @@ const SecurityDashboard: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Risk Level</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Time</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">IP Address</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -362,12 +414,59 @@ const SecurityDashboard: React.FC = () => {
                     <td className="py-3 px-4 text-gray-600 dark:text-gray-400 font-mono text-xs">
                       {activity.ip_address}
                     </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => setDeleteConfirmId(activity.id)}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        title="Delete activity"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </motion.div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 shadow-xl"
+          >
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 dark:bg-red-900/20 rounded-full">
+              <FiAlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
+              Delete Suspicious Activity
+            </h3>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
+              Are you sure you want to delete this suspicious activity? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteActivity(deleteConfirmId)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

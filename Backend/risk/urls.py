@@ -7,12 +7,20 @@ from .views import (
     CounterfactualView,
     RiskAnalysisView,
     ModelPredictionListView,
-    CounterfactualListView
+    CounterfactualListView,
+    risk_analytics_dashboard,
+    risk_charts_data
 )
 
 app_name = 'risk'
 
 urlpatterns = [
+    # Risk Analytics Dashboard endpoint
+    path('analytics/dashboard/', risk_analytics_dashboard, name='risk-analytics-dashboard'),
+    
+    # Risk Charts Data endpoint
+    path('analytics/charts/', risk_charts_data, name='risk-charts-data'),
+    
     # Comprehensive risk analysis endpoint
     path('analysis/<uuid:pk>/', RiskAnalysisView.as_view(), name='risk-analysis'),
 

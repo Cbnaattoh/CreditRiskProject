@@ -34,6 +34,7 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
   const reportType = watch("report_type");
 
   const reportTypes = [
+    // Core Reports
     { value: "RISK_SUMMARY", label: "Risk Assessment Summary", description: "Overview of risk assessments and scores" },
     { value: "APPLICATION_ANALYTICS", label: "Application Analytics", description: "Analysis of credit applications and trends" },
     { value: "PERFORMANCE_METRICS", label: "Performance Metrics", description: "System and processing performance data" },
@@ -41,6 +42,18 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
     { value: "FINANCIAL_OVERVIEW", label: "Financial Overview", description: "Financial metrics and portfolio data" },
     { value: "MONTHLY_SUMMARY", label: "Monthly Summary", description: "Comprehensive monthly report" },
     { value: "QUARTERLY_REPORT", label: "Quarterly Report", description: "Detailed quarterly analysis" },
+    
+    // Credit Risk Specific Reports
+    { value: "CREDIT_SCORE_ANALYSIS", label: "Credit Score Analysis", description: "Detailed analysis of credit score distributions and trends" },
+    { value: "DEFAULT_PREDICTION", label: "Default Prediction Report", description: "Probability of default analysis and predictions" },
+    { value: "PORTFOLIO_RISK", label: "Portfolio Risk Analysis", description: "Overall portfolio risk assessment and concentration" },
+    { value: "UNDERWRITING_PERFORMANCE", label: "Underwriting Performance", description: "Analysis of underwriting decisions and outcomes" },
+    { value: "REGULATORY_COMPLIANCE", label: "Regulatory Compliance Report", description: "Compliance with financial regulations and standards" },
+    { value: "LOSS_MITIGATION", label: "Loss Mitigation Report", description: "Analysis of potential losses and mitigation strategies" },
+    { value: "CONCENTRATION_RISK", label: "Concentration Risk Report", description: "Risk concentration analysis across different dimensions" },
+    { value: "MODEL_VALIDATION", label: "ML Model Validation Report", description: "Validation and performance metrics of ML models" },
+    { value: "STRESS_TEST", label: "Stress Testing Report", description: "Stress testing under adverse economic scenarios" },
+    
     { value: "CUSTOM", label: "Custom Report", description: "Build a custom report with specific parameters" },
   ];
 

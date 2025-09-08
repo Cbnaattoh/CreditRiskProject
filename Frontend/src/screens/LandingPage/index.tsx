@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, useSpring, useMotionValue, useInView } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../Settings/hooks/useTheme';
 import { ThemeToggle } from '../Settings/components/ThemeToggle';
@@ -18,6 +18,8 @@ import {
   UserGroupIcon,
 } from './icons';
 import './LandingPage.css';
+import './enhanced-animations.css';
+import './particles-animations.css';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,6 +29,13 @@ const LandingPage: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY, scrollYProgress } = useScroll();
   
+  // Advanced animation values
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springConfig = { damping: 25, stiffness: 700 };
+  const mouseXSpring = useSpring(mouseX, springConfig);
+  const mouseYSpring = useSpring(mouseY, springConfig);
+  
   // Parallax effects
   const heroY = useTransform(scrollY, [0, 500], [0, -100]);
   const featuresY = useTransform(scrollY, [300, 800], [50, -50]);
@@ -34,11 +43,14 @@ const LandingPage: React.FC = () => {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
+      const { clientX, clientY } = e;
+      setMousePosition({ x: clientX, y: clientY });
+      mouseX.set(clientX - window.innerWidth / 2);
+      mouseY.set(clientY - window.innerHeight / 2);
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [mouseX, mouseY]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -87,7 +99,70 @@ const LandingPage: React.FC = () => {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: { duration: 0.7, ease: "easeOut" }
+      transition: { 
+        duration: 0.7, 
+        ease: "easeOut",
+        type: "spring",
+        damping: 20,
+        stiffness: 100
+      }
+    },
+    hover: {
+      y: -8,
+      scale: 1.02,
+      rotateX: 5,
+      rotateY: 5,
+      transition: {
+        duration: 0.3,
+        type: "spring",
+        stiffness: 400,
+        damping: 10
+      }
+    }
+  };
+
+  // Enhanced magnetic effect variants
+  const magneticVariants = {
+    default: { x: 0, y: 0 },
+    hover: {
+      x: mouseXSpring,
+      y: mouseYSpring,
+      scale: 1.05,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 20
+      }
+    }
+  };
+
+  // Stagger animations for grids
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  // Advanced text reveal animation
+  const textReveal = {
+    hidden: { 
+      opacity: 0,
+      y: 100,
+      clipPath: "inset(0 0 100% 0)"
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      clipPath: "inset(0 0 0% 0)",
+      transition: {
+        duration: 1,
+        ease: [0.25, 0.46, 0.45, 0.94]
+      }
     }
   };
 
@@ -189,8 +264,8 @@ const LandingPage: React.FC = () => {
               key={i}
               className={`floating-shape shape-${i + 1}`}
               animate={{
-                y: [-20, 20, -20],
-                x: [-10, 10, -10],
+                y: [-20, 20],
+                x: [-10, 10],
                 rotate: [0, 360]
               }}
               transition={{
@@ -203,13 +278,87 @@ const LandingPage: React.FC = () => {
         </div>
         
         {/* Mouse follower effect */}
+        {/* Animated particles */}
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className={`particle particle-${i + 1}`}
+            animate={{
+              y: [-30, 30],
+              x: [-15, 15],
+              opacity: [0.3, 0.8],
+              scale: [0.8, 1.2]
+            }}
+            transition={{
+              duration: 8 + i * 0.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.3
+            }}
+          />
+        ))}
+        
+        {/* Morphing background shapes */}
         <motion.div
-          className="mouse-follower"
-          style={{
-            x: mousePosition.x - 50,
-            y: mousePosition.y - 50
+          className="morphing-shape morphing-shape-1"
+          animate={{
+            rotate: [0, 360],
+            scale: [1, 1.2, 0.8, 1]
           }}
-          transition={{ type: "spring", stiffness: 50, damping: 10 }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="morphing-shape morphing-shape-2"
+          animate={{
+            rotate: [360, 0],
+            scale: [0.8, 1.1, 0.9, 0.8]
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 5
+          }}
+        />
+        <motion.div
+          className="morphing-shape morphing-shape-3"
+          animate={{
+            rotate: [0, -360],
+            scale: [1.1, 0.9, 1.3, 1.1]
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 10
+          }}
+        />
+        
+        {/* Enhanced mouse followers with multiple layers */}
+        <motion.div
+          className="mouse-follower primary"
+          style={{
+            x: mouseXSpring,
+            y: mouseYSpring
+          }}
+        />
+        <motion.div
+          className="mouse-follower secondary"
+          style={{
+            x: useTransform(mouseXSpring, (x) => x * 0.5),
+            y: useTransform(mouseYSpring, (y) => y * 0.5)
+          }}
+        />
+        <motion.div
+          className="mouse-follower tertiary"
+          style={{
+            x: useTransform(mouseXSpring, (x) => x * 0.2),
+            y: useTransform(mouseYSpring, (y) => y * 0.2)
+          }}
         />
       </div>
 
@@ -295,12 +444,38 @@ const LandingPage: React.FC = () => {
             </motion.div>
             
             <motion.h1 
-              className="hero-title"
-              variants={itemVariants}
+              className="hero-title overflow-hidden"
+              variants={textReveal}
+              initial="hidden"
+              animate="visible"
             >
-              Next-Generation{" "}
-              <span className="text-gradient">Credit Risk</span>{" "}
-              Management Platform
+              <motion.span
+                className="inline-block"
+                variants={{
+                  hidden: { y: "100%" },
+                  visible: { y: "0%", transition: { duration: 0.8, delay: 0.2 } }
+                }}
+              >
+                Next-Generation{" "}
+              </motion.span>
+              <motion.span 
+                className="text-gradient inline-block"
+                variants={{
+                  hidden: { y: "100%" },
+                  visible: { y: "0%", transition: { duration: 0.8, delay: 0.4 } }
+                }}
+              >
+                Credit Risk
+              </motion.span>{" "}
+              <motion.span
+                className="inline-block"
+                variants={{
+                  hidden: { y: "100%" },
+                  visible: { y: "0%", transition: { duration: 0.8, delay: 0.6 } }
+                }}
+              >
+                Management Platform
+              </motion.span>
             </motion.h1>
             
             <motion.p 
@@ -349,9 +524,17 @@ const LandingPage: React.FC = () => {
               {stats.map((stat, index) => (
                 <motion.div
                   key={index}
-                  className="stat-item"
-                  whileHover={{ y: -5 }}
-                  transition={{ type: "spring", stiffness: 400 }}
+                  className="stat-item group cursor-pointer"
+                  variants={cardVariants}
+                  whileHover="hover"
+                  onHoverStart={() => {
+                    mouseX.set((index - 2) * 50);
+                    mouseY.set(-25);
+                  }}
+                  onHoverEnd={() => {
+                    mouseX.set(0);
+                    mouseY.set(0);
+                  }}
                 >
                   <stat.icon className="stat-icon" />
                   <div className="stat-value">{stat.value}</div>
@@ -373,14 +556,30 @@ const LandingPage: React.FC = () => {
                 src="/images/fintech-hero.svg"
                 alt="AI-Powered Credit Risk Management"
                 className="hero-main-image"
-                animate={{ y: [-10, 10, -10] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ 
+                  y: [-10, 10],
+                  rotateX: [0, 5],
+                  rotateY: [0, -2]
+                }}
+                transition={{ 
+                  duration: 6, 
+                  repeat: Infinity, 
+                  ease: "easeInOut",
+                  type: "spring",
+                  damping: 20
+                }}
+                whileHover={{
+                  scale: 1.05,
+                  rotateX: 10,
+                  rotateY: 10,
+                  transition: { duration: 0.3 }
+                }}
               />
               <div className="dashboard-preview">
                 <motion.div
                   className="preview-screen"
-                  animate={{ y: [-10, 10, -10] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  animate={{ y: [-10, 10] }}
+                  transition={{ duration: 4, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
                 >
                   <div className="screen-header">
                     <div className="screen-dots">
@@ -452,32 +651,61 @@ const LandingPage: React.FC = () => {
 
           <motion.div
             className="features-grid"
-            variants={containerVariants}
+            variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-100px" }}
           >
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                className="feature-card"
+                className="feature-card group cursor-pointer perspective-1000"
                 variants={cardVariants}
-                whileHover={{ 
-                  y: -10,
-                  transition: { duration: 0.3 }
+                whileHover="hover"
+                onHoverStart={() => {
+                  mouseX.set((index % 2 === 0 ? -1 : 1) * 20);
+                  mouseY.set(-10);
+                }}
+                onHoverEnd={() => {
+                  mouseX.set(0);
+                  mouseY.set(0);
                 }}
               >
-                <div className={`feature-icon bg-gradient-to-r ${feature.color}`}>
-                  <feature.icon className="icon" />
-                </div>
+                <motion.div 
+                  className={`feature-icon bg-gradient-to-r ${feature.color} relative overflow-hidden`}
+                  whileHover={{
+                    scale: 1.1,
+                    rotateX: 15,
+                    rotateY: 15,
+                    transition: { duration: 0.3 }
+                  }}
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20"
+                    initial={false}
+                    whileHover={{
+                      opacity: 0.2,
+                      backgroundPosition: ["0% 0%", "100% 100%"],
+                      transition: { duration: 0.6 }
+                    }}
+                  />
+                  <feature.icon className="icon relative z-10" />
+                </motion.div>
                 <h3 className="feature-title">{feature.title}</h3>
                 <p className="feature-description">{feature.description}</p>
                 <motion.div
-                  className="feature-link"
-                  whileHover={{ x: 5 }}
+                  className="feature-link group-hover:text-white transition-colors"
+                  whileHover={{ x: 8 }}
                   transition={{ type: "spring", stiffness: 400 }}
                 >
-                  Learn more <ArrowRightIcon className="link-icon" />
+                  Learn more 
+                  <motion.div
+                    className="inline-block"
+                    whileHover={{ x: 4, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 400 }}
+                  >
+                    <ArrowRightIcon className="link-icon" />
+                  </motion.div>
                 </motion.div>
               </motion.div>
             ))}
@@ -562,12 +790,27 @@ const LandingPage: React.FC = () => {
                     {[...Array(6)].map((_, i) => (
                       <motion.div
                         key={i}
-                        className="dashboard-widget"
-                        initial={{ scale: 0, opacity: 0 }}
-                        whileInView={{ scale: 1, opacity: 1 }}
+                        className="dashboard-widget group cursor-pointer"
+                        initial={{ scale: 0, opacity: 0, rotateX: 45 }}
+                        whileInView={{ 
+                          scale: 1, 
+                          opacity: 1, 
+                          rotateX: 0,
+                          transition: {
+                            duration: 0.6,
+                            delay: i * 0.1,
+                            type: "spring",
+                            stiffness: 200,
+                            damping: 20
+                          }
+                        }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: i * 0.1 }}
-                        whileHover={{ scale: 1.05 }}
+                        whileHover={{ 
+                          scale: 1.05,
+                          y: -5,
+                          rotateX: 5,
+                          transition: { duration: 0.2 }
+                        }}
                       >
                         <div className="widget-content">
                           <div className="widget-value">
@@ -658,18 +901,31 @@ const LandingPage: React.FC = () => {
 
           <motion.div
             className="testimonials-grid"
-            variants={containerVariants}
+            variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
           >
             {testimonials.map((testimonial, index) => (
               <motion.div
                 key={index}
-                className="testimonial-card enhanced"
+                className="testimonial-card enhanced group cursor-pointer"
                 variants={cardVariants}
-                whileHover={{ y: -5, scale: 1.02 }}
-                transition={{ duration: 0.3 }}
+                whileHover={{
+                  y: -8,
+                  scale: 1.02,
+                  rotateX: 2,
+                  rotateY: 2,
+                  transition: { duration: 0.3, type: "spring", stiffness: 300 }
+                }}
+                onHoverStart={() => {
+                  mouseX.set((index % 2 === 0 ? -1 : 1) * 15);
+                  mouseY.set(-8);
+                }}
+                onHoverEnd={() => {
+                  mouseX.set(0);
+                  mouseY.set(0);
+                }}
               >
                 <div className="testimonial-rating">
                   {[...Array(testimonial.rating)].map((_, i) => (
@@ -728,26 +984,64 @@ const LandingPage: React.FC = () => {
               viewport={{ once: true }}
             >
               <motion.button
-                className="primary-btn large"
+                className="primary-btn large group overflow-hidden relative"
                 onClick={() => navigate('/auth')}
-                variants={itemVariants}
-                whileHover={{ 
-                  scale: 1.05,
-                  boxShadow: "0 25px 50px rgba(59, 130, 246, 0.4)"
-                }}
+                variants={magneticVariants}
+                initial="default"
+                whileHover="hover"
                 whileTap={{ scale: 0.95 }}
+                onHoverStart={() => {
+                  mouseX.set(0);
+                  mouseY.set(-5);
+                }}
+                onHoverEnd={() => {
+                  mouseX.set(0);
+                  mouseY.set(0);
+                }}
               >
-                Start Your Journey
-                <ArrowRightIcon className="btn-icon" />
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-100"
+                  initial={false}
+                  whileHover={{
+                    opacity: 1,
+                    scale: [1, 1.2, 1],
+                    transition: { duration: 0.6 }
+                  }}
+                />
+                <span className="relative z-10">Start Your Journey</span>
+                <motion.div
+                  className="relative z-10"
+                  whileHover={{ x: 4, scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <ArrowRightIcon className="btn-icon" />
+                </motion.div>
               </motion.button>
               
               <motion.button
-                className="outline-btn large"
-                variants={itemVariants}
-                whileHover={{ scale: 1.05 }}
+                className="outline-btn large group relative overflow-hidden"
+                variants={magneticVariants}
+                initial="default"
+                whileHover="hover"
                 whileTap={{ scale: 0.95 }}
+                onHoverStart={() => {
+                  mouseX.set(0);
+                  mouseY.set(-3);
+                }}
+                onHoverEnd={() => {
+                  mouseX.set(0);
+                  mouseY.set(0);
+                }}
               >
-                Schedule Demo
+                <motion.div
+                  className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-10"
+                  whileHover={{
+                    opacity: 0.1,
+                    scale: [1, 1.1, 1],
+                    transition: { duration: 0.4 }
+                  }}
+                />
+                <span className="relative z-10">Schedule Demo</span>
               </motion.button>
             </motion.div>
           </motion.div>

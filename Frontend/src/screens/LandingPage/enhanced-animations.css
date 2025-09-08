@@ -1,0 +1,144 @@
+/* ============================================================================ */
+/* Advanced Animation Enhancements for Landing Page */
+/* ============================================================================ */
+
+/* Enhanced perspective effects */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Overflow text animation */
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.inline-block {
+  display: inline-block;
+}
+
+/* Enhanced group hover effects */
+.group:hover .transform-3d {
+  transform: rotateX(5deg) rotateY(5deg) translateZ(20px);
+}
+
+/* Advanced button effects */
+.primary-btn, .outline-btn {
+  position: relative;
+  transform-style: preserve-3d;
+  overflow: hidden;
+}
+
+.stat-item {
+  transform-style: preserve-3d;
+}
+
+.feature-card {
+  transform-style: preserve-3d;
+}
+
+/* Advanced sliding effects */
+.stat-item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(102, 126, 234, 0.2) 50%,
+    transparent 100%
+  );
+  transition: left 0.6s ease;
+}
+
+.stat-item:hover::after {
+  left: 100%;
+}
+
+.feature-card::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    45deg,
+    rgba(102, 126, 234, 0.5),
+    rgba(118, 75, 162, 0.5),
+    rgba(79, 172, 254, 0.5)
+  );
+  border-radius: 24px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.feature-card:hover::after {
+  opacity: 1;
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(90deg);
+  }
+}
+
+/* Enhanced floating shape effects */
+.floating-shape::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, 
+    rgba(102, 126, 234, 0.3), 
+    rgba(118, 75, 162, 0.3),
+    rgba(79, 172, 254, 0.3)
+  );
+  border-radius: 50%;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.floating-shape:hover::before {
+  opacity: 1;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.05) rotate(180deg);
+  }
+}
+
+/* Advanced Glassmorphism Effects */
+.glass-morphism-enhanced {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Magnetic attraction effect */
+.magnetic {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.magnetic:hover {
+  transform: translateY(-2px) scale(1.02);
+}

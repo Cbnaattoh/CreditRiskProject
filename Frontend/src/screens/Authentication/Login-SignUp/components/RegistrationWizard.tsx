@@ -133,6 +133,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
   // OCR and verification states
   const [textractResults, setTextractResults] = useState<TextractResult | null>(null);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [currentProcessingStage, setCurrentProcessingStage] = useState(0);
   const [nameVerificationStatus, setNameVerificationStatus] = useState<"pending" | "success" | "warning" | "error">("pending");
   const [verificationBlocker, setVerificationBlocker] = useState<{
     blocked: boolean;
@@ -511,10 +512,36 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
 
   const processTextractBackend = async (frontImage: File, backImage: File) => {
     setIsProcessingOCR(true);
+    setCurrentProcessingStage(0); // Start with upload stage
     const startTime = Date.now();
     
     // Track Textract processing start
     RegistrationAnalytics.trackTextractStart();
+    
+    // Simulate stage progression with realistic timing
+    const progressStages = async () => {
+      // Stage 0: Upload (3 seconds)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setCurrentProcessingStage(1);
+      
+      // Stage 1: Front image analysis (5 seconds)
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      setCurrentProcessingStage(2);
+      
+      // Stage 2: Back image analysis (5 seconds)
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      setCurrentProcessingStage(3);
+      
+      // Stage 3: Verification (2 seconds)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setCurrentProcessingStage(4);
+      
+      // Stage 4: Finalization (2 seconds)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    };
+    
+    // Start stage progression
+    progressStages();
     
     try {
       const data = methods.getValues();
@@ -621,6 +648,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
       
     } finally {
       setIsProcessingOCR(false);
+      setCurrentProcessingStage(0); // Reset stage
     }
   };
 
@@ -1008,6 +1036,7 @@ const RegistrationWizard: React.FC<RegistrationWizardProps> = ({
               ocrResults={textractResults}
               verificationStatus={nameVerificationStatus}
               onProcessOCR={processTextractBackend}
+              currentProcessingStage={currentProcessingStage}
             />
             
             {/* Enterprise-Grade Verification Blocker UI */}

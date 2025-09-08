@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
+import { useAppSelector } from '../components/utils/hooks';
+import { selectIsAuthenticated } from '../components/redux/features/auth/authSlice';
 import { 
   useGetUserPreferencesQuery,
   useGetUserSessionsQuery,
@@ -25,42 +27,49 @@ interface RealTimeConfig {
 
 export const useRealTimeSettings = (config: RealTimeConfig = {}) => {
   const dispatch = useDispatch();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const [isActive, setIsActive] = useState(config.enablePolling ?? true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const intervalRefs = useRef<NodeJS.Timeout[]>([]);
 
+  // Only enable polling if user is authenticated
+  const shouldSkip = !isAuthenticated;
+
   // Data queries with custom polling intervals if provided
   const preferencesQuery = useGetUserPreferencesQuery(undefined, {
-    pollingInterval: isActive ? (config.customIntervals?.preferences || 90000) : 0,
+    skip: shouldSkip,
+    pollingInterval: isActive && !shouldSkip ? (config.customIntervals?.preferences || 90000) : 0,
     refetchOnFocus: false, // Disabled to prevent data loss on tab switch
     refetchOnReconnect: true,
   });
 
   const sessionsQuery = useGetUserSessionsQuery(undefined, {
-    pollingInterval: isActive ? (config.customIntervals?.sessions || 60000) : 0,
+    skip: shouldSkip,
+    pollingInterval: isActive && !shouldSkip ? (config.customIntervals?.sessions || 60000) : 0,
     refetchOnFocus: false, // Disabled to prevent data loss on tab switch
     refetchOnReconnect: true,
   });
 
   const securityEventsQuery = useGetSecurityEventsQuery(undefined, {
-    pollingInterval: isActive ? (config.customIntervals?.securityEvents || 60000) : 0,
+    skip: shouldSkip,
+    pollingInterval: isActive && !shouldSkip ? (config.customIntervals?.securityEvents || 60000) : 0,
     refetchOnFocus: false, // Disabled to prevent data loss on tab switch
     refetchOnReconnect: true,
   });
 
   const overviewQuery = useGetSettingsOverviewQuery(undefined, {
-    pollingInterval: isActive ? (config.customIntervals?.overview || 120000) : 0,
+    skip: shouldSkip,
+    pollingInterval: isActive && !shouldSkip ? (config.customIntervals?.overview || 120000) : 0,
     refetchOnFocus: false, // Disabled to prevent data loss on tab switch
     refetchOnReconnect: true,
   });
 
   const profileQuery = useGetEnhancedUserProfileQuery(undefined, {
+    skip: shouldSkip || !isActive,
     // Reduced polling frequency to minimize sidebar re-renders
-    pollingInterval: isActive ? (config.customIntervals?.profile || 300000) : 0, // 5 minutes
+    pollingInterval: isActive && !shouldSkip ? (config.customIntervals?.profile || 300000) : 0, // 5 minutes
     refetchOnFocus: false, // Disabled to prevent data loss on tab switch
     refetchOnReconnect: true,
-    // Only trigger updates if data has meaningfully changed
-    skip: !isActive,
   });
 
   // Track data updates and trigger callbacks
