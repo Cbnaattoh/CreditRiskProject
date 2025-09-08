@@ -13,7 +13,7 @@ import {
   FiCheckCircle,
   FiLoader,
   FiX,
-  FiBarChart3,
+  FiBarChart,
   FiTrendingUp,
   FiShield,
   FiTarget,
@@ -78,7 +78,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
       case "RISK_SUMMARY":
         return <FiShield className="h-5 w-5 text-white" />;
       case "APPLICATION_ANALYTICS":
-        return <FiBarChart3 className="h-5 w-5 text-white" />;
+        return <FiBarChart className="h-5 w-5 text-white" />;
       case "PERFORMANCE_METRICS":
         return <FiActivity className="h-5 w-5 text-white" />;
       case "COMPLIANCE_AUDIT":
