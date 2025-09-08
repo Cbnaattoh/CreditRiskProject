@@ -343,9 +343,10 @@ class User(AbstractUser):
     def complete_mfa_setup(self):
         """Mark MFA setup as completed"""
         from django.utils import timezone
+        self.mfa_enabled = True
         self.mfa_setup_pending = False
         self.mfa_completed_at = timezone.now()
-        self.save(update_fields=['mfa_setup_pending', 'mfa_completed_at'])
+        self.save(update_fields=['mfa_enabled', 'mfa_setup_pending', 'mfa_completed_at'])
     
     def reset_mfa(self):
         """Reset MFA configuration"""
