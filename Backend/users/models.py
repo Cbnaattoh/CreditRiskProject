@@ -289,6 +289,13 @@ class User(AbstractUser):
             
         return self.get_permissions().filter(codename=permission_codename).exists()
     
+    def has_perm(self, perm, obj=None):
+        """
+        Django's built-in permission method - override to use our custom permission system
+        This is called by DRF's permission classes
+        """
+        return self.has_permission(perm)
+    
     def has_role(self, role_name):
         """Check if user has specific role"""
         return self.get_roles().filter(name=role_name).exists()

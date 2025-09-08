@@ -86,11 +86,17 @@ class SuspiciousActivitySerializer(serializers.ModelSerializer):
     
     def get_formatted_details(self, obj):
         """Format details for better frontend display"""
-        if not obj.details:
+        # Handle both model instances and dictionary objects
+        if hasattr(obj, 'details'):
+            details = obj.details
+        else:
+            details = obj.get('details', {}) if isinstance(obj, dict) else {}
+            
+        if not details:
             return {}
         
         formatted = {}
-        for key, value in obj.details.items():
+        for key, value in details.items():
             # Convert snake_case to Title Case
             formatted_key = key.replace('_', ' ').title()
             formatted[formatted_key] = value
@@ -114,6 +120,12 @@ class SuspiciousActivityCreateSerializer(serializers.ModelSerializer):
         return SuspiciousActivity.objects.create(user=user, **validated_data)
 
 
+class ThreatTypeSerializer(serializers.Serializer):
+    """Serializer for threat type statistics"""
+    activity_type = serializers.CharField()
+    count = serializers.IntegerField()
+
+
 class SecurityDashboardStatsSerializer(serializers.Serializer):
     """Serializer for security dashboard statistics"""
     total_users_monitored = serializers.IntegerField()
@@ -122,7 +134,7 @@ class SecurityDashboardStatsSerializer(serializers.Serializer):
     critical_alerts = serializers.IntegerField()
     behavioral_profiles_count = serializers.IntegerField()
     avg_confidence_score = serializers.FloatField()
-    top_threat_types = serializers.ListField()
+    top_threat_types = ThreatTypeSerializer(many=True, read_only=True)
     recent_activities = SuspiciousActivitySerializer(many=True, read_only=True)
 
 

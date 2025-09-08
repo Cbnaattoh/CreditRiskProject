@@ -17,6 +17,16 @@ class Report(models.Model):
         ('FINANCIAL_OVERVIEW', 'Financial Overview'),
         ('MONTHLY_SUMMARY', 'Monthly Summary'),
         ('QUARTERLY_REPORT', 'Quarterly Report'),
+        # Credit Risk Specific Reports
+        ('CREDIT_SCORE_ANALYSIS', 'Credit Score Analysis'),
+        ('DEFAULT_PREDICTION', 'Default Prediction Report'),
+        ('PORTFOLIO_RISK', 'Portfolio Risk Analysis'),
+        ('UNDERWRITING_PERFORMANCE', 'Underwriting Performance'),
+        ('REGULATORY_COMPLIANCE', 'Regulatory Compliance Report'),
+        ('LOSS_MITIGATION', 'Loss Mitigation Report'),
+        ('CONCENTRATION_RISK', 'Concentration Risk Report'),
+        ('MODEL_VALIDATION', 'ML Model Validation Report'),
+        ('STRESS_TEST', 'Stress Testing Report'),
         ('CUSTOM', 'Custom Report'),
     )
     
@@ -59,6 +69,12 @@ class Report(models.Model):
     # Statistics
     views_count = models.PositiveIntegerField(default=0)
     downloads_count = models.PositiveIntegerField(default=0)
+    file_size = models.PositiveIntegerField(null=True, blank=True, help_text="File size in bytes")
+    
+    # Caching and performance
+    cache_key = models.CharField(max_length=255, blank=True, help_text="Cache key for report data")
+    is_cached = models.BooleanField(default=False)
+    cache_expiry = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']
