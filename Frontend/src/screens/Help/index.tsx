@@ -480,13 +480,13 @@ const Help: React.FC = () => {
                 <FiMail className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Email Support</h4>
                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Get help via email</p>
-                <p className="text-indigo-600 dark:text-indigo-400 font-medium">support@creditrisk.ai</p>
+                <p className="text-indigo-600 dark:text-indigo-400 font-medium">admin@riskguard.com</p>
               </div>
               <div className="text-center p-6 rounded-2xl bg-gray-50/50 dark:bg-gray-700/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/80 transition-all duration-300">
                 <FiPhone className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Phone Support</h4>
                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Call us directly</p>
-                <p className="text-indigo-600 dark:text-indigo-400 font-medium">+1 (555) 123-4567</p>
+                <p className="text-indigo-600 dark:text-indigo-400 font-medium">+233 (55) 331-4166</p>
               </div>
               <div className="text-center p-6 rounded-2xl bg-gray-50/50 dark:bg-gray-700/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/80 transition-all duration-300">
                 <FiClock className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-3" />

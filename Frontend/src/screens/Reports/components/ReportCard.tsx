@@ -13,6 +13,15 @@ import {
   FiCheckCircle,
   FiLoader,
   FiX,
+  FiBarChart3,
+  FiTrendingUp,
+  FiShield,
+  FiTarget,
+  FiPieChart,
+  FiActivity,
+  FiZap,
+  FiDatabase,
+  FiLayers,
 } from "react-icons/fi";
 import type { Report } from "../../../components/redux/features/api/reports/reportsApi";
 
@@ -64,8 +73,83 @@ const ReportCard: React.FC<ReportCardProps> = ({
     }
   };
 
+  const getReportTypeIcon = () => {
+    switch (report.report_type) {
+      case "RISK_SUMMARY":
+        return <FiShield className="h-5 w-5 text-white" />;
+      case "APPLICATION_ANALYTICS":
+        return <FiBarChart3 className="h-5 w-5 text-white" />;
+      case "PERFORMANCE_METRICS":
+        return <FiActivity className="h-5 w-5 text-white" />;
+      case "COMPLIANCE_AUDIT":
+        return <FiShield className="h-5 w-5 text-white" />;
+      case "CREDIT_SCORE_ANALYSIS":
+        return <FiTrendingUp className="h-5 w-5 text-white" />;
+      case "DEFAULT_PREDICTION":
+        return <FiTarget className="h-5 w-5 text-white" />;
+      case "PORTFOLIO_RISK":
+        return <FiPieChart className="h-5 w-5 text-white" />;
+      case "UNDERWRITING_PERFORMANCE":
+        return <FiZap className="h-5 w-5 text-white" />;
+      case "REGULATORY_COMPLIANCE":
+        return <FiShield className="h-5 w-5 text-white" />;
+      case "LOSS_MITIGATION":
+        return <FiDatabase className="h-5 w-5 text-white" />;
+      case "CONCENTRATION_RISK":
+        return <FiLayers className="h-5 w-5 text-white" />;
+      case "MODEL_VALIDATION":
+        return <FiActivity className="h-5 w-5 text-white" />;
+      case "STRESS_TEST":
+        return <FiZap className="h-5 w-5 text-white" />;
+      default:
+        return <FiFileText className="h-5 w-5 text-white" />;
+    }
+  };
+
   const getReportTypeDisplay = () => {
-    return report.report_type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const typeMap: { [key: string]: string } = {
+      'RISK_SUMMARY': 'Risk Assessment Summary',
+      'APPLICATION_ANALYTICS': 'Application Analytics',
+      'PERFORMANCE_METRICS': 'Performance Metrics',
+      'COMPLIANCE_AUDIT': 'Compliance Audit',
+      'FINANCIAL_OVERVIEW': 'Financial Overview',
+      'MONTHLY_SUMMARY': 'Monthly Summary',
+      'QUARTERLY_REPORT': 'Quarterly Report',
+      'CREDIT_SCORE_ANALYSIS': 'Credit Score Analysis',
+      'DEFAULT_PREDICTION': 'Default Prediction',
+      'PORTFOLIO_RISK': 'Portfolio Risk Analysis',
+      'UNDERWRITING_PERFORMANCE': 'Underwriting Performance',
+      'REGULATORY_COMPLIANCE': 'Regulatory Compliance',
+      'LOSS_MITIGATION': 'Loss Mitigation',
+      'CONCENTRATION_RISK': 'Concentration Risk',
+      'MODEL_VALIDATION': 'ML Model Validation',
+      'STRESS_TEST': 'Stress Testing',
+      'CUSTOM': 'Custom Report',
+    };
+    return typeMap[report.report_type] || report.report_type.replace(/_/g, " ");
+  };
+
+  const getReportTypeColor = () => {
+    switch (report.report_type) {
+      case "RISK_SUMMARY":
+      case "DEFAULT_PREDICTION":
+      case "PORTFOLIO_RISK":
+        return "from-red-500 to-orange-600";
+      case "CREDIT_SCORE_ANALYSIS":
+      case "UNDERWRITING_PERFORMANCE":
+        return "from-blue-500 to-cyan-600";
+      case "COMPLIANCE_AUDIT":
+      case "REGULATORY_COMPLIANCE":
+        return "from-green-500 to-emerald-600";
+      case "MODEL_VALIDATION":
+      case "STRESS_TEST":
+        return "from-purple-500 to-violet-600";
+      case "LOSS_MITIGATION":
+      case "CONCENTRATION_RISK":
+        return "from-amber-500 to-yellow-600";
+      default:
+        return "from-indigo-500 to-purple-600";
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -89,8 +173,8 @@ const ReportCard: React.FC<ReportCardProps> = ({
       {/* Header */}
       <div className="relative flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-            <FiFileText className="h-5 w-5 text-white" />
+          <div className={`p-2 bg-gradient-to-r ${getReportTypeColor()} rounded-xl shadow-lg`}>
+            {getReportTypeIcon()}
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white text-lg line-clamp-1">
@@ -230,14 +314,22 @@ const ReportCard: React.FC<ReportCardProps> = ({
               <FiDownload className="h-3 w-3" />
               <span>{report.downloads_count}</span>
             </div>
+            {report.file_size && (
+              <div className="flex items-center space-x-1">
+                <FiDatabase className="h-3 w-3" />
+                <span>{(report.file_size / 1024).toFixed(1)}KB</span>
+              </div>
+            )}
           </div>
 
-          {report.shared_with.length > 0 && (
-            <div className="flex items-center space-x-1">
-              <FiShare2 className="h-3 w-3" />
-              <span>{report.shared_with.length} shared</span>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            {report.shared_with.length > 0 && (
+              <div className="flex items-center space-x-1">
+                <FiShare2 className="h-3 w-3" />
+                <span>{report.shared_with.length}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

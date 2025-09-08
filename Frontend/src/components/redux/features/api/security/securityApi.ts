@@ -1,4 +1,3 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { RootState } from '../../../store';
 
 // Types
@@ -79,19 +78,11 @@ export interface ActivitySummary {
   avg_confidence: number;
 }
 
-// API slice
-export const securityApi = createApi({
-  reducerPath: 'securityApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/security/',
-    prepareHeaders: (headers, { getState }) => {
-      const token = (getState() as RootState).auth.token;
-      if (token) {
-        headers.set('authorization', `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
+// Import the base API slice to use its baseQuery with reauth
+import { apiSlice } from '../baseApi';
+
+// API slice - use the main API's baseQuery with token refresh
+export const securityApi = apiSlice.injectEndpoints({
   tagTypes: ['BehavioralBiometric', 'SuspiciousActivity', 'SecurityStats', 'SecurityAlert'],
   endpoints: (builder) => ({
     // Behavioral Biometrics endpoints
@@ -102,25 +93,25 @@ export const securityApi = createApi({
       page?: number;
     }>({
       query: (params = {}) => ({
-        url: 'behavioral-biometrics/',
+        url: 'security/behavioral-biometrics/',
         params,
       }),
       providesTags: ['BehavioralBiometric'],
     }),
 
     getBehavioralBiometric: builder.query<BehavioralBiometric, number>({
-      query: (id) => `behavioral-biometrics/${id}/`,
+      query: (id) => `security/behavioral-biometrics/${id}/`,
       providesTags: (_result, _error, id) => [{ type: 'BehavioralBiometric', id }],
     }),
 
     getHighRiskUsers: builder.query<BehavioralBiometric[], void>({
-      query: () => 'behavioral-biometrics/high_risk_users/',
+      query: () => 'security/behavioral-biometrics/high_risk_users/',
       providesTags: ['BehavioralBiometric'],
     }),
 
     updateConfidenceScore: builder.mutation<BehavioralBiometric, { id: number; confidence_score: number }>({
       query: ({ id, confidence_score }) => ({
-        url: `behavioral-biometrics/${id}/update_confidence/`,
+        url: `security/behavioral-biometrics/${id}/update_confidence/`,
         method: 'POST',
         body: { confidence_score },
       }),
@@ -136,30 +127,30 @@ export const securityApi = createApi({
       page?: number;
     }>({
       query: (params = {}) => ({
-        url: 'suspicious-activities/',
+        url: 'security/suspicious-activities/',
         params,
       }),
       providesTags: ['SuspiciousActivity'],
     }),
 
     getSuspiciousActivity: builder.query<SuspiciousActivity, number>({
-      query: (id) => `suspicious-activities/${id}/`,
+      query: (id) => `security/suspicious-activities/${id}/`,
       providesTags: (_result, _error, id) => [{ type: 'SuspiciousActivity', id }],
     }),
 
     getCriticalAlerts: builder.query<SuspiciousActivity[], void>({
-      query: () => 'suspicious-activities/critical_alerts/',
+      query: () => 'security/suspicious-activities/critical_alerts/',
       providesTags: ['SuspiciousActivity'],
     }),
 
     getActivitySummary: builder.query<ActivitySummary[], void>({
-      query: () => 'suspicious-activities/activity_summary/',
+      query: () => 'security/suspicious-activities/activity_summary/',
       providesTags: ['SuspiciousActivity'],
     }),
 
     markActivityChallenged: builder.mutation<SuspiciousActivity, number>({
       query: (id) => ({
-        url: `suspicious-activities/${id}/mark_challenged/`,
+        url: `security/suspicious-activities/${id}/mark_challenged/`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, id) => [{ type: 'SuspiciousActivity', id }],
@@ -176,21 +167,29 @@ export const securityApi = createApi({
       was_successful?: boolean;
     }>({
       query: (data) => ({
-        url: 'suspicious-activities/',
+        url: 'security/suspicious-activities/',
         method: 'POST',
         body: data,
       }),
       invalidatesTags: ['SuspiciousActivity'],
     }),
 
+    deleteSuspiciousActivity: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `security/suspicious-activities/${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['SuspiciousActivity', 'SecurityStats'],
+    }),
+
     // Dashboard endpoints
     getSecurityDashboardStats: builder.query<SecurityDashboardStats, void>({
-      query: () => 'dashboard/stats/',
+      query: () => 'security/dashboard/stats/',
       providesTags: ['SecurityStats'],
     }),
 
     getSecurityAlerts: builder.query<SecurityAlert[], void>({
-      query: () => 'alerts/',
+      query: () => 'security/alerts/',
       providesTags: ['SecurityAlert'],
     }),
 
@@ -204,7 +203,7 @@ export const securityApi = createApi({
       mouse?: Record<string, any>;
     }>({
       query: (data) => ({
-        url: 'behavioral-data/submit/',
+        url: 'security/behavioral-data/submit/',
         method: 'POST',
         body: data,
       }),
@@ -224,6 +223,7 @@ export const {
   useGetActivitySummaryQuery,
   useMarkActivityChallengedMutation,
   useCreateSuspiciousActivityMutation,
+  useDeleteSuspiciousActivityMutation,
   useGetSecurityDashboardStatsQuery,
   useGetSecurityAlertsQuery,
   useSubmitBehavioralDataMutation,

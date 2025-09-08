@@ -92,6 +92,111 @@ export interface RiskAnalysisData {
   decision?: Decision;
 }
 
+export interface RiskAnalyticsDashboardData {
+  risk_analyst: {
+    risk_assessments: {
+      count: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    high_risk_cases: {
+      count: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    model_accuracy: {
+      percentage: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    pending_reviews: {
+      count: number;
+      change: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+  };
+  compliance_auditor: {
+    compliance_score: {
+      percentage: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    audit_findings: {
+      count: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    policy_violations: {
+      count: number;
+      change_percentage: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+    regulatory_reports: {
+      count: number;
+      change: number;
+      trend: 'up' | 'down' | 'neutral';
+    };
+  };
+  last_updated: string;
+}
+
+export interface RiskChartsData {
+  risk_distribution: Array<{
+    name: string;
+    value: number;
+    count: number;
+    color: string;
+    icon: string;
+    description: string;
+  }>;
+  credit_score_distribution: Array<{
+    range: string;
+    label: string;
+    count: number;
+    percentage: number;
+    color: string;
+    icon: string;
+    description: string;
+  }>;
+  risk_factors_radar: Array<{
+    subject: string;
+    A: number;
+    fullMark: number;
+  }>;
+  compliance_violations_trend: Array<{
+    month: string;
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    resolved: number;
+    compliance_score: number;
+    audit_findings: number;
+    policy_violations: number;
+    regulatory_breaches: number;
+  }>;
+  credit_statistics: {
+    avg_score: number;
+    total_apps: number;
+    total_ml_assessments: number;
+    prime_plus_percentage: number;
+    vs_target: number;
+  };
+  compliance_statistics: {
+    avg_compliance: number;
+    total_violations: number;
+    critical_issues: number;
+    resolution_rate: number;
+  };
+  last_updated: string;
+  data_sources: {
+    total_applications: number;
+    ml_assessments: number;
+    risk_assessments: number;
+  };
+}
+
 export const riskApi = createApi({
   reducerPath: 'riskApi',
   baseQuery: fetchBaseQuery({
@@ -245,6 +350,18 @@ export const riskApi = createApi({
       }),
       invalidatesTags: ['CreditScore'],
     }),
+
+    // Get risk analytics dashboard data
+    getRiskAnalyticsDashboard: builder.query<RiskAnalyticsDashboardData, void>({
+      query: () => 'analytics/dashboard/',
+      providesTags: ['RiskAssessment'],
+    }),
+
+    // Get risk charts data
+    getRiskChartsData: builder.query<RiskChartsData, void>({
+      query: () => 'analytics/charts/',
+      providesTags: ['RiskAssessment'],
+    }),
   }),
 });
 
@@ -264,4 +381,6 @@ export const {
   useRunRiskAnalysisMutation,
   useGetCreditScoresQuery,
   useAddCreditScoreMutation,
+  useGetRiskAnalyticsDashboardQuery,
+  useGetRiskChartsDataQuery,
 } = riskApi;

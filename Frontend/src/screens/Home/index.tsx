@@ -20,6 +20,7 @@ import {
 // import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
 import { useGetApplicationsQuery, useGetUserMLAssessmentSummaryQuery } from "../../components/redux/features/api/applications/applicationsApi";
+import { useGetRiskAnalyticsDashboardQuery } from "../../components/redux/features/api/risk/riskApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import { 
   usePermissions, 
@@ -197,6 +198,15 @@ const Dashboard: React.FC = () => {
     skip: !stableRoleDetection.isClient
   });
 
+  // Fetch risk analytics data for Risk Analysts and Auditors
+  const {
+    data: riskAnalyticsData,
+    isLoading: riskAnalyticsLoading,
+    error: riskAnalyticsError
+  } = useGetRiskAnalyticsDashboardQuery(undefined, {
+    skip: !stableRoleDetection.isAnalyst && !stableRoleDetection.isAuditor && !stableRoleDetection.isAdmin
+  });
+
   useEffect(() => {
     if (rbacError) {
       console.warn('🟡 RBAC Dashboard API failed - continuing with cached permissions:', rbacError);
@@ -210,7 +220,10 @@ const Dashboard: React.FC = () => {
     if (mlAssessmentError) {
       console.warn('🟡 ML Assessment API failed - continuing with fallback data:', mlAssessmentError);
     }
-  }, [rbacError, usersError, applicationsError, mlAssessmentError]);
+    if (riskAnalyticsError) {
+      console.warn('🟡 Risk Analytics API failed - continuing with fallback data:', riskAnalyticsError);
+    }
+  }, [rbacError, usersError, applicationsError, mlAssessmentError, riskAnalyticsError]);
 
   // Debug logging for applications data
   useEffect(() => {
@@ -533,9 +546,13 @@ const Dashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <RBACStatsCard
                   title="Risk Assessments"
-                  value="1,248"
-                  change="+12%"
-                  trend="up"
+                  value={riskAnalyticsData?.risk_analyst.risk_assessments.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.risk_analyst.risk_assessments.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.risk_assessments.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.risk_analyst.risk_assessments.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -545,9 +562,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="High Risk Cases"
-                  value="23"
-                  change="-8%"
-                  trend="down"
+                  value={riskAnalyticsData?.risk_analyst.high_risk_cases.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.risk_analyst.high_risk_cases.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.high_risk_cases.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.risk_analyst.high_risk_cases.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -557,9 +578,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Model Accuracy"
-                  value="94.2%"
-                  change="+1.3%"
-                  trend="up"
+                  value={riskAnalyticsData ? `${riskAnalyticsData.risk_analyst.model_accuracy.percentage}%` : "0%"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.risk_analyst.model_accuracy.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.model_accuracy.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.risk_analyst.model_accuracy.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -569,9 +594,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Pending Reviews"
-                  value="47"
-                  change="+15"
-                  trend="up"
+                  value={riskAnalyticsData?.risk_analyst.pending_reviews.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.risk_analyst.pending_reviews.change >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.pending_reviews.change}` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.risk_analyst.pending_reviews.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -595,9 +624,13 @@ const Dashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <RBACStatsCard
                   title="Compliance Score"
-                  value="96.7%"
-                  change="+2.1%"
-                  trend="up"
+                  value={riskAnalyticsData ? `${riskAnalyticsData.compliance_auditor.compliance_score.percentage}%` : "0%"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.compliance_auditor.compliance_score.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.compliance_auditor.compliance_score.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.compliance_auditor.compliance_score.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -607,9 +640,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Audit Findings"
-                  value="12"
-                  change="-33%"
-                  trend="down"
+                  value={riskAnalyticsData?.compliance_auditor.audit_findings.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.compliance_auditor.audit_findings.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.compliance_auditor.audit_findings.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.compliance_auditor.audit_findings.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -619,9 +656,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Policy Violations"
-                  value="3"
-                  change="-75%"
-                  trend="down"
+                  value={riskAnalyticsData?.compliance_auditor.policy_violations.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.compliance_auditor.policy_violations.change_percentage >= 0 ? '+' : ''}${riskAnalyticsData.compliance_auditor.policy_violations.change_percentage}%` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.compliance_auditor.policy_violations.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -631,9 +672,13 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Regulatory Reports"
-                  value="18"
-                  change="+6"
-                  trend="up"
+                  value={riskAnalyticsData?.compliance_auditor.regulatory_reports.count.toString() || "0"}
+                  change={riskAnalyticsData ? 
+                    `${riskAnalyticsData.compliance_auditor.regulatory_reports.change >= 0 ? '+' : ''}${riskAnalyticsData.compliance_auditor.regulatory_reports.change}` : 
+                    "Loading..."
+                  }
+                  trend={riskAnalyticsData?.compliance_auditor.regulatory_reports.trend || "neutral"}
+                  isLoading={riskAnalyticsLoading}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
