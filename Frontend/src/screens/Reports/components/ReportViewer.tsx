@@ -7,7 +7,7 @@ import {
   FiCalendar,
   FiUser,
   FiClock,
-  FiBarChart3,
+  FiBarChart,
   FiPieChart,
   FiTrendingUp,
   FiInfo,
@@ -260,7 +260,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         <div className="flex border-b border-gray-200 dark:border-gray-700 px-6">
           {[
             { key: "overview", label: "Overview", icon: FiInfo },
-            { key: "data", label: "Data", icon: FiBarChart3 },
+            { key: "data", label: "Data", icon: FiBarChart },
             { key: "visualizations", label: "Visualizations", icon: FiPieChart },
           ].map((tab) => (
             <button

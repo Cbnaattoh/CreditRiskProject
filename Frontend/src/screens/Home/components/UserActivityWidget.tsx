@@ -307,22 +307,48 @@ export const UserActivityWidget: React.FC<UserActivityWidgetProps> = ({
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-            <div key={item} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+            <div key={item} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+              {/* Card shimmer overlay */}
+              <div className="absolute inset-0 -translate-x-full animate-[cardShimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/8 dark:via-gray-600/8 to-transparent" style={{animationDelay: `${item * 0.2}s`}}></div>
+              
               <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 bg-gray-300 dark:bg-gray-600 rounded-xl"></div>
-                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-16"></div>
+                <div className="h-12 w-12 bg-gray-300 dark:bg-gray-600 rounded-xl animate-[iconGlow_2s_ease-in-out_infinite]" style={{animationDelay: `${item * 0.15}s`}}></div>
+                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-16 animate-[statusBadge_1.8s_ease-in-out_infinite]" style={{animationDelay: `${item * 0.1}s`}}></div>
               </div>
               <div className="space-y-3">
-                <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
-                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-2/3"></div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-full mt-4">
-                  <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full" style={{width: `${Math.random() * 60 + 20}%`}}></div>
+                <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-3/4 animate-[textFade_2.5s_ease-in-out_infinite]" style={{animationDelay: `${item * 0.1}s`}}></div>
+                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2 animate-[textFade_2.2s_ease-in-out_infinite]" style={{animationDelay: `${item * 0.12}s`}}></div>
+                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-2/3 animate-[textFade_2.8s_ease-in-out_infinite]" style={{animationDelay: `${item * 0.14}s`}}></div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-full mt-4 overflow-hidden">
+                  <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full animate-[progressWave_3s_ease-in-out_infinite]" style={{width: `${Math.random() * 60 + 20}%`, animationDelay: `${item * 0.25}s`}}></div>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        <style jsx>{`
+          @keyframes cardShimmer {
+            100% { transform: translateX(100%); }
+          }
+          @keyframes iconGlow {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.05); }
+          }
+          @keyframes statusBadge {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+          }
+          @keyframes textFade {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+          }
+          @keyframes progressWave {
+            0% { transform: translateX(-100%); opacity: 0.3; }
+            50% { transform: translateX(0); opacity: 0.7; }
+            100% { transform: translateX(100%); opacity: 0.3; }
+          }
+        `}</style>
       </div>
     );
   }

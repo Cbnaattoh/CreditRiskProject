@@ -427,13 +427,30 @@ const MLCreditScoreWidget: React.FC<MLCreditScoreWidgetProps> = ({
       </div>
 
       {(isHealthLoading || isStatsLoading) ? (
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+        <div className="space-y-3 relative overflow-hidden">
+          {/* Shimmer overlay */}
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-white/15 dark:via-gray-400/15 to-transparent"></div>
+          
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-[fadeInOut_1.8s_ease-in-out_infinite]"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-[fadeInOut_2.2s_ease-in-out_infinite]" style={{animationDelay: '0.2s'}}></div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-[cardGlow_2s_ease-in-out_infinite]" style={{animationDelay: '0.3s'}}></div>
+            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-[cardGlow_2s_ease-in-out_infinite]" style={{animationDelay: '0.5s'}}></div>
           </div>
+
+          <style jsx>{`
+            @keyframes shimmer {
+              100% { transform: translateX(100%); }
+            }
+            @keyframes fadeInOut {
+              0%, 100% { opacity: 0.4; }
+              50% { opacity: 0.7; }
+            }
+            @keyframes cardGlow {
+              0%, 100% { opacity: 0.5; transform: scale(1); }
+              50% { opacity: 0.8; transform: scale(1.01); }
+            }
+          `}</style>
         </div>
       ) : (modelHealth || mlStats) ? (
         <div className="space-y-4">

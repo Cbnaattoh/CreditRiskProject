@@ -194,30 +194,63 @@ export const RiskDistributionChart: React.FC = () => {
     return (
       <div className="flex flex-col lg:flex-row gap-6 min-h-[400px]">
         <div className="flex-1 flex items-center justify-center">
-          <div className="relative w-[300px] h-[300px] bg-gray-200 dark:bg-gray-700 rounded-full">
-            <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full opacity-100"></div>
-            <div className="absolute inset-4 bg-gray-300 dark:bg-gray-600 rounded-full opacity-80"></div>
-            <div className="absolute inset-8 bg-gray-100 dark:bg-gray-800 rounded-full opacity-60"></div>
-            <div className="absolute inset-12 bg-gray-200 dark:bg-gray-700 rounded-full opacity-40"></div>
+          <div className="relative w-[300px] h-[300px] bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/10 dark:via-gray-400/10 to-transparent"></div>
+            
+            <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full animate-[breathe_2s_ease-in-out_infinite]"></div>
+            <div className="absolute inset-4 bg-gray-300 dark:bg-gray-600 rounded-full animate-[breathe_2.5s_ease-in-out_infinite]"></div>
+            <div className="absolute inset-8 bg-gray-100 dark:bg-gray-800 rounded-full animate-[breathe_3s_ease-in-out_infinite]"></div>
+            <div className="absolute inset-12 bg-gray-200 dark:bg-gray-700 rounded-full animate-[breathe_2.2s_ease-in-out_infinite]"></div>
           </div>
         </div>
         <div className="flex-1 space-y-3 min-w-0">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+              {/* Card shimmer */}
+              <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-white/5 dark:via-gray-600/5 to-transparent" style={{animationDelay: `${i * 0.2}s`}}></div>
+              
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
-                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-2 opacity-60"></div>
-                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 opacity-40"></div>
+                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-2 animate-[glow_1.5s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.1}s`}}></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 animate-[fadeInOut_2s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.15}s`}}></div>
                 </div>
-                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12 opacity-60"></div>
+                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12 animate-[slideIn_1.8s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.1}s`}}></div>
               </div>
-              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2 opacity-30"></div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 opacity-50">
-                <div className="bg-gray-300 dark:bg-gray-600 h-1.5 rounded-full opacity-80" style={{width: `${Math.random() * 80 + 20}%`}}></div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2 animate-[fadeInOut_2.2s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.2}s`}}></div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-gray-300 dark:bg-gray-600 h-1.5 rounded-full animate-[progress_3s_ease-in-out_infinite]" style={{width: `${Math.random() * 80 + 20}%`, animationDelay: `${i * 0.3}s`}}></div>
               </div>
             </div>
           ))}
         </div>
+
+        <style jsx>{`
+          @keyframes shimmer {
+            100% { transform: translateX(100%); }
+          }
+          @keyframes breathe {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.01); }
+          }
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+          }
+          @keyframes glow {
+            0%, 100% { opacity: 0.4; box-shadow: 0 0 0 rgba(156, 163, 175, 0); }
+            50% { opacity: 0.8; box-shadow: 0 0 8px rgba(156, 163, 175, 0.3); }
+          }
+          @keyframes slideIn {
+            0%, 100% { opacity: 0.4; transform: translateX(0); }
+            50% { opacity: 0.7; transform: translateX(2px); }
+          }
+          @keyframes progress {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -464,23 +497,44 @@ export const RiskFactorsRadar: React.FC = () => {
   // Show loading state with skeleton
   if (isLoading) {
     return (
-      <div className="relative min-h-[320px] bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+      <div className="relative min-h-[320px] bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+        {/* Background shimmer */}
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_4s_infinite] bg-gradient-to-r from-transparent via-white/5 dark:via-gray-500/5 to-transparent"></div>
+        
         <div className="relative w-48 h-48">
           {/* Outer radar ring */}
-          <div className="absolute inset-0 rounded-full border-4 border-gray-300 dark:border-gray-600 opacity-30"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-gray-300 dark:border-gray-600 animate-[radarPulse_3s_ease-in-out_infinite]"></div>
           {/* Middle radar ring */}
-          <div className="absolute inset-4 rounded-full border-2 border-gray-300 dark:border-gray-600 opacity-50"></div>
+          <div className="absolute inset-4 rounded-full border-2 border-gray-300 dark:border-gray-600 animate-[radarPulse_2.5s_ease-in-out_infinite]"></div>
           {/* Inner radar ring */}
-          <div className="absolute inset-8 rounded-full border-2 border-gray-300 dark:border-gray-600 opacity-70"></div>
+          <div className="absolute inset-8 rounded-full border-2 border-gray-300 dark:border-gray-600 animate-[radarPulse_2s_ease-in-out_infinite]"></div>
           {/* Center dot */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-[heartbeat_1.5s_ease-in-out_infinite]"></div>
           {/* Radar lines */}
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-30"></div>
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-300 dark:bg-gray-600 opacity-30"></div>
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 dark:bg-gray-600 animate-[fadeInOut_2s_ease-in-out_infinite]"></div>
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-300 dark:bg-gray-600 animate-[fadeInOut_2.2s_ease-in-out_infinite]" style={{animationDelay: '0.2s'}}></div>
           {/* Additional radar lines for more realistic look */}
-          <div className="absolute top-1/4 left-1/4 right-1/4 bottom-3/4 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-20 transform rotate-45"></div>
-          <div className="absolute top-3/4 left-1/4 right-1/4 bottom-1/4 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-20 transform -rotate-45"></div>
+          <div className="absolute top-1/4 left-1/4 right-1/4 bottom-3/4 h-0.5 bg-gray-300 dark:bg-gray-600 animate-[fadeInOut_2.4s_ease-in-out_infinite] transform rotate-45" style={{animationDelay: '0.4s'}}></div>
+          <div className="absolute top-3/4 left-1/4 right-1/4 bottom-1/4 h-0.5 bg-gray-300 dark:bg-gray-600 animate-[fadeInOut_2.6s_ease-in-out_infinite] transform -rotate-45" style={{animationDelay: '0.6s'}}></div>
         </div>
+
+        <style jsx>{`
+          @keyframes shimmer {
+            100% { transform: translateX(100%); }
+          }
+          @keyframes radarPulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+          }
+          @keyframes heartbeat {
+            0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); }
+          }
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
       </div>
     );
   }

@@ -49,14 +49,31 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
+              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 relative overflow-hidden"
             >
-              <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
-              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              {/* Shimmer overlay */}
+              <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-white/10 dark:via-gray-400/10 to-transparent" style={{animationDelay: `${i * 0.3}s`}}></div>
+              
+              <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4 animate-[iconPulse_2s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.2}s`}}></div>
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-[textGlow_1.8s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.15}s`}}></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-[textGlow_2.2s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.1}s`}}></div>
             </div>
           ))}
         </div>
+
+        <style jsx>{`
+          @keyframes shimmer {
+            100% { transform: translateX(100%); }
+          }
+          @keyframes iconPulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.05); }
+          }
+          @keyframes textGlow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+          }
+        `}</style>
 
         {/* Charts Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

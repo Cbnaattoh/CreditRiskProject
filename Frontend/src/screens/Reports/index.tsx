@@ -379,18 +379,33 @@ const Reports: React.FC = () => {
 
               {/* Reports Grid */}
               {reportsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
-                    >
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[...Array(6)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 relative overflow-hidden"
+                      >
+                        {/* Card shimmer */}
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/12 dark:via-gray-300/12 to-transparent" style={{animationDelay: `${i * 0.2}s`}}></div>
+                        
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4 animate-[fadeInOut_2s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.1}s`}}></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-[fadeInOut_2.3s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.15}s`}}></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-[fadeInOut_2.6s_ease-in-out_infinite]" style={{animationDelay: `${i * 0.2}s`}}></div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <style jsx>{`
+                    @keyframes shimmer {
+                      100% { transform: translateX(100%); }
+                    }
+                    @keyframes fadeInOut {
+                      0%, 100% { opacity: 0.3; }
+                      50% { opacity: 0.6; }
+                    }
+                  `}</style>
+                </>
               ) : sortedReports.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedReports.map((report, index) => (

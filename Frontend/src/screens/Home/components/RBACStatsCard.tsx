@@ -40,18 +40,35 @@ export const RBACStatsCard: React.FC<RBACStatsCardProps> = ({
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 p-6 transition-colors duration-200">
-        <div>
+        <div className="relative overflow-hidden">
+          {/* Shimmer overlay */}
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 dark:via-gray-700/20 to-transparent"></div>
+          
           <div className="flex items-center justify-between">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-            <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
-              <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-[fadeInOut_1.5s_ease-in-out_infinite]"></div>
+            <div className={`p-2 rounded-lg ${colorClasses[color]} animate-[scaleIn_1s_ease-out_infinite_alternate]`}>
+              <div className="w-6 h-6 bg-gray-300/60 dark:bg-gray-600/60 rounded"></div>
             </div>
           </div>
           <div className="mt-4 flex items-baseline">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-            <div className="ml-2 h-4 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-[fadeInOut_1.8s_ease-in-out_infinite]"></div>
+            <div className="ml-2 h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-[fadeInOut_1.2s_ease-in-out_infinite]"></div>
           </div>
         </div>
+
+        <style jsx>{`
+          @keyframes shimmer {
+            100% { transform: translateX(100%); }
+          }
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+          }
+          @keyframes scaleIn {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            100% { transform: scale(1.02); opacity: 1; }
+          }
+        `}</style>
       </div>
     );
   }

@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import {
   FiShield,
-  FiBarChart3,
+  FiBarChart,
   FiActivity,
   FiTrendingUp,
   FiTarget,
@@ -75,7 +75,7 @@ const ReportCategories: React.FC<ReportCategoriesProps> = ({
       id: "operations",
       name: "Operations",
       description: "Operational and performance analytics",
-      icon: FiBarChart3,
+      icon: FiBarChart,
       color: "from-amber-500 to-yellow-600",
       reportTypes: ["APPLICATION_ANALYTICS", "PERFORMANCE_METRICS", "LOSS_MITIGATION"],
       count: 0,
