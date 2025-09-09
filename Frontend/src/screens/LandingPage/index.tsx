@@ -219,7 +219,7 @@ const LandingPage: React.FC = () => {
       company: "Ghana Commercial Bank",
       message: "RiskGuard has revolutionized our credit assessment process. The 98.4% AI accuracy and Ghana-specific employment analysis provide unprecedented insights into our local market.",
       rating: 5,
-      image: "/images/banking-innovation.svg"
+      image: "/images/akosuah.png"
     },
     {
       name: "Kwame Osei-Bonsu",
@@ -227,7 +227,7 @@ const LandingPage: React.FC = () => {
       company: "Ecobank Ghana",
       message: "The real-time processing capabilities and enterprise-grade security features have enabled us to serve more customers while maintaining the highest compliance standards.",
       rating: 5,
-      image: "/images/ai-analysis.svg"
+      image: "/images/kwame.png"
     },
     {
       name: "Jennifer Appiah",
@@ -235,7 +235,7 @@ const LandingPage: React.FC = () => {
       company: "Fidelity Bank Ghana",
       message: "The behavioral biometrics and multi-factor authentication provide an additional layer of security that gives our customers confidence in digital banking.",
       rating: 5,
-      image: "/images/security-shield.svg"
+      image: "/images/jennifer.png"
     },
     {
       name: "Emmanuel Nkrumah",
@@ -243,7 +243,7 @@ const LandingPage: React.FC = () => {
       company: "Standard Chartered Ghana",
       message: "RiskGuard's predictive analytics and custom reporting have streamlined our decision-making process, reducing processing time by 85%.",
       rating: 5,
-      image: "/images/analytics-dashboard.png"
+      image: "/images/emmanuel.png"
     }
   ];
 
@@ -553,7 +553,7 @@ const LandingPage: React.FC = () => {
           >
             <div className="hero-image-container">
               <motion.img
-                src="/images/fintech-hero.svg"
+                src="/images/fintech-hero.png"
                 alt="AI-Powered Credit Risk Management"
                 className="hero-main-image"
                 animate={{ 
@@ -777,7 +777,7 @@ const LandingPage: React.FC = () => {
             >
               <div className="analytics-image-container">
                 <motion.img
-                  src="/images/ai-analysis.svg"
+                  src="/images/analytics-db.png"
                   alt="Advanced Analytics Dashboard"
                   className="analytics-image"
                   initial={{ scale: 0.9, opacity: 0.8 }}
@@ -841,7 +841,7 @@ const LandingPage: React.FC = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
             >
-              <img src="/images/security-shield.svg" alt="Enterprise Security" />
+              <img src="/images/security-shield.png" alt="Enterprise Security" />
             </motion.div>
             <motion.div
               className="security-info"
@@ -1093,7 +1093,7 @@ const LandingPage: React.FC = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
             >
-              <img src="/images/banking-innovation.svg" alt="Banking Innovation" />
+              <img src="/images/banking-innovation.png" alt="Banking Innovation" />
             </motion.div>
           </motion.div>
         </div>
