@@ -56,6 +56,13 @@ graph TB
         L[Document Processing]
     end
     
+    subgraph "AWS Services"
+        AWS1[Amazon Textract]
+        AWS2[Amazon SES]
+        AWS3[Amazon S3]
+        AWS4[AWS IAM]
+    end
+    
     subgraph "ML/AI Layer"
         M[XGBoost Model - 98.4% Accuracy]
         N[Ghana Employment Processor]
@@ -78,6 +85,9 @@ graph TB
     M --> N
     H --> L
     L --> O
+    L --> AWS1
+    L --> AWS3
+    E --> AWS2
     E --> K
     K --> P
     E --> Q
@@ -103,6 +113,9 @@ graph TB
 - **Behavioral Biometrics**: Advanced user behavior analysis
 - **Session Management**: Secure session tracking with auto-logout
 - **Security Logging**: Comprehensive audit trails and monitoring
+- **AWS IAM Integration**: Cloud-native access control and security policies
+- **S3 Bucket Security**: Server-side encryption and access logging
+- **Document Encryption**: End-to-end encryption for sensitive documents
 
 ### 📊 Advanced Analytics & Reporting
 - **Interactive Dashboards**: Real-time KPIs and performance metrics
@@ -118,12 +131,17 @@ graph TB
 - **Cache Optimization**: Redis-powered performance enhancement
 - **Scalable Architecture**: Designed for high-throughput operations
 
-### 📄 Document Management
-- **Advanced OCR**: Pytesseract + OpenCV document processing
-- **Ghana Card Verification**: Specialized ID verification system
-- **Document Classification**: Automated document type recognition
-- **Fraud Detection**: AI-powered document authenticity verification
-- **Secure Storage**: Encrypted document storage with access controls
+### 📄 Document Management & OCR
+- **Amazon Textract Integration**: Intelligent document analysis with 99%+ accuracy
+- **Advanced OCR**: Multi-format document text extraction (PDF, images, forms)
+- **Form Data Extraction**: Automated key-value pair detection and extraction
+- **Table Data Processing**: Structured data extraction from complex documents
+- **Ghana Card Verification**: Specialized ID verification with AWS integration
+- **Document Classification**: AI-powered document type recognition
+- **Fraud Detection**: Advanced document authenticity verification
+- **Secure S3 Storage**: Encrypted document storage with lifecycle policies
+- **Real-time Processing**: Asynchronous document processing with status tracking
+- **Confidence Scoring**: Detailed accuracy metrics for extracted data
 
 ---
 
@@ -136,10 +154,17 @@ graph TB
 - **Background Tasks**: Celery 5.3 with Redis broker
 - **WebSockets**: Django Channels 4.0 for real-time features
 
+### AWS Cloud Services
+- **Amazon Textract**: Intelligent document analysis and OCR processing
+- **Amazon SES**: Transactional email delivery and notifications
+- **Amazon S3**: Secure document storage with lifecycle policies
+- **AWS SDK (boto3)**: Python integration for seamless AWS services
+- **AWS IAM**: Fine-grained access control and security policies
+
 ### Machine Learning & AI
 - **ML Framework**: XGBoost 1.7.6 for credit scoring
 - **Data Processing**: Pandas 2.1.4 + NumPy 1.24.4
-- **Computer Vision**: OpenCV 4.8 + Pytesseract for OCR
+- **Computer Vision**: OpenCV 4.8 + Amazon Textract for advanced OCR
 - **Model Serving**: FastAPI integration for ML API
 - **Visualization**: Streamlit dashboard for model monitoring
 
@@ -168,6 +193,8 @@ graph TB
 - **PostgreSQL**: 13+ for production database
 - **Redis**: 6+ for caching and sessions
 - **Git**: Latest version for version control
+- **AWS Account**: With IAM permissions for Textract, SES, and S3
+- **AWS CLI**: Configured with appropriate credentials
 
 ### 🐳 Quick Start with Docker (Recommended)
 
@@ -219,7 +246,7 @@ pip install -r requirements.txt
 
 # Environment configuration
 cp example_env .env
-nano .env  # Configure your settings
+nano .env  # Configure your settings (including AWS credentials)
 
 # Database setup
 python manage.py makemigrations
@@ -286,13 +313,26 @@ REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
-# Email Settings (for notifications and MFA)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-email@company.com
-EMAIL_HOST_PASSWORD=your_email_app_password
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-riskguard-documents-bucket
+AWS_TEXTRACT_REGION=us-east-1
+AWS_SES_REGION=us-east-1
+
+# Amazon SES Email Configuration
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+SES_FROM_EMAIL=noreply@yourcompany.com
+SES_REPLY_TO_EMAIL=support@yourcompany.com
+SES_CONFIGURATION_SET=riskguard-emails
 DEFAULT_FROM_EMAIL=noreply@yourcompany.com
+
+# Document Processing
+TEXTRACT_ENABLED=True
+S3_DOCUMENT_PREFIX=documents/
+DOCUMENT_RETENTION_DAYS=2555  # 7 years for compliance
+OCR_CONFIDENCE_THRESHOLD=80.0
 
 # ML Model Configuration
 ML_PROCESSING_ENABLED=True
@@ -306,9 +346,14 @@ MFA_TOKEN_EXPIRY=300
 MAX_LOGIN_ATTEMPTS=5
 LOGIN_LOCKOUT_DURATION=3600
 
+# Document Processing Settings
+TEXTRACT_MAX_PAGES=10
+TEXTRACT_TIMEOUT_SECONDS=300
+S3_DOCUMENT_ENCRYPTION=AES256
+AUTO_DELETE_PROCESSED_DOCS=False
+
 # Optional: Third-party Integrations
 SENTRY_DSN=your_sentry_dsn_for_error_tracking
-DOCUMENT_VERIFICATION_API_KEY=your_verification_service_key
 ```
 
 ---
@@ -469,6 +514,82 @@ PATCH /api/admin/users/{id}/roles/
 }
 ```
 
+### 📄 Document Processing API
+
+```bash
+# Upload and process document with Textract
+POST /api/documents/upload/
+Authorization: Bearer your_jwt_token
+Content-Type: multipart/form-data
+
+file: [binary_document_data]
+application_id: 123
+document_type: "ghana_card"
+
+# Response
+{
+    "success": true,
+    "document_id": "doc-2024-001",
+    "s3_key": "documents/2024/08/25/ghana_card_001.pdf",
+    "textract_job_id": "textract-job-abc123",
+    "processing_status": "in_progress",
+    "estimated_completion": "2024-08-25T10:32:00Z"
+}
+
+# Get extraction results
+GET /api/documents/{document_id}/extraction/
+{
+    "document_id": "doc-2024-001",
+    "status": "completed",
+    "confidence_score": 95.8,
+    "extracted_data": {
+        "name": "John Doe",
+        "id_number": "GHA-123456789-0",
+        "date_of_birth": "1990-05-15",
+        "issue_date": "2020-01-10",
+        "expiry_date": "2030-01-10"
+    },
+    "key_value_pairs": [
+        {"key": "NAME", "value": "John Doe", "confidence": 98.5},
+        {"key": "ID NUMBER", "value": "GHA-123456789-0", "confidence": 99.2}
+    ],
+    "processing_time": 2.3,
+    "textract_metadata": {
+        "pages_processed": 1,
+        "blocks_detected": 42,
+        "forms_detected": 1
+    }
+}
+```
+
+### 📧 Email Notifications API
+
+```bash
+# Send application status email via SES
+POST /api/notifications/email/
+{
+    "recipient": "applicant@example.com",
+    "template": "application_approved",
+    "context": {
+        "applicant_name": "John Doe",
+        "application_id": "APP-2024-001",
+        "approval_amount": 50000,
+        "next_steps_url": "https://portal.company.com/next-steps"
+    },
+    "priority": "high"
+}
+
+# Response
+{
+    "success": true,
+    "message_id": "ses-msg-abc123",
+    "status": "sent",
+    "delivery_timestamp": "2024-08-25T10:35:00Z",
+    "bounce_tracking": "enabled",
+    "open_tracking": "enabled"
+}
+```
+
 ### 📄 Complete API Documentation
 
 Access the interactive API documentation:
@@ -547,15 +668,36 @@ volumes:
   static_files:
 ```
 
-### ☁️ Cloud Deployment Options
+### ☁️ AWS Production Deployment
 
-#### AWS Deployment
+#### AWS Architecture
 ```bash
-# Using AWS ECS with Application Load Balancer
-# RDS for PostgreSQL
-# ElastiCache for Redis
-# S3 for static files and media
-# CloudFront for CDN
+# ECS/Fargate for containerized applications
+# RDS PostgreSQL for primary database
+# ElastiCache Redis for caching and sessions
+# S3 for document storage and static files
+# Textract for document processing
+# SES for email delivery
+# CloudFront for CDN and static asset delivery
+# Application Load Balancer for traffic distribution
+# VPC with private subnets for security
+```
+
+#### Required AWS Services Setup
+```bash
+# Create S3 bucket for documents
+aws s3 mb s3://your-riskguard-documents --region us-east-1
+
+# Configure SES for email sending
+aws ses put-identity --identity noreply@yourcompany.com
+aws ses put-identity-verification-attributes --identity noreply@yourcompany.com
+
+# Create IAM role for Textract access
+aws iam create-role --role-name RiskGuardTextractRole --assume-role-policy-document file://textract-trust-policy.json
+aws iam attach-role-policy --role-name RiskGuardTextractRole --policy-arn arn:aws:iam::aws:policy/AmazonTextractFullAccess
+
+# Set up S3 bucket policies for secure document access
+aws s3api put-bucket-encryption --bucket your-riskguard-documents --server-side-encryption-configuration file://s3-encryption.json
 ```
 
 #### Google Cloud Platform
