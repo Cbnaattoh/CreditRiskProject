@@ -89,11 +89,43 @@ class CreditApplication(models.Model):
         ]
     
     def save(self, *args, **kwargs):
+        # Track if this is a status change
+        is_new = self.pk is None
+        old_status = None
+        
+        if not is_new:
+            # Get the old status before saving
+            try:
+                old_instance = CreditApplication.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except CreditApplication.DoesNotExist:
+                old_status = None
+        
+        # Generate reference number when submitted
         if not self.reference_number and self.status == 'SUBMITTED':
             self.reference_number = self._generate_reference_number()
+        
+        # Set submission date when first submitted
         if self.status == 'SUBMITTED' and not self.submission_date:
             self.submission_date = timezone.now()
+        
         super().save(*args, **kwargs)
+        
+        # Create status history and activity records after saving
+        if not is_new and old_status and old_status != self.status:
+            # Import here to avoid circular imports
+            from .signals import create_status_change_records, send_status_update_notifications
+            create_status_change_records(self, old_status, self.status)
+            send_status_update_notifications(self, old_status, self.status)
+        elif is_new:
+            # Create initial activity record for new applications
+            from .signals import create_application_activity
+            create_application_activity(
+                self, 
+                'CREATED', 
+                self.applicant,
+                f"Application {self.reference_number or 'draft'} created"
+            )
     
     @classmethod
     def create_for_user(cls, user, **kwargs):
@@ -370,3 +402,284 @@ class MLCreditAssessment(models.Model):
             'Very High Risk': 'red'
         }
         return colors.get(self.risk_level, 'gray')
+
+
+class ApplicationStatusHistory(models.Model):
+    """Track all status changes for applications"""
+    application = models.ForeignKey(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='status_history'
+    )
+    previous_status = models.CharField(max_length=15, choices=CreditApplication.APPLICATION_STATUS, null=True, blank=True)
+    new_status = models.CharField(max_length=15, choices=CreditApplication.APPLICATION_STATUS)
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='status_changes_made'
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(blank=True, help_text="Reason for status change")
+    system_generated = models.BooleanField(default=False, help_text="True if status change was automatic")
+    
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = 'Application Status History'
+        verbose_name_plural = 'Application Status Histories'
+        indexes = [
+            models.Index(fields=['application', '-changed_at']),
+            models.Index(fields=['new_status', '-changed_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.application.reference_number}: {self.previous_status} → {self.new_status}"
+
+
+class ApplicationReview(models.Model):
+    """Store risk analyst reviews and remarks for applications"""
+    REVIEW_STATUS_CHOICES = [
+        ('PENDING', 'Pending Review'),
+        ('IN_PROGRESS', 'In Progress'),
+        ('COMPLETED', 'Completed'),
+        ('ESCALATED', 'Escalated'),
+    ]
+    
+    DECISION_CHOICES = [
+        ('APPROVE', 'Approve'),
+        ('REJECT', 'Reject'),
+        ('REQUEST_INFO', 'Request More Information'),
+        ('ESCALATE', 'Escalate to Senior Analyst'),
+    ]
+    
+    application = models.OneToOneField(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='review'
+    )
+    reviewer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='application_reviews',
+        limit_choices_to={'user_type__in': ['ANALYST', 'ADMIN']}
+    )
+    review_status = models.CharField(max_length=15, choices=REVIEW_STATUS_CHOICES, default='PENDING')
+    decision = models.CharField(max_length=15, choices=DECISION_CHOICES, null=True, blank=True)
+    
+    # Review Details
+    risk_assessment_score = models.IntegerField(null=True, blank=True, help_text="Risk score (1-100)")
+    creditworthiness_rating = models.CharField(max_length=20, blank=True, help_text="Overall creditworthiness")
+    
+    # Remarks and Comments
+    general_remarks = models.TextField(blank=True, help_text="General comments about the application")
+    strengths = models.TextField(blank=True, help_text="Positive aspects of the application")
+    concerns = models.TextField(blank=True, help_text="Areas of concern or risk")
+    recommendation = models.TextField(blank=True, help_text="Final recommendation")
+    
+    # Information Requests
+    additional_info_required = models.TextField(blank=True, help_text="Details of additional information needed")
+    documents_required = models.JSONField(default=list, blank=True, help_text="List of additional documents needed")
+    
+    # Review Metadata
+    review_started_at = models.DateTimeField(null=True, blank=True)
+    review_completed_at = models.DateTimeField(null=True, blank=True)
+    estimated_processing_days = models.IntegerField(null=True, blank=True, help_text="Estimated days to complete")
+    
+    # Quality Assurance
+    requires_second_opinion = models.BooleanField(default=False)
+    second_reviewer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='second_reviews',
+        limit_choices_to={'user_type__in': ['ANALYST', 'ADMIN']}
+    )
+    second_review_comments = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['review_status', '-created_at']),
+            models.Index(fields=['reviewer', '-created_at']),
+            models.Index(fields=['decision']),
+        ]
+    
+    def __str__(self):
+        return f"Review for {self.application.reference_number} by {self.reviewer}"
+    
+    def start_review(self, reviewer):
+        """Mark review as started"""
+        self.reviewer = reviewer
+        self.review_status = 'IN_PROGRESS'
+        self.review_started_at = timezone.now()
+        self.save()
+    
+    def complete_review(self, decision, remarks=""):
+        """Mark review as completed"""
+        self.decision = decision
+        self.review_status = 'COMPLETED'
+        self.review_completed_at = timezone.now()
+        if remarks:
+            self.general_remarks = remarks
+        self.save()
+        
+        # Update application status based on decision
+        status_mapping = {
+            'APPROVE': 'APPROVED',
+            'REJECT': 'REJECTED',
+            'REQUEST_INFO': 'NEEDS_INFO',
+            'ESCALATE': 'UNDER_REVIEW'
+        }
+        
+        if decision in status_mapping:
+            old_status = self.application.status
+            self.application.status = status_mapping[decision]
+            self.application.save()
+            
+            # Create status history record
+            ApplicationStatusHistory.objects.create(
+                application=self.application,
+                previous_status=old_status,
+                new_status=self.application.status,
+                changed_by=self.reviewer,
+                reason=f"Review completed with decision: {decision}",
+                system_generated=False
+            )
+    
+    @property
+    def review_duration(self):
+        """Calculate review duration"""
+        if self.review_started_at and self.review_completed_at:
+            return self.review_completed_at - self.review_started_at
+        return None
+    
+    @property
+    def is_overdue(self):
+        """Check if review is overdue"""
+        if not self.review_started_at or self.review_completed_at:
+            return False
+        
+        days_in_review = (timezone.now() - self.review_started_at).days
+        expected_days = self.estimated_processing_days or 5  # Default 5 days
+        return days_in_review > expected_days
+
+
+class ApplicationComment(models.Model):
+    """Comments and communication between applicants and analysts"""
+    COMMENT_TYPE_CHOICES = [
+        ('INTERNAL', 'Internal Note'),
+        ('CLIENT_VISIBLE', 'Visible to Client'),
+        ('CLIENT_MESSAGE', 'Message from Client'),
+        ('SYSTEM', 'System Generated'),
+    ]
+    
+    application = models.ForeignKey(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='application_comments'
+    )
+    comment_type = models.CharField(max_length=15, choices=COMMENT_TYPE_CHOICES, default='INTERNAL')
+    content = models.TextField()
+    
+    # Reply functionality
+    parent_comment = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies'
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_read = models.BooleanField(default=False, help_text="For client messages - has analyst read this?")
+    read_at = models.DateTimeField(null=True, blank=True)
+    read_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='comments_read'
+    )
+    
+    # Attachments
+    attachment = models.FileField(upload_to='comment_attachments/', null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['application', '-created_at']),
+            models.Index(fields=['comment_type', '-created_at']),
+            models.Index(fields=['author', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"Comment on {self.application.reference_number} by {self.author}"
+    
+    def mark_as_read(self, user):
+        """Mark comment as read"""
+        self.is_read = True
+        self.read_at = timezone.now()
+        self.read_by = user
+        self.save()
+
+
+class ApplicationActivity(models.Model):
+    """Track all activities on applications for audit trail"""
+    ACTIVITY_TYPE_CHOICES = [
+        ('CREATED', 'Application Created'),
+        ('SUBMITTED', 'Application Submitted'),
+        ('STATUS_CHANGED', 'Status Changed'),
+        ('DOCUMENT_UPLOADED', 'Document Uploaded'),
+        ('DOCUMENT_VERIFIED', 'Document Verified'),
+        ('REVIEW_STARTED', 'Review Started'),
+        ('REVIEW_COMPLETED', 'Review Completed'),
+        ('COMMENT_ADDED', 'Comment Added'),
+        ('ASSIGNED', 'Assigned to Analyst'),
+        ('ML_ASSESSMENT', 'ML Assessment Generated'),
+        ('NOTIFICATION_SENT', 'Notification Sent'),
+    ]
+    
+    application = models.ForeignKey(
+        CreditApplication,
+        on_delete=models.CASCADE,
+        related_name='activities'
+    )
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPE_CHOICES)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='application_activities'
+    )
+    description = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True, help_text="Additional activity data")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = 'Application Activities'
+        indexes = [
+            models.Index(fields=['application', '-created_at']),
+            models.Index(fields=['activity_type', '-created_at']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_activity_type_display()} - {self.application.reference_number}"

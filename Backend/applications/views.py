@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 import logging
 
@@ -394,6 +395,354 @@ def predict_credit_score(request, pk):
     except Exception as e:
         return Response(
             {'error': f'ML prediction error: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# New API endpoints for Application Reviews and Status Tracking
+
+class ApplicationReviewListView(generics.ListCreateAPIView):
+    """
+    List all reviews or create a new review for an application
+    Only accessible by ANALYST and ADMIN users
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import ApplicationReview
+        user = self.request.user
+        
+        # Only analysts and admins can view reviews
+        if user.user_type not in ['ANALYST', 'ADMIN']:
+            return ApplicationReview.objects.none()
+            
+        # If specific application requested, filter by application
+        if 'pk' in self.kwargs:
+            return ApplicationReview.objects.filter(application_id=self.kwargs['pk'])
+        
+        # Return all reviews for analysts/admins
+        return ApplicationReview.objects.all().order_by('-created_at')
+    
+    def get_serializer_class(self):
+        from .serializers import ApplicationReviewSerializer
+        return ApplicationReviewSerializer
+    
+    def perform_create(self, serializer):
+        from .models import ApplicationReview
+        application = get_object_or_404(CreditApplication, pk=self.kwargs['pk'])
+        
+        # Check if review already exists
+        if ApplicationReview.objects.filter(application=application).exists():
+            raise ValidationError("Review already exists for this application")
+        
+        serializer.save(application=application, reviewer=self.request.user)
+
+
+class ApplicationReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete an application review
+    Only accessible by the assigned reviewer or admin
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import ApplicationReview
+        user = self.request.user
+        
+        if user.user_type == 'ADMIN':
+            return ApplicationReview.objects.all()
+        elif user.user_type == 'ANALYST':
+            return ApplicationReview.objects.filter(reviewer=user)
+        
+        return ApplicationReview.objects.none()
+    
+    def get_serializer_class(self):
+        from .serializers import ApplicationReviewSerializer
+        return ApplicationReviewSerializer
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def start_review(request, pk):
+    """
+    Start reviewing an application - assigns analyst and sets status
+    """
+    if request.user.user_type not in ['ANALYST', 'ADMIN']:
+        return Response(
+            {'error': 'Only analysts can start reviews'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        from .models import ApplicationReview
+        
+        application = get_object_or_404(CreditApplication, pk=pk)
+        
+        # Create or get existing review
+        review, created = ApplicationReview.objects.get_or_create(
+            application=application,
+            defaults={
+                'reviewer': request.user,
+                'review_status': 'IN_PROGRESS',
+                'estimated_processing_days': request.data.get('estimated_days', 5)
+            }
+        )
+        
+        if not created:
+            # Update existing review
+            review.start_review(request.user)
+        
+        # Assign analyst to application if not already assigned
+        if not application.assigned_analyst:
+            application.assigned_analyst = request.user
+            application.status = 'UNDER_REVIEW'
+            application.save()
+        
+        return Response({
+            'message': 'Review started successfully',
+            'review_id': review.id,
+            'estimated_completion': review.estimated_processing_days
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to start review: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def complete_review(request, pk):
+    """
+    Complete a review with decision and remarks
+    """
+    if request.user.user_type not in ['ANALYST', 'ADMIN']:
+        return Response(
+            {'error': 'Only analysts can complete reviews'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        from .models import ApplicationReview
+        from .serializers import ReviewCompletionSerializer
+        
+        application = get_object_or_404(CreditApplication, pk=pk)
+        review = get_object_or_404(ApplicationReview, application=application, reviewer=request.user)
+        
+        serializer = ReviewCompletionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Update review with completion data
+        decision = serializer.validated_data['decision']
+        review.complete_review(decision, serializer.validated_data.get('remarks', ''))
+        
+        # Update additional fields if provided
+        if 'risk_assessment_score' in serializer.validated_data:
+            review.risk_assessment_score = serializer.validated_data['risk_assessment_score']
+        
+        if 'creditworthiness_rating' in serializer.validated_data:
+            review.creditworthiness_rating = serializer.validated_data['creditworthiness_rating']
+        
+        if 'strengths' in serializer.validated_data:
+            review.strengths = serializer.validated_data['strengths']
+            
+        if 'concerns' in serializer.validated_data:
+            review.concerns = serializer.validated_data['concerns']
+            
+        if 'recommendation' in serializer.validated_data:
+            review.recommendation = serializer.validated_data['recommendation']
+        
+        review.save()
+        
+        return Response({
+            'message': 'Review completed successfully',
+            'decision': decision,
+            'application_status': application.status
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to complete review: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+class ApplicationStatusHistoryView(generics.ListAPIView):
+    """
+    Get status history for an application
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import ApplicationStatusHistory
+        application_id = self.kwargs['pk']
+        
+        # Ensure user has access to this application
+        application = get_object_or_404(CreditApplication, pk=application_id)
+        
+        user = self.request.user
+        if user.user_type in ['ADMIN', 'ANALYST']:
+            # Admins and analysts can see all applications
+            pass
+        elif application.applicant != user:
+            # Regular users can only see their own applications
+            return ApplicationStatusHistory.objects.none()
+        
+        return ApplicationStatusHistory.objects.filter(application=application)
+    
+    def get_serializer_class(self):
+        from .serializers import ApplicationStatusHistorySerializer
+        return ApplicationStatusHistorySerializer
+
+
+class ApplicationActivityView(generics.ListAPIView):
+    """
+    Get activity history for an application
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import ApplicationActivity
+        application_id = self.kwargs['pk']
+        
+        # Ensure user has access to this application
+        application = get_object_or_404(CreditApplication, pk=application_id)
+        
+        user = self.request.user
+        if user.user_type in ['ADMIN', 'ANALYST']:
+            # Admins and analysts can see all activities
+            pass
+        elif application.applicant != user:
+            # Regular users can only see their own applications
+            return ApplicationActivity.objects.none()
+        
+        return ApplicationActivity.objects.filter(application=application)
+    
+    def get_serializer_class(self):
+        from .serializers import ApplicationActivitySerializer
+        return ApplicationActivitySerializer
+
+
+class ApplicationCommentListView(generics.ListCreateAPIView):
+    """
+    List and create comments for an application
+    Supports different comment types (internal, client-visible, client messages)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import ApplicationComment
+        application_id = self.kwargs['pk']
+        application = get_object_or_404(CreditApplication, pk=application_id)
+        
+        user = self.request.user
+        
+        # Filter comments based on user type and comment type
+        if user.user_type in ['ADMIN', 'ANALYST']:
+            # Analysts and admins can see all comments
+            return ApplicationComment.objects.filter(application=application)
+        elif application.applicant == user:
+            # Clients can only see non-internal comments and their own messages
+            return ApplicationComment.objects.filter(
+                application=application,
+                comment_type__in=['CLIENT_VISIBLE', 'CLIENT_MESSAGE']
+            )
+        
+        return ApplicationComment.objects.none()
+    
+    def get_serializer_class(self):
+        from .serializers import ApplicationCommentSerializer
+        return ApplicationCommentSerializer
+    
+    def perform_create(self, serializer):
+        application = get_object_or_404(CreditApplication, pk=self.kwargs['pk'])
+        
+        # Determine comment type based on user
+        comment_type = 'INTERNAL'
+        if self.request.user.user_type in ['ADMIN', 'ANALYST']:
+            comment_type = self.request.data.get('comment_type', 'INTERNAL')
+        elif application.applicant == self.request.user:
+            comment_type = 'CLIENT_MESSAGE'
+        
+        serializer.save(
+            application=application,
+            author=self.request.user,
+            comment_type=comment_type
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def application_dashboard(request):
+    """
+    Dashboard endpoint for analysts and admins to see application overview
+    """
+    if request.user.user_type not in ['ANALYST', 'ADMIN']:
+        return Response(
+            {'error': 'Access denied'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        from .models import ApplicationReview
+        from django.db.models import Q, Count
+        
+        # Get applications assigned to this analyst or all for admin
+        if request.user.user_type == 'ADMIN':
+            applications = CreditApplication.objects.all()
+        else:
+            applications = CreditApplication.objects.filter(assigned_analyst=request.user)
+        
+        # Statistics
+        stats = {
+            'total_applications': applications.count(),
+            'pending_review': applications.filter(status='SUBMITTED').count(),
+            'under_review': applications.filter(status='UNDER_REVIEW').count(),
+            'approved': applications.filter(status='APPROVED').count(),
+            'rejected': applications.filter(status='REJECTED').count(),
+            'needs_info': applications.filter(status='NEEDS_INFO').count(),
+        }
+        
+        # Recent applications
+        recent_applications = applications.order_by('-submission_date')[:10]
+        
+        # Overdue reviews
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        overdue_reviews = ApplicationReview.objects.filter(
+            reviewer=request.user,
+            review_status='IN_PROGRESS',
+            review_started_at__lt=timezone.now() - timedelta(days=5)
+        ).select_related('application')
+        
+        return Response({
+            'stats': stats,
+            'recent_applications': [
+                {
+                    'id': str(app.id),
+                    'reference_number': app.reference_number,
+                    'status': app.status,
+                    'submission_date': app.submission_date,
+                    'applicant_name': f"{app.applicant.first_name} {app.applicant.last_name}" if app.applicant else 'N/A',
+                    'loan_amount': str(app.loan_amount) if app.loan_amount else '0'
+                }
+                for app in recent_applications
+            ],
+            'overdue_reviews': [
+                {
+                    'application_id': str(review.application.id),
+                    'reference_number': review.application.reference_number,
+                    'days_overdue': (timezone.now() - review.review_started_at).days
+                }
+                for review in overdue_reviews
+            ]
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Dashboard error: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -798,3 +1147,37 @@ def ml_processing_statistics(request):
             {'error': f'Failed to get ML processing statistics: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAuthenticated])
+def verify_document(request, application_pk, document_pk):
+    """
+    Verify a document (only for analysts and admins)
+    """
+    if request.user.user_type not in ['ANALYST', 'ADMIN']:
+        return Response({'error': 'Only analysts can verify documents'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        application = get_object_or_404(CreditApplication, pk=application_pk)
+        document = get_object_or_404(Document, pk=document_pk, application=application)
+        
+        # Update verification status
+        document.verified = request.data.get('verified', True)
+        document.verification_notes = request.data.get('verification_notes', '')
+        document.save()
+        
+        # Create activity record
+        from .signals import create_application_activity
+        create_application_activity(
+            application,
+            'DOCUMENT_VERIFIED',
+            request.user,
+            f"Document '{document.get_document_type_display()}' verified by {request.user.get_full_name()}"
+        )
+        
+        from .serializers import DocumentSerializer
+        return Response(DocumentSerializer(document, context={'request': request}).data)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

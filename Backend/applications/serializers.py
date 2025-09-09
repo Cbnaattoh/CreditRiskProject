@@ -12,7 +12,11 @@ from .models import (
     BankAccount,
     Document,
     ApplicationNote,
-    MLCreditAssessment
+    MLCreditAssessment,
+    ApplicationReview,
+    ApplicationStatusHistory,
+    ApplicationActivity,
+    ApplicationComment
 )
 import uuid
 import re
@@ -387,6 +391,9 @@ class ApplicantSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     file_size = serializers.SerializerMethodField()
     file_extension = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField(source='verified', read_only=True)
     
     class Meta:
         model = Document
@@ -406,6 +413,20 @@ class DocumentSerializer(serializers.ModelSerializer):
         if obj.file:
             import os
             return os.path.splitext(obj.file.name)[1].lower()
+        return ''
+    
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+    
+    def get_file_name(self, obj):
+        if obj.file:
+            import os
+            return os.path.basename(obj.file.name)
         return ''
     
     def validate_file(self, value):
@@ -831,3 +852,167 @@ class ApplicationSubmitSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("You must confirm submission")
         return value
+
+
+# New serializers for Application Reviews and Status Tracking
+
+class ApplicationReviewSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.SerializerMethodField()
+    application_reference = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
+    review_duration = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import ApplicationReview
+        model = ApplicationReview
+        fields = [
+            'id', 'application', 'reviewer', 'reviewer_name', 
+            'application_reference', 'review_status', 'decision',
+            'risk_assessment_score', 'creditworthiness_rating',
+            'general_remarks', 'strengths', 'concerns', 'recommendation',
+            'additional_info_required', 'documents_required',
+            'review_started_at', 'review_completed_at', 'estimated_processing_days',
+            'requires_second_opinion', 'second_reviewer', 'second_review_comments',
+            'created_at', 'updated_at', 'is_overdue', 'review_duration'
+        ]
+        read_only_fields = ['id', 'application', 'reviewer', 'created_at', 'updated_at']
+    
+    def get_reviewer_name(self, obj):
+        return obj.reviewer.get_full_name() if obj.reviewer else 'Unassigned'
+    
+    def get_application_reference(self, obj):
+        return obj.application.reference_number if obj.application else None
+    
+    def get_is_overdue(self, obj):
+        return obj.is_overdue
+    
+    def get_review_duration(self, obj):
+        duration = obj.review_duration
+        if duration:
+            return {
+                'days': duration.days,
+                'hours': duration.seconds // 3600,
+                'minutes': (duration.seconds % 3600) // 60
+            }
+        return None
+
+
+class ReviewCompletionSerializer(serializers.Serializer):
+    """Serializer for completing a review"""
+    from .models import ApplicationReview
+    
+    decision = serializers.ChoiceField(choices=ApplicationReview.DECISION_CHOICES, required=True)
+    remarks = serializers.CharField(required=False, allow_blank=True)
+    risk_assessment_score = serializers.IntegerField(min_value=1, max_value=100, required=False)
+    creditworthiness_rating = serializers.CharField(max_length=20, required=False)
+    strengths = serializers.CharField(required=False, allow_blank=True)
+    concerns = serializers.CharField(required=False, allow_blank=True)
+    recommendation = serializers.CharField(required=False, allow_blank=True)
+    additional_info_required = serializers.CharField(required=False, allow_blank=True)
+    documents_required = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        allow_empty=True
+    )
+    
+    def validate_risk_assessment_score(self, value):
+        if value is not None and not (1 <= value <= 100):
+            raise serializers.ValidationError("Risk assessment score must be between 1 and 100")
+        return value
+
+
+class ApplicationStatusHistorySerializer(serializers.ModelSerializer):
+    status_display = serializers.SerializerMethodField()
+    changed_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import ApplicationStatusHistory
+        model = ApplicationStatusHistory
+        fields = [
+            'id', 'application', 'previous_status', 'new_status', 'status_display',
+            'changed_by', 'changed_by_name', 'changed_at', 'reason', 'system_generated'
+        ]
+        read_only_fields = ['id', 'changed_at']
+    
+    def get_status_display(self, obj):
+        from .models import CreditApplication
+        status_dict = dict(CreditApplication.APPLICATION_STATUS)
+        return {
+            'previous': status_dict.get(obj.previous_status, obj.previous_status),
+            'new': status_dict.get(obj.new_status, obj.new_status)
+        }
+    
+    def get_changed_by_name(self, obj):
+        if obj.changed_by:
+            return obj.changed_by.get_full_name()
+        return 'System' if obj.system_generated else 'Unknown'
+
+
+class ApplicationActivitySerializer(serializers.ModelSerializer):
+    activity_display = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import ApplicationActivity
+        model = ApplicationActivity
+        fields = [
+            'id', 'application', 'activity_type', 'activity_display',
+            'user', 'user_name', 'description', 'metadata', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+    
+    def get_activity_display(self, obj):
+        return obj.get_activity_type_display()
+    
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() if obj.user else 'System'
+
+
+class ApplicationCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_role = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    comment_type_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import ApplicationComment
+        model = ApplicationComment
+        fields = [
+            'id', 'application', 'author', 'author_name', 'author_role',
+            'comment_type', 'comment_type_display', 'content', 'parent_comment',
+            'created_at', 'updated_at', 'is_read', 'read_at', 'read_by',
+            'attachment', 'replies'
+        ]
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'read_at', 'read_by']
+    
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() if obj.author else 'Unknown'
+    
+    def get_author_role(self, obj):
+        if obj.author:
+            return obj.author.get_user_type_display()
+        return 'System'
+    
+    def get_replies(self, obj):
+        # Only return direct replies, avoid deep nesting
+        replies = obj.replies.all()[:5]  # Limit to 5 replies
+        return ApplicationCommentSerializer(replies, many=True, context=self.context).data
+    
+    def get_comment_type_display(self, obj):
+        return obj.get_comment_type_display()
+    
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Comment content cannot be empty")
+        if len(value) > 1000:
+            raise serializers.ValidationError("Comment content is too long (max 1000 characters)")
+        return value.strip()
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for user profile information in application contexts"""
+    class Meta:
+        from users.models import User
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'user_type']
+        read_only_fields = ['id', 'email', 'user_type']
