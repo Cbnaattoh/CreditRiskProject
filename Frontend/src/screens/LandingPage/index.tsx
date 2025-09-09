@@ -432,7 +432,7 @@ const LandingPage: React.FC = () => {
       >
         <div className="hero-container">
           <motion.div className="hero-content" variants={itemVariants}>
-            <motion.div
+            {/* <motion.div
               className="hero-badge"
               whileHover={{ scale: 1.05 }}
               initial={{ opacity: 0, y: 20 }}
@@ -441,7 +441,7 @@ const LandingPage: React.FC = () => {
             >
               <StarIcon className="badge-icon" />
               Enterprise Grade • 98.4% ML Accuracy
-            </motion.div>
+            </motion.div> */}
             
             <motion.h1 
               className="hero-title overflow-hidden"

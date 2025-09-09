@@ -43,6 +43,7 @@ import ReportFiltersPanel from "./components/ReportFiltersPanel";
 import CreateReportModal from "./components/CreateReportModal";
 import DashboardOverview from "./components/DashboardOverview";
 import ReportAnalytics from "./components/ReportAnalytics";
+import ReportViewer from "./components/ReportViewer";
 
 const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
@@ -52,6 +53,7 @@ const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showReportViewer, setShowReportViewer] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"created_at" | "title" | "views_count">(
     "created_at"
@@ -162,6 +164,16 @@ const Reports: React.FC = () => {
     } catch (err: any) {
       error(err?.data?.message || "Failed to share report");
     }
+  };
+
+  const handleViewReport = (report: Report) => {
+    setSelectedReport(report);
+    setShowReportViewer(true);
+  };
+
+  const handleCloseReportViewer = () => {
+    setShowReportViewer(false);
+    setSelectedReport(null);
   };
 
   const getContentType = (format: string) => {
@@ -371,7 +383,7 @@ const Reports: React.FC = () => {
                   {[...Array(6)].map((_, i) => (
                     <div
                       key={i}
-                      className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse"
+                      className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
                     >
                       <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
@@ -390,7 +402,7 @@ const Reports: React.FC = () => {
                     >
                       <ReportCard
                         report={report}
-                        onView={() => setSelectedReport(report)}
+                        onView={() => handleViewReport(report)}
                         onExport={
                           canExportData ? handleExportReport : undefined
                         }
@@ -456,7 +468,7 @@ const Reports: React.FC = () => {
           />
         )}
 
-        {selectedReport && (
+        {selectedReport && !showReportViewer && (
           <ReportModal
             report={selectedReport}
             isOpen={!!selectedReport}
@@ -464,6 +476,16 @@ const Reports: React.FC = () => {
             onExport={canExportData ? handleExportReport : undefined}
             onShare={handleShareReport}
             onDelete={canDeleteReports ? handleDeleteReport : undefined}
+          />
+        )}
+
+        {selectedReport && showReportViewer && (
+          <ReportViewer
+            report={selectedReport}
+            isOpen={showReportViewer}
+            onClose={handleCloseReportViewer}
+            onExport={canExportData ? (format: string) => handleExportReport(selectedReport.id, format) : undefined}
+            onShare={canEditReports ? (userIds: number[]) => handleShareReport(selectedReport.id, userIds) : undefined}
           />
         )}
       </AnimatePresence>

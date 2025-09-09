@@ -45,7 +45,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse"
+              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
             >
               <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
               <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
@@ -59,7 +59,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse"
+              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
             >
               <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
               <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -208,7 +208,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
               <FiPieChart className="h-5 w-5" />
               <span>Report Types</span>
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full opacity-60" />
           </div>
 
           {reportTypeData.length > 0 ? (
@@ -249,7 +249,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
               <FiBarChart className="h-5 w-5" />
               <span>Status Distribution</span>
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-60" />
           </div>
 
           {reportStatusData.length > 0 ? (
@@ -288,7 +288,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
               <FiTrendingUp className="h-5 w-5" />
               <span>Monthly Growth</span>
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full opacity-60" />
           </div>
 
           <ResponsiveContainer width="100%" height={250}>
@@ -333,7 +333,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
               <FiUsers className="h-5 w-5" />
               <span>Top Report Creators</span>
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-rose-400 to-pink-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-gradient-to-r from-rose-400 to-pink-500 rounded-full opacity-60" />
           </div>
 
           {data.top_creators.length > 0 ? (
@@ -397,7 +397,7 @@ const ReportAnalytics: React.FC<ReportAnalyticsProps> = ({ data, isLoading }) =>
             <FiActivity className="h-5 w-5" />
             <span>Recent Activity</span>
           </h3>
-          <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full animate-pulse" />
+          <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full opacity-60" />
         </div>
 
         {data.recent_activity.length > 0 ? (

@@ -40,7 +40,7 @@ export const RBACStatsCard: React.FC<RBACStatsCardProps> = ({
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 p-6 transition-colors duration-200">
-        <div className="animate-pulse">
+        <div>
           <div className="flex items-center justify-between">
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
             <div className={`p-2 rounded-lg ${colorClasses[color]}`}>

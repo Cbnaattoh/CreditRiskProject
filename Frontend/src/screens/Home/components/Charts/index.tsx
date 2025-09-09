@@ -192,22 +192,29 @@ export const RiskDistributionChart: React.FC = () => {
   // Show loading state with skeleton
   if (isLoading) {
     return (
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1">
-          <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+      <div className="flex flex-col lg:flex-row gap-6 min-h-[400px]">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="relative w-[300px] h-[300px] bg-gray-200 dark:bg-gray-700 rounded-full">
+            <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full opacity-100"></div>
+            <div className="absolute inset-4 bg-gray-300 dark:bg-gray-600 rounded-full opacity-80"></div>
+            <div className="absolute inset-8 bg-gray-100 dark:bg-gray-800 rounded-full opacity-60"></div>
+            <div className="absolute inset-12 bg-gray-200 dark:bg-gray-700 rounded-full opacity-40"></div>
+          </div>
         </div>
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-3 min-w-0">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
-                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-2"></div>
-                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-2 opacity-60"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 opacity-40"></div>
                 </div>
-                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12"></div>
+                <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12 opacity-60"></div>
               </div>
-              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2"></div>
-              <div className="h-1.5 bg-gray-300 dark:bg-gray-600 rounded w-full"></div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2 opacity-30"></div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 opacity-50">
+                <div className="bg-gray-300 dark:bg-gray-600 h-1.5 rounded-full opacity-80" style={{width: `${Math.random() * 80 + 20}%`}}></div>
+              </div>
             </div>
           ))}
         </div>
@@ -457,8 +464,23 @@ export const RiskFactorsRadar: React.FC = () => {
   // Show loading state with skeleton
   if (isLoading) {
     return (
-      <div className="relative h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex items-center justify-center">
-        <div className="w-48 h-48 rounded-full border-4 border-gray-300 dark:border-gray-600"></div>
+      <div className="relative min-h-[320px] bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+        <div className="relative w-48 h-48">
+          {/* Outer radar ring */}
+          <div className="absolute inset-0 rounded-full border-4 border-gray-300 dark:border-gray-600 opacity-30"></div>
+          {/* Middle radar ring */}
+          <div className="absolute inset-4 rounded-full border-2 border-gray-300 dark:border-gray-600 opacity-50"></div>
+          {/* Inner radar ring */}
+          <div className="absolute inset-8 rounded-full border-2 border-gray-300 dark:border-gray-600 opacity-70"></div>
+          {/* Center dot */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+          {/* Radar lines */}
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-30"></div>
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-300 dark:bg-gray-600 opacity-30"></div>
+          {/* Additional radar lines for more realistic look */}
+          <div className="absolute top-1/4 left-1/4 right-1/4 bottom-3/4 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-20 transform rotate-45"></div>
+          <div className="absolute top-3/4 left-1/4 right-1/4 bottom-1/4 h-0.5 bg-gray-300 dark:bg-gray-600 opacity-20 transform -rotate-45"></div>
+        </div>
       </div>
     );
   }
@@ -772,14 +794,25 @@ export const CreditScoreDistributionChart: React.FC = () => {
         {/* Statistics Header Skeleton */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 animate-pulse">
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
               <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
               <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
             </div>
           ))}
         </div>
         {/* Chart Skeleton */}
-        <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+        <div className="relative min-h-[320px] bg-gray-200 dark:bg-gray-700 rounded-xl p-6">
+          {/* Chart area skeleton */}
+          <div className="space-y-3">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <div className="w-12 bg-gray-300 dark:bg-gray-600 h-2 rounded-full opacity-60"></div>
+                <div className="bg-gray-300 dark:bg-gray-600 h-4 rounded opacity-40" style={{width: `${Math.random() * 60 + 40}%`}}></div>
+                <div className="w-8 bg-gray-300 dark:bg-gray-600 h-2 rounded opacity-60"></div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1186,7 +1219,7 @@ export const ComplianceViolationsTrendChart: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 animate-pulse">
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
                 <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
                 <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-16"></div>
               </div>
@@ -1194,7 +1227,20 @@ export const ComplianceViolationsTrendChart: React.FC = () => {
           </div>
         </div>
         {/* Chart Skeleton */}
-        <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+        <div className="relative min-h-[384px] bg-gray-200 dark:bg-gray-700 rounded-xl p-6">
+          {/* Line chart skeleton */}
+          <div className="h-full flex items-end space-x-2">
+            {[...Array(12)].map((_, i) => (
+              <div 
+                key={i} 
+                className="flex-1 bg-gray-300 dark:bg-gray-600 rounded-t opacity-50"
+                style={{
+                  height: `${Math.random() * 200 + 50}px`
+                }}
+              ></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -13,6 +13,7 @@ const ReportFiltersPanel: React.FC<ReportFiltersPanelProps> = ({
 }) => {
   const reportTypes = [
     { value: "", label: "All Types" },
+    // Core Reports
     { value: "RISK_SUMMARY", label: "Risk Summary" },
     { value: "APPLICATION_ANALYTICS", label: "Application Analytics" },
     { value: "PERFORMANCE_METRICS", label: "Performance Metrics" },
@@ -20,6 +21,16 @@ const ReportFiltersPanel: React.FC<ReportFiltersPanelProps> = ({
     { value: "FINANCIAL_OVERVIEW", label: "Financial Overview" },
     { value: "MONTHLY_SUMMARY", label: "Monthly Summary" },
     { value: "QUARTERLY_REPORT", label: "Quarterly Report" },
+    // Credit Risk Specific Reports
+    { value: "CREDIT_SCORE_ANALYSIS", label: "Credit Score Analysis" },
+    { value: "DEFAULT_PREDICTION", label: "Default Prediction" },
+    { value: "PORTFOLIO_RISK", label: "Portfolio Risk" },
+    { value: "UNDERWRITING_PERFORMANCE", label: "Underwriting Performance" },
+    { value: "REGULATORY_COMPLIANCE", label: "Regulatory Compliance" },
+    { value: "LOSS_MITIGATION", label: "Loss Mitigation" },
+    { value: "CONCENTRATION_RISK", label: "Concentration Risk" },
+    { value: "MODEL_VALIDATION", label: "ML Model Validation" },
+    { value: "STRESS_TEST", label: "Stress Testing" },
     { value: "CUSTOM", label: "Custom" },
   ];
 

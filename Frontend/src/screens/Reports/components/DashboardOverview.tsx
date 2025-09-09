@@ -49,7 +49,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse"
+              className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30"
             >
               <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
               <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
@@ -60,11 +60,24 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         {/* Charts Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse">
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30">
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-4 opacity-60"></div>
+            <div className="relative h-48 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+              <div className="w-32 h-32 border-4 border-gray-300 dark:border-gray-600 rounded-full opacity-40"></div>
+              <div className="absolute w-20 h-20 border-2 border-gray-300 dark:border-gray-600 rounded-full opacity-60"></div>
+            </div>
           </div>
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30 animate-pulse">
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-gray-700/30">
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-28 mb-4 opacity-60"></div>
+            <div className="h-48 space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-end space-x-2 h-6">
+                  <div className="w-8 bg-gray-300 dark:bg-gray-600 rounded opacity-40" style={{height: `${Math.random() * 100 + 20}%`}}></div>
+                  <div className="w-8 bg-gray-300 dark:bg-gray-600 rounded opacity-40" style={{height: `${Math.random() * 100 + 20}%`}}></div>
+                  <div className="w-8 bg-gray-300 dark:bg-gray-600 rounded opacity-40" style={{height: `${Math.random() * 100 + 20}%`}}></div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -175,7 +188,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               Status Distribution
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-green-400 rounded-full opacity-60" />
           </div>
 
           {pieData.length > 0 ? (
@@ -230,7 +243,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               Report Types
             </h3>
-            <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse" />
+            <div className="w-3 h-3 bg-blue-400 rounded-full opacity-60" />
           </div>
 
           {reportTypeData.length > 0 ? (

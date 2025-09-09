@@ -5,7 +5,10 @@ export interface Report {
   id: string;
   title: string;
   description: string;
-  report_type: string;
+  report_type: 'RISK_SUMMARY' | 'APPLICATION_ANALYTICS' | 'PERFORMANCE_METRICS' | 'COMPLIANCE_AUDIT' | 
+               'FINANCIAL_OVERVIEW' | 'MONTHLY_SUMMARY' | 'QUARTERLY_REPORT' | 'CREDIT_SCORE_ANALYSIS' |
+               'DEFAULT_PREDICTION' | 'PORTFOLIO_RISK' | 'UNDERWRITING_PERFORMANCE' | 'REGULATORY_COMPLIANCE' |
+               'LOSS_MITIGATION' | 'CONCENTRATION_RISK' | 'MODEL_VALIDATION' | 'STRESS_TEST' | 'CUSTOM';
   status: 'PENDING' | 'GENERATING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
   created_by: {
     id: number;
@@ -37,6 +40,10 @@ export interface Report {
   can_delete: boolean;
   is_expired: boolean;
   file_size?: number;
+  // New caching and performance fields
+  cache_key?: string;
+  is_cached?: boolean;
+  cache_expiry?: string;
 }
 
 export interface ReportTemplate {
