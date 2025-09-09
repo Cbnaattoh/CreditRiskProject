@@ -19,7 +19,7 @@ import {
 } from "./components/Charts";
 // import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
-import { useGetApplicationsQuery, useGetUserMLAssessmentSummaryQuery } from "../../components/redux/features/api/applications/applicationsApi";
+import { useGetApplicationsQuery, useGetUserMLAssessmentSummaryQuery, useGetApplicationDashboardQuery } from "../../components/redux/features/api/applications/applicationsApi";
 import { useGetRiskAnalyticsDashboardQuery } from "../../components/redux/features/api/risk/riskApi";
 import { ProtectedComponent, AdminOnly, StaffOnly } from "../../components/redux/features/api/RBAC/ProtectedComponent";
 import { 
@@ -205,6 +205,15 @@ const Dashboard: React.FC = () => {
     error: riskAnalyticsError
   } = useGetRiskAnalyticsDashboardQuery(undefined, {
     skip: !stableRoleDetection.isAnalyst && !stableRoleDetection.isAuditor && !stableRoleDetection.isAdmin
+  });
+
+  // Fetch application dashboard data for Analysts and Admins
+  const {
+    data: applicationDashboardData,
+    isLoading: applicationDashboardLoading,
+    error: applicationDashboardError
+  } = useGetApplicationDashboardQuery(undefined, {
+    skip: !stableRoleDetection.isAnalyst && !stableRoleDetection.isAdmin
   });
 
   useEffect(() => {
@@ -594,13 +603,22 @@ const Dashboard: React.FC = () => {
                 />
                 <RBACStatsCard
                   title="Pending Reviews"
-                  value={riskAnalyticsData?.risk_analyst.pending_reviews.count.toString() || "0"}
-                  change={riskAnalyticsData ? 
-                    `${riskAnalyticsData.risk_analyst.pending_reviews.change >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.pending_reviews.change}` : 
-                    "Loading..."
+                  value={applicationDashboardData ? 
+                    applicationDashboardData.stats.pending_review.toString() : 
+                    riskAnalyticsData?.risk_analyst.pending_reviews.count.toString() || "0"
                   }
-                  trend={riskAnalyticsData?.risk_analyst.pending_reviews.trend || "neutral"}
-                  isLoading={riskAnalyticsLoading}
+                  change={applicationDashboardData ? 
+                    `${applicationDashboardData.stats.under_review} in progress` :
+                    riskAnalyticsData ? 
+                      `${riskAnalyticsData.risk_analyst.pending_reviews.change >= 0 ? '+' : ''}${riskAnalyticsData.risk_analyst.pending_reviews.change}` : 
+                      "Loading..."
+                  }
+                  trend={applicationDashboardData ? 
+                    (applicationDashboardData.stats.pending_review > 0 ? 'up' : 'neutral') :
+                    riskAnalyticsData?.risk_analyst.pending_reviews.trend || "neutral"
+                  }
+                  isLoading={riskAnalyticsLoading || applicationDashboardLoading}
+                  onClick={() => navigate('/home/loan-applications?filter=pending-review')}
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

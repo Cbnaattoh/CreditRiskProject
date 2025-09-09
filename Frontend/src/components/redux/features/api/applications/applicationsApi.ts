@@ -158,6 +158,122 @@ export interface UserMLAssessmentSummary {
   assessment_history: MLCreditAssessment[];
 }
 
+// New interfaces for application tracking and reviews
+export interface ApplicationReview {
+  id: number;
+  application: string;
+  reviewer: string;
+  reviewer_name: string;
+  application_reference: string;
+  review_status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'ESCALATED';
+  decision?: 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'ESCALATE';
+  risk_assessment_score?: number;
+  creditworthiness_rating?: string;
+  general_remarks?: string;
+  strengths?: string;
+  concerns?: string;
+  recommendation?: string;
+  additional_info_required?: string;
+  documents_required?: string[];
+  review_started_at?: string;
+  review_completed_at?: string;
+  estimated_processing_days?: number;
+  requires_second_opinion: boolean;
+  second_reviewer?: string;
+  second_review_comments?: string;
+  created_at: string;
+  updated_at: string;
+  is_overdue: boolean;
+  review_duration?: {
+    days: number;
+    hours: number;
+    minutes: number;
+  };
+}
+
+export interface ApplicationStatusHistory {
+  id: number;
+  application: string;
+  previous_status?: string;
+  new_status: string;
+  status_display: {
+    previous?: string;
+    new: string;
+  };
+  changed_by?: string;
+  changed_by_name: string;
+  changed_at: string;
+  reason?: string;
+  system_generated: boolean;
+}
+
+export interface ApplicationActivity {
+  id: number;
+  application: string;
+  activity_type: string;
+  activity_display: string;
+  user?: string;
+  user_name: string;
+  description: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface ApplicationComment {
+  id: number;
+  application: string;
+  author?: string;
+  author_name: string;
+  author_role: string;
+  comment_type: 'INTERNAL' | 'CLIENT_VISIBLE' | 'CLIENT_MESSAGE' | 'SYSTEM';
+  comment_type_display: string;
+  content: string;
+  parent_comment?: number;
+  created_at: string;
+  updated_at: string;
+  is_read: boolean;
+  read_at?: string;
+  read_by?: string;
+  attachment?: string;
+  replies: ApplicationComment[];
+}
+
+export interface ReviewCompletionData {
+  decision: 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'ESCALATE';
+  remarks?: string;
+  risk_assessment_score?: number;
+  creditworthiness_rating?: string;
+  strengths?: string;
+  concerns?: string;
+  recommendation?: string;
+  additional_info_required?: string;
+  documents_required?: string[];
+}
+
+export interface ApplicationDashboard {
+  stats: {
+    total_applications: number;
+    pending_review: number;
+    under_review: number;
+    approved: number;
+    rejected: number;
+    needs_info: number;
+  };
+  recent_applications: {
+    id: string;
+    reference_number: string;
+    status: string;
+    submission_date: string;
+    applicant_name: string;
+    loan_amount: string;
+  }[];
+  overdue_reviews: {
+    application_id: string;
+    reference_number: string;
+    days_overdue: number;
+  }[];
+}
+
 export interface MLProcessingStatistics {
   overview: {
     total_applications: number;
@@ -452,6 +568,126 @@ export const applicationsApi = createApi({
       query: () => 'ml-assessments/statistics/',
       providesTags: ['Application'],
     }),
+
+    // Application Review Management
+    getApplicationReviews: builder.query<ApplicationReview[], string>({
+      query: (applicationId) => `${applicationId}/reviews/`,
+      providesTags: (result, error, applicationId) => [
+        { type: 'Application', id: applicationId },
+        'Review'
+      ],
+    }),
+
+    getAllReviews: builder.query<ApplicationReview[], void>({
+      query: () => 'reviews/',
+      providesTags: ['Review'],
+    }),
+
+    createApplicationReview: builder.mutation<ApplicationReview, { applicationId: string; reviewData: Partial<ApplicationReview> }>({
+      query: ({ applicationId, reviewData }) => ({
+        url: `${applicationId}/reviews/`,
+        method: 'POST',
+        body: reviewData,
+      }),
+      invalidatesTags: (result, error, { applicationId }) => [
+        { type: 'Application', id: applicationId },
+        'Review'
+      ],
+    }),
+
+    updateApplicationReview: builder.mutation<ApplicationReview, { reviewId: number; reviewData: Partial<ApplicationReview> }>({
+      query: ({ reviewId, reviewData }) => ({
+        url: `reviews/${reviewId}/`,
+        method: 'PATCH',
+        body: reviewData,
+      }),
+      invalidatesTags: ['Review'],
+    }),
+
+    startReview: builder.mutation<{ message: string; review_id: number; estimated_completion: number }, { applicationId: string; estimatedDays?: number }>({
+      query: ({ applicationId, estimatedDays }) => ({
+        url: `${applicationId}/start-review/`,
+        method: 'POST',
+        body: estimatedDays ? { estimated_days: estimatedDays } : {},
+      }),
+      invalidatesTags: (result, error, { applicationId }) => [
+        { type: 'Application', id: applicationId },
+        'Review'
+      ],
+    }),
+
+    completeReview: builder.mutation<{ message: string; decision: string; application_status: string }, { applicationId: string; completionData: ReviewCompletionData }>({
+      query: ({ applicationId, completionData }) => ({
+        url: `${applicationId}/complete-review/`,
+        method: 'POST',
+        body: completionData,
+      }),
+      invalidatesTags: (result, error, { applicationId }) => [
+        { type: 'Application', id: applicationId },
+        'Review'
+      ],
+    }),
+
+    // Application Status and Activity Tracking
+    getApplicationStatusHistory: builder.query<ApplicationStatusHistory[], string>({
+      query: (applicationId) => `${applicationId}/status-history/`,
+      providesTags: (result, error, applicationId) => [
+        { type: 'Application', id: applicationId }
+      ],
+    }),
+
+    getApplicationActivities: builder.query<ApplicationActivity[], string>({
+      query: (applicationId) => `${applicationId}/activities/`,
+      providesTags: (result, error, applicationId) => [
+        { type: 'Application', id: applicationId }
+      ],
+    }),
+
+    // Application Comments/Communication
+    getApplicationComments: builder.query<ApplicationComment[], string>({
+      query: (applicationId) => `${applicationId}/comments/`,
+      providesTags: (result, error, applicationId) => [
+        { type: 'Application', id: applicationId },
+        'Comment'
+      ],
+    }),
+
+    verifyDocument: builder.mutation<Document, { applicationId: string; documentId: number; verified?: boolean; verificationNotes?: string }>({
+      query: ({ applicationId, documentId, verified = true, verificationNotes = '' }) => ({
+        url: `${applicationId}/documents/${documentId}/verify/`,
+        method: 'PATCH',
+        body: {
+          verified,
+          verification_notes: verificationNotes,
+        },
+      }),
+      invalidatesTags: (result, error, { applicationId }) => [
+        { type: 'Application', id: applicationId },
+        'Document'
+      ],
+    }),
+
+    addApplicationComment: builder.mutation<ApplicationComment, { applicationId: string; content: string; commentType?: 'INTERNAL' | 'CLIENT_VISIBLE' | 'CLIENT_MESSAGE'; parentCommentId?: number }>({
+      query: ({ applicationId, content, commentType, parentCommentId }) => ({
+        url: `${applicationId}/comments/`,
+        method: 'POST',
+        body: {
+          content,
+          comment_type: commentType,
+          parent_comment: parentCommentId,
+        },
+      }),
+      invalidatesTags: (result, error, { applicationId }) => [
+        { type: 'Application', id: applicationId },
+        'Comment'
+      ],
+    }),
+
+    // Risk Analyst Dashboard
+    getApplicationDashboard: builder.query<ApplicationDashboard, void>({
+      query: () => 'dashboard/',
+      providesTags: ['Application', 'Review'],
+    }),
   }),
 });
 
@@ -469,4 +705,17 @@ export const {
   useGetApplicationMLAssessmentQuery,
   useGetUserMLAssessmentSummaryQuery,
   useGetMLProcessingStatisticsQuery,
+  // New hooks for application tracking and reviews
+  useGetApplicationReviewsQuery,
+  useGetAllReviewsQuery,
+  useCreateApplicationReviewMutation,
+  useUpdateApplicationReviewMutation,
+  useStartReviewMutation,
+  useCompleteReviewMutation,
+  useGetApplicationStatusHistoryQuery,
+  useGetApplicationActivitiesQuery,
+  useGetApplicationCommentsQuery,
+  useAddApplicationCommentMutation,
+  useVerifyDocumentMutation,
+  useGetApplicationDashboardQuery,
 } = applicationsApi;

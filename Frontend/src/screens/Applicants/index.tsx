@@ -22,7 +22,9 @@ import { useGetApplicationsQuery, useDeleteApplicationMutation, useGetApplicatio
 import type { CreditApplication } from "../../components/redux/features/api/applications/applicationsApi";
 import ErrorBoundary from "../../components/utils/ErrorBoundary";
 import { useGetRiskAnalysisQuery } from "../../components/redux/features/api/risk/riskApi";
-import { useIsClientUser } from "../../components/utils/hooks/useRBAC";
+import { useIsClientUser, useIsAnalyst } from "../../components/utils/hooks/useRBAC";
+import ApplicationReviewComponent from "../../components/ApplicationReview";
+import ApplicationStatusTracker from "../../components/ApplicationStatusTracker";
 
 interface EnhancedApplication extends CreditApplication {
   full_name?: string;
@@ -52,6 +54,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isClientUser = useIsClientUser();
+  const isAnalyst = useIsAnalyst();
   
   const [deleteApplication, { isLoading: isDeleting }] = useDeleteApplicationMutation();
   
@@ -698,42 +701,237 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
               exit={{ opacity: 0 }}
             >
               <motion.div
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto"
+                className="bg-gray-50 dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: "spring", damping: 25 }}
               >
-                <div className="p-6">
-                  {/* Modal Header */}
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                        Application Details
-                      </h2>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {selectedApplicant.full_name} •{" "}
-                        {selectedApplicant.reference_number || "Draft"}
-                      </p>
+                {/* Enhanced Modal Header */}
+                <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-6 py-4 text-white">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                        <FiFileText className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold">
+                          {shouldShowClientUI ? "My Application" : "Application Details"}
+                        </h2>
+                        <div className="flex items-center space-x-3 mt-1">
+                          <p className="text-indigo-100">
+                            {selectedApplicant.full_name}
+                          </p>
+                          <span className="w-1 h-1 bg-indigo-200 rounded-full"></span>
+                          <p className="text-indigo-100 font-mono text-sm">
+                            {selectedApplicant.reference_number || "Draft"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <motion.button
-                      onClick={() => setIsDetailOpen(false)}
-                      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <FiX className="text-gray-500 dark:text-gray-400" />
-                    </motion.button>
+                    <div className="flex items-center space-x-4">
+                      {/* Current Status Indicator */}
+                      <div className="text-right">
+                        <div className="flex items-center space-x-2 mb-1">
+                          {getStatusIcon(selectedApplicant.status)}
+                          <span className="font-medium">{selectedApplicant.status_display || selectedApplicant.status}</span>
+                        </div>
+                        <div className="text-indigo-100 text-xs">Current Status</div>
+                      </div>
+                      <motion.button
+                        onClick={() => setIsDetailOpen(false)}
+                        className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <FiX className="w-5 h-5" />
+                      </motion.button>
+                    </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column - Applicant Info */}
-                    <div className="lg:col-span-2 space-y-6">
-                      {/* Status and Basic Info */}
-                      <div className="bg-gradient-to-r from-white/80 via-blue-50/50 to-indigo-50/80 dark:from-gray-700/80 dark:via-gray-700/60 dark:to-gray-800/80 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                          Application Overview
+                {/* Scrollable Content */}
+                <div className="max-h-[calc(95vh-120px)] overflow-y-auto p-6">
+                  
+                  {/* Client View - Simplified and Clean */}
+                  {shouldShowClientUI ? (
+                    <div className="space-y-6">
+                      {/* Application Status Tracker - Primary for Clients */}
+                      <ApplicationStatusTracker
+                        applicationId={selectedApplicant.id!}
+                        currentStatus={selectedApplicant.status!}
+                        isClient={shouldShowClientUI}
+                      />
+                      
+                      {/* Quick Application Overview */}
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                          <FiFileText className="w-5 h-5 mr-2 text-indigo-500" />
+                          Application Summary
                         </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Loan Amount Requested</p>
+                              <p className="font-semibold text-gray-900 dark:text-white text-lg">
+                                ${selectedApplicant.loan_amount?.toLocaleString() || 'Not specified'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Annual Income</p>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                ${selectedApplicant.annual_income?.toLocaleString() || 'Not specified'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Submission Date</p>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {selectedApplicant.submission_date ? new Date(selectedApplicant.submission_date).toLocaleDateString() : 'Draft'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Last Updated</p>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {new Date(selectedApplicant.last_updated).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Risk Assessment - if available */}
+                      {(mlAssessmentDetails || selectedApplicant.risk_score) && (
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                            <FiBarChart className="w-5 h-5 mr-2 text-green-500" />
+                            Credit Assessment
+                          </h3>
+                          {mlAssessmentDetails ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                  {mlAssessmentDetails.credit_score}
+                                </div>
+                                <div className="text-sm text-blue-600 dark:text-blue-400">Credit Score</div>
+                              </div>
+                              <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                  {mlAssessmentDetails.confidence.toFixed(1)}%
+                                </div>
+                                <div className="text-sm text-green-600 dark:text-green-400">Confidence</div>
+                              </div>
+                              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                                  {mlAssessmentDetails.category}
+                                </div>
+                                <div className="text-sm text-purple-600 dark:text-purple-400">Risk Level</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <FiBarChart className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                              <p className="text-gray-600 dark:text-gray-400">Assessment in progress...</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Quick Actions for Clients */}
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {selectedApplicant.id && (
+                            <>
+                              <motion.button
+                                onClick={() => {
+                                  handleNavigateToRisk(selectedApplicant.id!);
+                                  setIsDetailOpen(false);
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <FiBarChart size={18} />
+                                <span>View Risk Analysis</span>
+                              </motion.button>
+
+                              <motion.button
+                                onClick={() => {
+                                  handleNavigateToExplainability(selectedApplicant.id!);
+                                  setIsDetailOpen(false);
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <FiEye size={18} />
+                                <span>AI Explainability</span>
+                              </motion.button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Enhanced Staff Overview Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-blue-100 text-sm">Loan Amount</p>
+                              <p className="text-2xl font-bold">
+                                ${selectedApplicant.loan_amount?.toLocaleString() || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                              <FiFileText className="w-5 h-5" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-green-100 text-sm">Annual Income</p>
+                              <p className="text-2xl font-bold">
+                                ${selectedApplicant.annual_income?.toLocaleString() || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                              <FiUser className="w-5 h-5" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-2xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-purple-100 text-sm">Risk Score</p>
+                              <p className="text-2xl font-bold">
+                                {selectedApplicant.risk_score ? `${selectedApplicant.risk_score}%` : 
+                                 mlAssessmentDetails?.credit_score || 'Processing...'}
+                              </p>
+                            </div>
+                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                              <FiBarChart className="w-5 h-5" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Main Content Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left Column - Applicant Info */}
+                        <div className="lg:col-span-2 space-y-6">
+                          {/* Applicant Information */}
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                              <FiUser className="w-5 h-5 mr-2 text-indigo-500" />
+                              Applicant Information
+                            </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1283,7 +1481,21 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                         </div>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                    </div>
+                  )}
+
+                    {/* Application Review Component - Only for Risk Analysts */}
+                    {isAnalyst && selectedApplicant && (
+                      <ApplicationReviewComponent
+                        application={selectedApplicant}
+                        onReviewCompleted={() => {
+                          // Refresh the applications data
+                          refetch();
+                        }}
+                        isAnalyst={isAnalyst}
+                      />
+                    )}
                 </div>
               </motion.div>
             </motion.div>
