@@ -59,7 +59,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   const [deleteApplication, { isLoading: isDeleting }] = useDeleteApplicationMutation();
   
   const getPageTitle = () => {
-    if (showClientView) return "My Applications";
+    if (showClientView) return "";
     if (location.pathname.includes('customers')) return "Customers";
     if (location.pathname.includes('loan-applications')) return "All Applications";
     return "Credit Applications";
@@ -79,15 +79,15 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
   });
 
 
-  if (applicationsData) {
-    console.log('✅ Applicants: Loaded', applicationsData.length || applicationsData.count || 0, 'applications');
-    console.log('✅ User type for filtering:', { 
-      isClientUser, 
-      shouldShowClientUI, 
-      showClientView,
-      locationPath: location.pathname 
-    });
-  }
+  // if (applicationsData) {
+  //   console.log('✅ Applicants: Loaded', applicationsData.length || applicationsData.count || 0, 'applications');
+  //   console.log('✅ User type for filtering:', { 
+  //     isClientUser, 
+  //     shouldShowClientUI, 
+  //     showClientView,
+  //     locationPath: location.pathname 
+  //   });
+  // }
 
   const { data: riskAnalysis, isLoading: riskLoading } =
     useGetRiskAnalysisQuery(selectedApplicant?.id || "", {
@@ -311,7 +311,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">
                 {shouldShowClientUI 
-                  ? "View and track your credit applications and their status"
+                  ? ""
                   : "Manage and review credit applications with real-time risk assessment"
                 }
               </p>
@@ -774,13 +774,13 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                             <div>
                               <p className="text-sm text-gray-500 dark:text-gray-400">Loan Amount Requested</p>
                               <p className="font-semibold text-gray-900 dark:text-white text-lg">
-                                ${selectedApplicant.loan_amount?.toLocaleString() || 'Not specified'}
+                                GHS {selectedApplicant.loan_amount?.toLocaleString() || 'Not specified'}
                               </p>
                             </div>
                             <div>
                               <p className="text-sm text-gray-500 dark:text-gray-400">Annual Income</p>
                               <p className="font-medium text-gray-900 dark:text-white">
-                                ${selectedApplicant.annual_income?.toLocaleString() || 'Not specified'}
+                                GHS {selectedApplicant.annual_income?.toLocaleString() || 'Not specified'}
                               </p>
                             </div>
                           </div>
@@ -883,7 +883,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                             <div>
                               <p className="text-blue-100 text-sm">Loan Amount</p>
                               <p className="text-2xl font-bold">
-                                ${selectedApplicant.loan_amount?.toLocaleString() || 'N/A'}
+                                GHS {selectedApplicant.loan_amount?.toLocaleString() || 'N/A'}
                               </p>
                             </div>
                             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
@@ -897,7 +897,7 @@ const Applicants: React.FC<ApplicantsProps> = ({ showClientView = false }) => {
                             <div>
                               <p className="text-green-100 text-sm">Annual Income</p>
                               <p className="text-2xl font-bold">
-                                ${selectedApplicant.annual_income?.toLocaleString() || 'N/A'}
+                                GHS {selectedApplicant.annual_income?.toLocaleString() || 'N/A'}
                               </p>
                             </div>
                             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">

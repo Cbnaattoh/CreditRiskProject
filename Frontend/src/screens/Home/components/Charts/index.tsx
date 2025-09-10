@@ -752,7 +752,7 @@ export const ChartContainer: React.FC<{
   </div>
 );
 
-// Credit Score Distribution Chart - Premium Advanced Design
+// Credit Score Distribution Chart
 export const CreditScoreDistributionChart: React.FC = () => {
   const [activeRange, setActiveRange] = useState<number | null>(null);
   const [animationComplete, setAnimationComplete] = useState(false);
@@ -777,7 +777,7 @@ export const CreditScoreDistributionChart: React.FC = () => {
   // Use real data or empty array
   const creditScoreData = chartsData?.credit_score_distribution?.map(item => ({
     ...item,
-    benchmark: item.percentage + 2 // Add benchmark for comparison
+    benchmark: item.percentage + 2
   })) || [];
 
   const CustomCreditTooltip = ({ active, payload, label }: any) => {
@@ -3410,7 +3410,6 @@ export const ClientRiskProfileChart: React.FC<ClientRiskProfileProps> = ({
   // Check if we have real ML assessment data
   const hasRealData = mlAssessmentData?.latest_assessment;
   
-  // Only use real data, no fake fallback
   const data = hasRealData ? 
     generateClientRiskDataFromML(mlAssessmentData.latest_assessment) : 
     null;
@@ -3447,7 +3446,6 @@ export const ClientRiskProfileChart: React.FC<ClientRiskProfileProps> = ({
     );
   }
 
-  // Show empty state if no real data available
   if (!hasRealData) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
@@ -3686,9 +3684,6 @@ export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryPro
 }) => {
   const [viewMode, setViewMode] = useState<'timeline' | 'amounts'>('timeline');
   
-  // Debug logging can be removed in production
-  // console.log('🔍 ApplicationHistory Debug:', { applicationsData, isLoading });
-  
   // Check for real application data, no fake fallback
   let applicationsArray;
   if (Array.isArray(applicationsData)) {
@@ -3896,7 +3891,7 @@ export const ClientApplicationHistoryChart: React.FC<ClientApplicationHistoryPro
                       )}
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                         Amount: <span className="font-medium">
-                          {app.amount > 0 ? `$${app.amount.toLocaleString()}` : 'Not specified'}
+                          {app.amount > 0 ? `GHS ${app.amount.toLocaleString()}` : 'Not specified'}
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">

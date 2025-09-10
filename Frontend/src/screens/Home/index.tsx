@@ -17,7 +17,6 @@ import {
   ClientRiskProfileChart,
   ClientApplicationHistoryChart,
 } from "./components/Charts";
-// import AlertCard from "./components/AlertCard";
 import { useGetRBACDashboardQuery, useGetAdminUsersListQuery } from "../../components/redux/features/api/RBAC/rbacApi";
 import { useGetApplicationsQuery, useGetUserMLAssessmentSummaryQuery, useGetApplicationDashboardQuery } from "../../components/redux/features/api/applications/applicationsApi";
 import { useGetRiskAnalyticsDashboardQuery } from "../../components/redux/features/api/risk/riskApi";

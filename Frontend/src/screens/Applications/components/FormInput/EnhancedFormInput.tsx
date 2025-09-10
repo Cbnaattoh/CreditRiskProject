@@ -71,9 +71,9 @@ export const EnhancedFormInput = ({
   const enhancedHelper = useEnhancedHelper ? getEnhancedFieldHelper(name) : null;
 
   // Debug logging
-  if (useEnhancedHelper && process.env.NODE_ENV === 'development') {
-    console.log(`Field: ${name}, has helper:`, !!enhancedHelper, enhancedHelper?.title);
-  }
+  // if (useEnhancedHelper && process.env.NODE_ENV === 'development') {
+  //   console.log(`Field: ${name}, has helper:`, !!enhancedHelper, enhancedHelper?.title);
+  // }
 
   const renderHelper = () => {
     if (enhancedHelper) {

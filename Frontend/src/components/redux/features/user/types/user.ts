@@ -11,7 +11,8 @@ export interface BaseUser {
   first_name?: string;
   last_name?: string;
   user_type?: string;
-  phone_number?: string;
+  ghana_card_number?: string;
+  phone_number?: string;  
   is_verified: boolean;
   mfa_enabled: boolean;
   mfa_fully_configured: boolean;
@@ -32,7 +33,6 @@ export interface UserProfile extends BaseUser {
   department?: string;
   bio?: string;
   timezone?: string;
-  // Enhanced fields for credit risk assessment
   phone_secondary?: string;
   address?: string;
   date_of_birth?: string;
@@ -51,7 +51,6 @@ export interface CompleteUser extends BaseUser {
   department?: string;
   bio?: string;
   timezone?: string;
-  // Enhanced fields for credit risk assessment
   phone_secondary?: string;
   address?: string;
   date_of_birth?: string;
@@ -183,6 +182,7 @@ export const transformAuthUser = (backendUser: any): AuthUser => ({
   last_name: backendUser.last_name || '',
   user_type: backendUser.user_type || backendUser.role || 'CLIENT',
   phone_number: backendUser.phone_number,
+  ghana_card_number: backendUser.ghana_card_number || '', 
   is_verified: backendUser.is_verified || false,
   mfa_enabled: backendUser.mfa_enabled || false,
   mfa_fully_configured: backendUser.mfa_fully_configured || false,
@@ -202,6 +202,7 @@ export const transformUserProfile = (backendProfile: any): UserProfile => ({
   full_name: backendProfile.full_name || `${backendProfile.first_name || ''} ${backendProfile.last_name || ''}`.trim(),
   user_type: backendProfile.user_type || backendProfile.role || 'CLIENT',
   phone_number: backendProfile.phone_number,
+  ghana_card_number: backendProfile.ghana_card_number || '',
   is_verified: backendProfile.is_verified || false,
   mfa_enabled: backendProfile.mfa_enabled || false,
   mfa_fully_configured: backendProfile.mfa_fully_configured || false,

@@ -20,19 +20,19 @@ import type {
 import { FormDataTransformer } from "./components/types";
 import { useAuth } from "../Authentication/Login-SignUp/components/hooks/useAuth";
 import { useCreateApplicationMutation, useUploadDocumentMutation } from "../../components/redux/features/api/applications/applicationsApi";
-import { 
-  loanApplicationSchema, 
-  validatePersonalInfoStep, 
-  validateEmploymentStep, 
-  validateFinancialStep, 
-  validateCompleteForm 
+import {
+  loanApplicationSchema,
+  validatePersonalInfoStep,
+  validateEmploymentStep,
+  validateFinancialStep,
+  validateCompleteForm
 } from "../../schemas/validationSchemas";
 import { useFormValidation } from "../../hooks/useFormValidation";
 
 // Enhanced form validation using Zod with step-by-step validation
 const validateFormDataByStep = (data: FormData, step: number): { isValid: boolean; errors: string[] } => {
   let validationResult;
-  
+
   switch (step) {
     case 0: // Personal Info step
       validationResult = validatePersonalInfoStep(data);
@@ -49,12 +49,12 @@ const validateFormDataByStep = (data: FormData, step: number): { isValid: boolea
     default:
       return { isValid: true, errors: [] };
   }
-  
+
   if (!validationResult.isValid) {
     const errorMessages = Object.values(validationResult.errors).map(error => error.message);
     return { isValid: false, errors: errorMessages };
   }
-  
+
   return { isValid: true, errors: [] };
 };
 
@@ -70,10 +70,10 @@ const Applications: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [createApplication, { isLoading: isCreating }] = useCreateApplicationMutation();
   const [uploadDocument] = useUploadDocumentMutation();
-  
+
   // Toast system
   const { success, error, info, toasts, removeToast } = useToast();
-  
+
   const {
     register,
     handleSubmit,
@@ -84,9 +84,8 @@ const Applications: React.FC = () => {
     formState: { errors, isValid },
   } = useForm<FormData>({
     resolver: zodResolver(loanApplicationSchema),
-    mode: 'onChange', // Enable real-time validation
+    mode: 'onChange',
     defaultValues: {
-      // Set sensible defaults for numeric fields
       annualIncome: 0,
       loanAmount: 0,
       interestRate: 0,
@@ -109,22 +108,21 @@ const Applications: React.FC = () => {
   const [prefilledFields, setPrefilledFields] = useState<Record<string, boolean>>({});
   const hasPrefilledRef = useRef(false);
   const hasShownToastRef = useRef(false);
-  
+
   // Initialize form validation hook
-  const { validateStep, getValidationStatus } = useFormValidation({ 
-    trigger, 
-    errors 
+  const { validateStep, getValidationStatus } = useFormValidation({
+    trigger,
+    errors
   });
-  
+
   // Get current validation status
   const validationStatus = getValidationStatus();
-  
 
-  // Prefill form with user data when authenticated (only once)
+
   useEffect(() => {
     if (isAuthenticated && user && user.id !== 'guest' && !hasPrefilledRef.current) {
       const fieldsToDisable: Record<string, boolean> = {};
-      
+
       // Prefill basic user information
       if (user.first_name) {
         setValue('firstName', user.first_name);
@@ -138,19 +136,25 @@ const Applications: React.FC = () => {
         setValue('email', user.email);
         fieldsToDisable.email = true;
       }
-      
+
       // Prefill phone if available
       if (user.phone_number) {
         setValue('phone', user.phone_number);
         fieldsToDisable.phone = true;
       }
-      
+      // Prefill national ID if available
+      if (user.ghana_card_number) {
+        setValue('nationalIDNumber', user.ghana_card_number);
+        fieldsToDisable.nationalIDNumber = true;
+      }
+
       // Update prefilled fields state
       setPrefilledFields(fieldsToDisable);
-      
+
+
       // Mark as prefilled to prevent re-running
       hasPrefilledRef.current = true;
-      
+
       // Show prefilled notification only once
       if (!hasShownToastRef.current) {
         success('Form prefilled with your account information');
@@ -163,23 +167,23 @@ const Applications: React.FC = () => {
     if (currentStep < STEPS.length - 1) {
       // Get current form data
       const formData = watch();
-      
+
       // Map step index to validation type
       const stepValidationMap = ['personal', 'employment', 'financial', 'complete'] as const;
       const validationType = stepValidationMap[currentStep];
-      
+
       // Only validate steps that have validation rules
       if (validationType) {
         const isStepValid = await validateStep(validationType, formData);
-        
+
         if (!isStepValid) {
           error('Please fix the validation errors before proceeding');
           return;
         }
       }
-      
+
       setCurrentStep(currentStep + 1);
-      
+
       // Show success message for step completion
       const stepNames = ['Personal Information', 'Employment', 'Financial Information', 'Documents'];
       if (currentStep < stepNames.length) {
@@ -196,9 +200,9 @@ const Applications: React.FC = () => {
 
   const handleSaveDraft = async () => {
     const formData = watch();
-    
+
     setIsSavingDraft(true);
-    
+
     try {
       // Create comprehensive draft structure including financial data
       const draftData = {
@@ -244,16 +248,16 @@ const Applications: React.FC = () => {
         is_priority: false,
         notes: `Draft saved on ${new Date().toLocaleString()} - Step ${currentStep + 1}/${STEPS.length}`
       };
-      
+
       const result = await createApplication(draftData).unwrap();
       setApplicationId(result.id!);
-      
+
       success('Draft saved successfully! 📝');
     } catch (error: any) {
       console.error('Draft save error:', error);
       const apiError = error?.data as ApiError;
       let errorMessage = 'Failed to save draft';
-      
+
       if (apiError?.detail) {
         errorMessage = apiError.detail;
       } else if (apiError?.message) {
@@ -261,7 +265,7 @@ const Applications: React.FC = () => {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       error(`❌ ${errorMessage}`);
     } finally {
       setIsSavingDraft(false);
@@ -276,14 +280,14 @@ const Applications: React.FC = () => {
       if (!isFormValid) {
         throw new Error('Please fix all validation errors before submitting the application');
       }
-      
+
       // Transform form data to backend API structure using the transformer
       const applicationData = FormDataTransformer.toBackendFormat(data);
-      
-      
+
+
       const result = await createApplication(applicationData).unwrap();
       setApplicationId(result.id!);
-      
+
       // Upload documents if any
       if (uploadedFiles.length > 0) {
         // Map frontend categories to backend document types
@@ -295,8 +299,8 @@ const Applications: React.FC = () => {
           'collateral': 'PROPERTY_DEED',
           'business': 'BUSINESS_REGISTRATION'
         };
-        
-        const uploadPromises = uploadedFiles.map(file => 
+
+        const uploadPromises = uploadedFiles.map(file =>
           uploadDocument({
             applicationId: result.id!,
             file: file,
@@ -305,9 +309,9 @@ const Applications: React.FC = () => {
         );
         await Promise.all(uploadPromises);
       }
-      
+
       success('Application submitted successfully!');
-      
+
       // Reset form after successful submission
       setTimeout(() => {
         reset();
@@ -317,15 +321,15 @@ const Applications: React.FC = () => {
         hasPrefilledRef.current = false;
         hasShownToastRef.current = false;
       }, 2000);
-      
+
     } catch (error: any) {
       console.error('Form submission error:', error);
       console.error('Full error object:', JSON.stringify(error, null, 2));
-      
+
       // Enhanced error handling
       const apiError = error?.data as ApiError;
       let errorMessage = 'Failed to submit application. Please try again.';
-      
+
       if (apiError?.detail) {
         errorMessage = apiError.detail;
       } else if (apiError?.message) {
@@ -355,12 +359,12 @@ const Applications: React.FC = () => {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       // Show more detailed error for debugging
       if (process.env.NODE_ENV === 'development') {
         errorMessage += ` (Debug: ${JSON.stringify(apiError || error)})`;
       }
-      
+
       error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -385,7 +389,7 @@ const Applications: React.FC = () => {
         });
 
         setUploadedFiles((prev) => [...prev, ...newFiles]);
-        
+
         success(`${newFiles.length} file(s) uploaded successfully!`);
       }
     },
@@ -482,7 +486,7 @@ const Applications: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           <div className="mb-6">
             <StepIndicator
               steps={STEPS.map((step, i) => ({

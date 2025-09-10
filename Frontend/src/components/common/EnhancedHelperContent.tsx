@@ -145,15 +145,13 @@ const EnhancedHelperContent: React.FC<EnhancedHelperProps> = ({
     if (centerLeft >= 20 && centerRight <= viewportWidth - 20) {
       // Perfect center fit
       left = centerLeft;
-      console.log('Perfect center positioning');
     } else if (centerLeft < 20) {
       // Field is too close to left edge, align to left with margin
       left = 20;
-      console.log('Left edge positioning');
     } else {
       // Field is too close to right edge, align to right with margin
       left = viewportWidth - helperWidth - 20;
-      console.log('Right edge positioning');
+      //  console.log('Right edge positioning');
     }
     
     // Calculate vertical position
@@ -176,18 +174,18 @@ const EnhancedHelperContent: React.FC<EnhancedHelperProps> = ({
       }
     }
     
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Fixed Position Calculation:', {
-        triggerRect,
-        viewportWidth,
-        helperWidth,
-        fieldCenter,
-        calculatedLeft: left,
-        calculatedTop: top,
-        actualPosition
-      });
-    }
+    // // Debug logging
+    // if (import.meta.env.MODE === 'development') {
+    //   console.log('Fixed Position Calculation:', {
+    //     triggerRect,
+    //     viewportWidth,
+    //     helperWidth,
+    //     fieldCenter,
+    //     calculatedLeft: left,
+    //     calculatedTop: top,
+    //     actualPosition
+    //   });
+    // }
     
     return { left, top };
   };

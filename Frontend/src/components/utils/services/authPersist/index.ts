@@ -51,7 +51,7 @@ export const loadAuthState = (): RootState["auth"] => {
     parsed.permissions = permissionsStr ? JSON.parse(permissionsStr) : [];
     parsed.permissionSummary = permissionSummaryStr ? JSON.parse(permissionSummaryStr) : null;
 
-    console.log("✅ Loaded auth state:", parsed);
+    // console.log("✅ Loaded auth state:", parsed);
     return parsed;
   } catch (err) {
     console.error("Error loading auth state:", err);
@@ -91,7 +91,7 @@ export const saveAuthState = (state: RootState["auth"]) => {
       localStorage.setItem("user_permission_summary", JSON.stringify(state.permissionSummary));
     }
 
-    console.log("💾 Saved auth state:", toPersist);
+    // console.log("💾 Saved auth state:", toPersist);
   } catch (err) {
     console.error("Error saving auth state:", err);
   }

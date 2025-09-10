@@ -46,17 +46,17 @@ export const useAuthSync = () => {
   });
 
   // Debug: Log permissions API state
-  console.log('🔍 useAuthSync Permissions API Debug:', {
-    isAuthenticated,
-    permissionsLoading,
-    permissionsError: !!permissionsError,
-    permissionsSuccess,
-    hasPermissionsData: !!permissionsData,
-    permissionsDataRoles: permissionsData?.roles,
-    permissionsDataPermissions: permissionsData?.permission_codes,
-    currentPermissions: currentPermissions.length,
-    currentRoles: currentRoles.length,
-  });
+  // console.log('🔍 useAuthSync Permissions API Debug:', {
+  //   isAuthenticated,
+  //   permissionsLoading,
+  //   permissionsError: !!permissionsError,
+  //   permissionsSuccess,
+  //   hasPermissionsData: !!permissionsData,
+  //   permissionsDataRoles: permissionsData?.roles,
+  //   permissionsDataPermissions: permissionsData?.permission_codes,
+  //   currentPermissions: currentPermissions.length,
+  //   currentRoles: currentRoles.length,
+  // });
 
   // Update user data when fetched
   useEffect(() => {
@@ -68,7 +68,7 @@ export const useAuthSync = () => {
   // Restore permissions from localStorage on initial load if authenticated but no permissions
   useEffect(() => {
     if (isAuthenticated && currentPermissions.length === 0 && currentRoles.length === 0) {
-      console.log('🔄 User authenticated but no permissions/roles - restoring from localStorage');
+      // console.log('🔄 User authenticated but no permissions/roles - restoring from localStorage');
       dispatch(restorePersistedPermissions());
     }
   }, [isAuthenticated, currentPermissions.length, currentRoles.length, dispatch]);
