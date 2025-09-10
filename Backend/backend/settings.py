@@ -366,7 +366,6 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    # Custom headers for enterprise API features
     'x-request-id',
     'x-timestamp',
     'x-request-timestamp',
